@@ -1,13 +1,17 @@
-# Liga de los Mundos v0.6.9 — Ajuste fino de escala interna del Lobby
+# Liga de los Mundos v0.6.10 — Encuadre final del Lobby
 
-Estado: 🟡 LISTA PARA PROBAR
+🟡 LISTA PARA PROBAR
 
-Base: v0.6.8.
+Microajuste sobre v0.6.9.
 
-Cambios exclusivamente visuales en los módulos laterales del Lobby:
-- CAMPEONES: arte interior ampliado y reencuadrado para dar mayor presencia a los personajes.
-- LIGA: arte interior ampliado y reencuadrado para priorizar trofeo/arena/transmisión.
-- PERFIL: arte interior ampliado y reencuadrado para priorizar manager y pantallas.
-- Marcos, clipping, textos, header, JUGAR, navegación y lógica permanecen sin cambios estructurales.
+## Cambios
+- CAMPEONES: arte interior en `cover`, conservando clipping y encuadre hacia personajes.
+- LIGA: arte interior en `cover`, conservando clipping y encuadre hacia trofeo/arena.
+- PERFIL: arte interior en `cover`, conservando clipping y encuadre hacia Manager/pantallas.
+- Eliminadas las zonas laterales vacías: la ventana interior queda cubierta al 100%.
 
-No se modifican audio, combate, Campeones ni mecánicas.
+## No modificado
+- Marco exterior y dimensiones de módulos.
+- Header.
+- JUGAR.
+- Navegación, lógica, audio, Campeones y combate.

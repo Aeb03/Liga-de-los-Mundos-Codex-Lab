@@ -1,17 +1,21 @@
-# Liga de los Mundos v0.6.10 — Encuadre final del Lobby
+# Liga de los Mundos v0.6.11 — JUGAR / Elegí el formato UI v1
 
 🟡 LISTA PARA PROBAR
 
-Microajuste sobre v0.6.9.
+Integración gráfica sobre v0.6.10 usando `Liga_Mundos_Jugar_Formato_UI_v1`.
 
 ## Cambios
-- CAMPEONES: arte interior en `cover`, conservando clipping y encuadre hacia personajes.
-- LIGA: arte interior en `cover`, conservando clipping y encuadre hacia trofeo/arena.
-- PERFIL: arte interior en `cover`, conservando clipping y encuadre hacia Manager/pantallas.
-- Eliminadas las zonas laterales vacías: la ventana interior queda cubierta al 100%.
+- Fondo gráfico propio para la pantalla JUGAR / Elegí el formato.
+- Header gráfico 9-slice conservando texto y estructura funcional.
+- Tarjeta Duelo 1v1 con arte aprobado, cover y clipping.
+- Tarjeta Combate 2v2 con los cuatro campeones reales del pack, cover y clipping.
+- Botón Volver al Lobby con marco gráfico aprobado.
+- Actualización de versión, PWA y Service Worker/cache a 0.6.11.
 
 ## No modificado
-- Marco exterior y dimensiones de módulos.
-- Header.
-- JUGAR.
-- Navegación, lógica, audio, Campeones y combate.
+- Lógica ni navegación de selección de formato.
+- Lobby v0.6.10.
+- Campeones UI validada.
+- Audio/música.
+- Selección de campeón/habilidades.
+- Combate, IA ni balance.

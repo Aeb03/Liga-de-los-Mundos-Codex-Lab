@@ -1,21 +1,22 @@
-# Liga de los Mundos v0.6.11 — JUGAR / Elegí el formato UI v1
+# Liga de los Mundos v0.6.12 — Pulido JUGAR / Elegí el formato
 
 🟡 LISTA PARA PROBAR
 
-Integración gráfica sobre v0.6.10 usando `Liga_Mundos_Jugar_Formato_UI_v1`.
+Base: v0.6.11.
 
 ## Cambios
-- Fondo gráfico propio para la pantalla JUGAR / Elegí el formato.
-- Header gráfico 9-slice conservando texto y estructura funcional.
-- Tarjeta Duelo 1v1 con arte aprobado, cover y clipping.
-- Tarjeta Combate 2v2 con los cuatro campeones reales del pack, cover y clipping.
-- Botón Volver al Lobby con marco gráfico aprobado.
-- Actualización de versión, PWA y Service Worker/cache a 0.6.11.
+- Header reforzado como pieza sólida premium, con mayor contraste y marco visible.
+- Más aire entre header y “ELEGÍ EL FORMATO”.
+- Mayor zona útil de lectura en las tarjetas 1v1 y 2v2 sin reemplazar ni oscurecer sus artes.
+- Fondo general de arena suavemente oscurecido para reducir competencia visual.
+- Emblema/fondo central subordinado mediante overlay, sin eliminarlo.
+- “VOLVER AL LOBBY” recupera presencia de botón real usando el frame aprobado y área clickeable completa.
+- Versionado/PWA/Service Worker actualizado a v0.6.12.
 
 ## No modificado
-- Lógica ni navegación de selección de formato.
-- Lobby v0.6.10.
-- Campeones UI validada.
-- Audio/música.
-- Selección de campeón/habilidades.
-- Combate, IA ni balance.
+- Artes aprobados 1v1 / 2v2.
+- Personajes.
+- Textos funcionales.
+- Lógica, navegación, destinos o IA.
+- Estructura de dos tarjetas lado a lado.
+- Lobby, Campeones, audio o combate.

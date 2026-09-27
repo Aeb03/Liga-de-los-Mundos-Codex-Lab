@@ -1,15 +1,12 @@
-# Liga de los Mundos v0.6.13 — Selección 1v1 / 2v2 UI v1
+# Liga de los Mundos v0.6.14 — SFX Ampliación v1
 
-Estado: 🟡 LISTA PARA PROBAR
+🟡 Implementación en prueba.
 
-Integra Liga_Mundos_Equipo2v2_UI_v1 como sistema visual compartido para las pantallas de selección previa 1v1 y 2v2.
-
-- mismo fondo, header, tarjetas, panel derecho, selectores y botones en ambos modos;
-- conserva las imágenes actuales de los seis campeones;
-- tarjeta normal y seleccionada usan los frames aprobados;
-- 1v1 mantiene sólo Rival IA;
-- 2v2 mantiene Aliado IA, Rival IA 1 y Rival IA 2;
-- no cambia lógica, navegación, IA, loadout ni combate;
-- mockup de referencia NO integrado.
-
-Base funcional: v0.6.12.
+- Añade 16 SFX aprobados sin eliminar los existentes.
+- 11 SFX exclusivos de habilidades.
+- Movimiento: una reproducción por acción confirmada.
+- Inicio/fin de turno.
+- Victoria/derrota.
+- Mantiene MASTER / MUSIC / SFX_COMBAT / SFX_UI, mute y volúmenes.
+- Evita Curación genérica simultánea en Savia Vital y Transferencia, que ahora tienen SFX exclusivo.
+- No modifica mecánicas, balance ni música.

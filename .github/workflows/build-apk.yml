@@ -1,0 +1,67 @@
+name: Build Liga de los Mundos APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar proyecto privado
+        uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Instalar dependencias
+        run: npm install @capacitor/core @capacitor/cli @capacitor/android
+
+      - name: Preparar proyecto APK
+        run: |
+          mkdir -p apk-build/www
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            ./ apk-build/www/
+
+          cd apk-build
+
+          cat > package.json <<'JSON'
+          {
+            "name": "liga-de-los-mundos-apk",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/core": "latest",
+              "@capacitor/android": "latest"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "latest"
+            }
+          }
+          JSON
+
+          npm install
+
+          npx cap init "Liga de los Mundos" "com.ligadelosmundos.game" --web-dir=www
+          npx cap add android
+
+      - name: Compilar APK
+        working-directory: apk-build/android
+        run: chmod +x gradlew && ./gradlew assembleDebug
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Liga-de-los-Mundos-APK
+          path: apk-build/android/app/build/outputs/apk/debug/app-debug.apk

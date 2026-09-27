@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const SIZE=12, VERSION='0.6.17';
+const SIZE=12, VERSION='0.6.18-v02';
 
 
 
@@ -540,11 +540,16 @@ function showModeSelect(){
       <button class="mode-card" id="teamfight">
         <span class="mode-icon">⚔️⚔️</span><b>Combate 2v2</b><small>Vos + aliado IA contra dos rivales IA.</small><em>Combate por equipos</em>
       </button>
+      <button class="mode-card online-mode-card" id="onlineDuel">
+        <span class="mode-icon">🌐</span><b>1v1 ONLINE</b><small>Conectá dos celulares mediante código de sala.</small><em>PRUEBA · SIN COMBATE</em>
+      </button>
     </div>
     <div class="actions"><button class="secondary" id="backLobby">Volver al Lobby</button></div>
   </section>`;
   $('#duel').onclick=()=>{setup.mode='1v1';showChampionSelect()};
   $('#teamfight').onclick=()=>{setup.mode='2v2';ensureTeamSetup();showChampionSelect()};
+  $('#onlineDuel').onclick=()=>window.LigaOnline?.show();
+  window.LigaOnlineBack=showModeSelect;
   $('#backLobby').onclick=showLobby;
 }
 

@@ -104,3 +104,7 @@
  .mode-screen>.actions{margin-top:5px !important;min-height:36px}
  .mode-screen #backLobby{min-height:36px;min-width:205px;padding:6px 26px !important}
 }
+/* v0.6.18-v02 — tercera entrada experimental online; no altera lógica de IA */
+.mode-screen .mode-select-grid:has(#onlineDuel){grid-template-columns:repeat(3,minmax(0,1fr)) !important}
+.mode-screen #onlineDuel{background-image:linear-gradient(180deg,rgba(7,35,54,.08),rgba(2,8,17,.93)),url('./assets/ui/jugar-v1/art/jugar-screen-background.png?v=0611') !important;background-position:center;background-size:cover}
+.mode-screen #onlineDuel em{color:#78dcff !important}

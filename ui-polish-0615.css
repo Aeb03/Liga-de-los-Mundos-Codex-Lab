@@ -1,0 +1,50 @@
+/* Liga de los Mundos v0.6.15 — pulido general visual. Solo layout/escala/legibilidad. */
+@media (orientation:landscape){
+/* LOBBY: aprovechar el contenedor con el modulo completo, no solo el arte. */
+.lobby-screen{grid-template-columns:minmax(0,1fr) clamp(350px,30vw,455px)!important;gap:7px!important}
+.lobby-hero::before,.lobby-promo-shade{inset:8px!important;border-radius:8px!important;clip-path:inset(0 round 8px)!important}
+.lobby-hero::after,.lobby-nav button::after{border-image-width:13px!important}
+.lobby-nav{gap:7px!important}
+.lobby-nav button{border-radius:9px!important}
+.lobby-nav button::before{inset:7px 8px!important;border-radius:6px!important;clip-path:inset(0 round 6px)!important}
+.lobby-nav button .lobby-text-shade{left:8px!important;right:8px!important;bottom:7px!important;height:44%!important}
+.lobby-nav button>b{left:clamp(20px,2vw,31px)!important;bottom:clamp(27px,4.5vh,34px)!important}
+.lobby-nav button>small{left:clamp(20px,2vw,31px)!important;bottom:clamp(15px,2.5vh,20px)!important}
+
+/* JUGAR / FORMATO: cabecera y pie vuelven a ser franjas reales. */
+.mode-screen>.topbar{min-height:72px!important;padding:13px 32px!important;margin-bottom:10px!important;border-image-width:24px 32px!important}
+.mode-screen>.topbar b{font-size:clamp(16px,1.8vw,21px)!important}.mode-screen>.topbar span{font-size:clamp(8px,.9vw,11px)!important}
+.mode-screen>.actions{min-height:54px!important;margin-top:8px!important}
+.mode-screen #backLobby{height:50px!important;min-height:50px!important;min-width:240px!important;padding:10px 32px!important;border-image-width:20px 28px!important;font-size:11px!important}
+
+/* SELECCION 1v1 / 2v2: estructura comun terminada. */
+.select-screen{width:100vw!important;max-width:none!important;height:var(--app-height,100dvh)!important;min-height:var(--app-height,100dvh)!important;box-sizing:border-box!important;display:grid!important;grid-template-columns:minmax(330px,.88fr) minmax(430px,1.12fr)!important;grid-template-rows:58px minmax(0,1fr) 50px!important;gap:8px 12px!important;padding:7px 10px!important;align-items:stretch!important}
+.select-screen>.topbar{grid-column:1/-1!important;grid-row:1!important;min-height:58px!important;height:58px!important;padding:9px 34px!important;display:flex!important;align-items:center!important;overflow:visible!important}
+.select-screen>.topbar:before{inset:-2px -5px!important;border-width:22px 30px!important;border-image-slice:27% 8% fill!important}
+.select-screen>.topbar b{font-size:clamp(14px,1.5vw,19px)!important}.select-screen>.topbar span{font-size:clamp(8px,.8vw,10px)!important}
+.select-screen>.section-title{position:absolute!important;left:-9999px!important}
+.select-screen>.roster-grid{grid-column:1!important;grid-row:2!important;min-height:0!important;height:100%!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-template-rows:repeat(2,minmax(0,1fr))!important;gap:8px!important;align-content:stretch!important}
+.select-screen .champion-card.compact{min-height:0!important;height:100%!important;padding:6px 7px 10px!important;gap:2px!important;justify-content:flex-end!important}
+.select-screen .champion-card .champ-icon{flex:1 1 auto!important;min-height:0!important;width:calc(100% + 6px)!important;margin:0 -3px 3px!important;border-radius:7px!important}
+.select-screen .champion-card b{font-size:clamp(9px,1vw,12px)!important;line-height:1.05!important;margin:1px 0!important}.select-screen .champion-card small{font-size:clamp(6.8px,.72vw,9px)!important;line-height:1.12!important;min-height:1.15em!important;margin-bottom:1px!important}
+.select-screen>.champion-detail{grid-column:2!important;grid-row:2!important;min-height:0!important;height:100%!important;box-sizing:border-box!important;padding:20px 24px!important;display:grid!important;grid-template-columns:86px minmax(0,1fr)!important;grid-template-rows:auto auto auto 1fr!important;column-gap:14px!important;row-gap:8px!important;align-content:start!important;overflow:hidden!important}
+.select-screen .champion-detail-head{grid-column:1/-1!important;display:grid!important;grid-template-columns:86px minmax(0,1fr)!important;gap:14px!important;align-items:center!important;margin:0!important;min-height:86px!important}
+.select-screen .detail-icon{width:82px!important;height:82px!important;min-width:82px!important;min-height:82px!important;border-radius:10px!important;overflow:hidden!important;font-size:38px!important}.select-screen .detail-icon img{width:100%!important;height:100%!important;object-fit:cover!important;object-position:center 20%!important}
+.select-screen .champion-detail-head h3{font-size:clamp(18px,2vw,25px)!important;line-height:1.05!important;margin:0 0 5px!important}.select-screen .champion-detail-head small{font-size:clamp(8px,.9vw,11px)!important;line-height:1.25!important;display:block!important}
+.select-screen .detail-stats{grid-column:1/-1!important;margin:0!important;padding:7px 4px!important;font-size:clamp(9px,.95vw,12px)!important;gap:clamp(12px,2vw,28px)!important;justify-content:flex-start!important;border-top:1px solid #d8b85a33!important;border-bottom:1px solid #55dcff2b!important}
+.select-screen .passive{grid-column:1/-1!important;margin:0!important;padding:2px 4px!important;font-size:clamp(8px,.82vw,10.5px)!important;line-height:1.35!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;max-height:4.2em!important}
+.select-screen .rival-picker{font-size:clamp(8px,.82vw,10.5px)!important;min-height:38px!important;margin:0!important;padding:6px 14px!important;box-sizing:border-box!important}.select-screen .rival-picker select{min-height:28px!important;height:28px!important;font-size:clamp(8px,.8vw,10px)!important;padding:4px 8px!important}
+.select-screen .team-setup{grid-column:1/-1!important;align-self:end!important;margin:0!important;padding-top:7px!important;display:grid!important;grid-template-columns:1fr!important;gap:6px!important;min-height:0!important;border-top:1px solid #e4bd6150!important}.select-screen .team-note{margin:0!important;min-height:26px!important;padding:6px 9px!important;box-sizing:border-box!important;font-size:clamp(7px,.75vw,9px)!important;line-height:1.15!important;display:flex!important;align-items:center!important;justify-content:center!important}
+/* 1v1 no reserva filas del 2v2: el unico selector ocupa el cierre natural del panel. */
+.select-screen[data-mode="1v1"]>.champion-detail{grid-template-rows:auto auto auto 1fr!important}
+.select-screen[data-mode="1v1"]>.champion-detail>.rival-picker{grid-column:1/-1!important;align-self:end!important;width:100%!important;margin:0 0 4px!important}
+/* 2v2 conserva sus controles, compactos y uniformes. */
+.select-screen[data-mode="2v2"] .team-setup .rival-picker{width:100%!important}
+.select-screen>.actions{grid-column:1/-1!important;grid-row:3!important;height:50px!important;min-height:50px!important;margin:0!important;padding:0 3px!important;gap:12px!important;display:grid!important;grid-template-columns:1fr 1fr!important;align-items:stretch!important}
+.select-screen>.actions button{height:48px!important;min-height:48px!important;padding:8px 18px!important;font-size:clamp(10px,1vw,13px)!important;border-image-width:18px 24px!important;display:flex!important;align-items:center!important;justify-content:center!important}
+}
+@media (orientation:landscape) and (max-height:500px){
+.lobby-screen{grid-template-columns:minmax(0,1fr) clamp(305px,29vw,390px)!important}.lobby-hero::before,.lobby-promo-shade{inset:7px!important}.lobby-nav{gap:6px!important}.lobby-nav button::before{inset:6px 7px!important}
+.mode-screen>.topbar{min-height:58px!important;padding:8px 27px!important}.mode-screen>.actions{min-height:43px!important}.mode-screen #backLobby{height:40px!important;min-height:40px!important}
+.select-screen{grid-template-columns:minmax(300px,.9fr) minmax(390px,1.1fr)!important;grid-template-rows:48px minmax(0,1fr) 42px!important;gap:6px 9px!important;padding:5px 8px!important}.select-screen>.topbar{height:48px!important;min-height:48px!important;padding:6px 29px!important}.select-screen>.topbar:before{border-width:18px 26px!important}.select-screen>.roster-grid{gap:5px!important}.select-screen .champion-card.compact{padding:4px 5px 6px!important}.select-screen .champion-card b{font-size:8.5px!important}.select-screen .champion-card small{font-size:6.4px!important}.select-screen>.champion-detail{padding:12px 16px!important;grid-template-columns:64px minmax(0,1fr)!important;row-gap:4px!important}.select-screen .champion-detail-head{grid-template-columns:64px minmax(0,1fr)!important;min-height:62px!important;gap:10px!important}.select-screen .detail-icon{width:60px!important;height:60px!important;min-width:60px!important;min-height:60px!important}.select-screen .champion-detail-head h3{font-size:15px!important;margin-bottom:2px!important}.select-screen .champion-detail-head small{font-size:7px!important}.select-screen .detail-stats{padding:4px 2px!important;font-size:7.5px!important;gap:10px!important}.select-screen .passive{font-size:6.8px!important;line-height:1.2!important;max-height:2.5em!important}.select-screen .rival-picker{min-height:29px!important;padding:3px 10px!important;font-size:7px!important}.select-screen .rival-picker select{height:23px!important;min-height:23px!important;font-size:7px!important;padding:2px 5px!important}.select-screen .team-setup{gap:3px!important;padding-top:3px!important}.select-screen .team-note{min-height:19px!important;padding:3px 5px!important;font-size:6.2px!important}.select-screen>.actions{height:42px!important;min-height:42px!important}.select-screen>.actions button{height:40px!important;min-height:40px!important;font-size:9px!important}
+}

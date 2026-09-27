@@ -640,7 +640,7 @@ function showChampionSelect(){
       <label class="rival-picker"><span>🔴 Rival IA 2</span><select id="rival2Select">${championOptions(setup.enemy2Id,setup.enemyId!=='random'?[setup.enemyId]:[],true)}</select></label>
       <div class="team-note">🔵 Vos + aliado IA &nbsp; vs &nbsp; 🔴 2 rivales IA</div>
     </div>`:'';
-  app.innerHTML=`<section class="screen select-screen">
+  app.innerHTML=`<section class="screen select-screen" data-mode="${setup.mode}">
     <div class="topbar"><b>${setup.mode==='2v2'?'Equipo 2v2':'Duelo 1v1'} · Selección</b><span>v${VERSION}</span></div>
     <div class="section-title"><h2>Plantel de la Liga</h2><small>6 campeones de prueba</small></div>
     <div class="champion-grid roster-grid">${cards}</div>

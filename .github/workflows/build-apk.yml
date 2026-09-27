@@ -31,7 +31,7 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
           cat > online-config.js <<EOF
-          window.LDM_ONLINE_CONFIG = {
+          window.LIGA_ONLINE_CONFIG = {
             SUPABASE_URL: "$SUPABASE_URL",
             SUPABASE_PUBLISHABLE_KEY: "$SUPABASE_PUBLISHABLE_KEY"
           };

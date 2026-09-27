@@ -32,9 +32,10 @@ jobs:
         run: |
           cat > online-config.js <<EOF
           window.LIGA_ONLINE_CONFIG = {
-            SUPABASE_URL: "$SUPABASE_URL",
-            SUPABASE_PUBLISHABLE_KEY: "$SUPABASE_PUBLISHABLE_KEY"
-          };
+  supabaseUrl: "$SUPABASE_URL",
+  publishableKey: "$SUPABASE_PUBLISHABLE_KEY",
+  protocolVersion: 1
+};
           EOF
 
       - name: Preparar proyecto APK

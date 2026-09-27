@@ -1,8 +1,19 @@
-# Liga de los Mundos v0.6.15 — Pulido general de interfaces
+# Liga de los Mundos v0.6.13 — Selección 1v1 / 2v2 UI v1
 
-Estado: 🟡 PULIDO VISUAL EN PRUEBA.
-Base funcional: v0.6.13.
+Estado: 🟡 LISTA PARA PROBAR
 
-Cambios visuales exclusivamente en Lobby, JUGAR/Formato y selección 1v1/2v2: aprovechamiento de contenedores, franjas con mayor cuerpo, tarjetas y marcos alineados, panel de campeón reorganizado, legibilidad y responsive. 1v1 elimina reservas visuales propias de 2v2 mediante layout específico.
+Integra Liga_Mundos_Equipo2v2_UI_v1 como sistema visual compartido para las pantallas de selección previa 1v1 y 2v2.
 
-No se modificaron reglas, habilidades, balance, IA, combate, navegación funcional, audio, música, SFX, datos de campeones ni imágenes maestras.
+- mismo fondo, header, tarjetas, panel derecho, selectores y botones en ambos modos;
+- conserva las imágenes actuales de los seis campeones;
+- tarjeta normal y seleccionada usan los frames aprobados;
+- 1v1 mantiene sólo Rival IA;
+- 2v2 mantiene Aliado IA, Rival IA 1 y Rival IA 2;
+- no cambia lógica, navegación, IA, loadout ni combate;
+- mockup de referencia NO integrado.
+
+Base funcional: v0.6.12.
+
+
+## v0.6.16 — Dificultad IA v1
+Selector NORMAL/EXPERTO y cerebro IA parametrizado. Estado: 🟡 EN PRUEBA.

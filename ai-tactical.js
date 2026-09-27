@@ -74,20 +74,29 @@ function weightedChoice(items){
   }
   return items[items.length-1];
 }
-function chooseAILoadout(championId){
+function chooseAILoadout(championId,difficulty='normal'){
   const pool=AI_LOADOUT_POOLS[championId];
   if(!pool?.length)return [...(BOT_LOADOUTS[championId]||[])];
+  if(difficulty==='expert'){
+    // Mejor coherencia interna, sin consultar rival ni información de combate.
+    const ranked=[...pool].sort((a,b)=>b.w-a.w);
+    const best=ranked[0].w;
+    const coherent=ranked.filter(x=>x.w>=best-1).map(x=>({...x,w:x.w*x.w}));
+    return [...weightedChoice(coherent).set];
+  }
   return [...weightedChoice(pool).set];
 }
 
 const _aiBaseMakeUnit=makeUnit;
-makeUnit=function(championId,side,id,controller='ai',customLoadout=null){
-  const lockedLoadout=(controller==='ai'&&!customLoadout)?chooseAILoadout(championId):customLoadout;
+makeUnit=function(championId,side,id,controller='ai',customLoadout=null,aiDifficulty='normal'){
+  const difficulty=aiDifficulty==='expert'?'expert':'normal';
+  const lockedLoadout=(controller==='ai'&&!customLoadout)?chooseAILoadout(championId,difficulty):customLoadout;
   const u=_aiBaseMakeUnit(championId,side,id,controller,lockedLoadout);
   u.aiFocusTargetId=null;
   u.aiMode='offense';
   u.aiRevealedAbilities=[];
   u.aiLastPlanLabel='';
+  u.aiDifficulty=difficulty;
   return u;
 };
 
@@ -576,7 +585,8 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   return score;
 }
 
-function aiCollectAbilityCandidates(u,focus,limit=18){
+function aiCollectAbilityCandidates(u,focus,limit=null){
+  if(limit==null)limit=u.aiDifficulty==='expert'?30:18;
   const out=[];
   for(const id of u.loadout){
     const a=ability(u.championId,id);
@@ -678,7 +688,7 @@ function aiCollectMovePlans(u,focus){
   }
 
   plans.sort((a,b)=>b.score-a.score);
-  return plans.slice(0,10);
+  return plans.slice(0,u.aiDifficulty==='expert'?18:10);
 }
 
 // ─────────────────────────────────────────────
@@ -736,14 +746,51 @@ function aiCollectObjectAttackCandidates(u,focus){
 // IMPERFECCIÓN CONTROLADA
 // ─────────────────────────────────────────────
 
-function aiPickNearBest(candidates){
+function aiExpertKnownResponseRisk(u,pos){
+  let risk=0;
+  for(const foe of enemyUnits(u,true)){
+    const d=md(pos,foe);
+    // Sólo capacidades observables: posición, PA/PM y habilidades ya reveladas.
+    let reach=Math.max(1,foe.pm||0);
+    let knownDamage=0;
+    for(const id of foe.aiRevealedAbilities||[]){
+      const a=ability(foe.championId,id);
+      if(!a)continue;
+      reach=Math.max(reach,(a.range||1)+(foe.pm||0));
+      knownDamage=Math.max(knownDamage,a.damage||0);
+    }
+    if(d<=reach)risk+=5+knownDamage*.32+Math.max(0,reach-d)*.7;
+  }
+  return risk;
+}
+function aiExpertFutureValue(u,plan,focus){
+  const pos=plan.kind==='move'?{x:plan.x,y:plan.y}:{x:u.x,y:u.y};
+  let value=aiPositionScore(u,pos,focus)*.45-aiExpertKnownResponseRisk(u,pos)*.65;
+  // Preparación y negación: premiar planes que sostienen la identidad táctica.
+  if(plan.kind==='ability'){
+    if(['pillar','germinate','trap_spikes','trap_snare','trap_bomb','doll','marker','needle'].includes(plan.id))value+=5;
+    if(['fusion','awakening','rupture','ritual','hook','quake'].includes(plan.id))value+=2.5;
+  }
+  // Conservar recursos cuando la acción no genera una ventaja clara.
+  const a=plan.id?ability(u.championId,plan.id):null;
+  if(a&&plan.score<8)value-=a.cost*.35;
+  return value;
+}
+function aiExpertRankPlans(u,candidates){
+  const focus=aiSelectFocus(u);
+  return candidates.map(p=>({...p,score:p.score+aiExpertFutureValue(u,p,focus)}));
+}
+
+function aiPickNearBest(candidates,u=null){
   if(!candidates.length)return null;
+  if(u?.aiDifficulty==='expert')candidates=aiExpertRankPlans(u,candidates);
   candidates.sort((a,b)=>b.score-a.score);
   const best=candidates[0].score;
 
   // Sólo opciones realmente cercanas al mejor.
-  const band=Math.max(5,Math.abs(best)*.08);
-  const near=candidates.filter(c=>c.score>=best-band).slice(0,4);
+  const expert=u?.aiDifficulty==='expert';
+  const band=expert?Math.max(2,Math.abs(best)*.035):Math.max(5,Math.abs(best)*.08);
+  const near=candidates.filter(c=>c.score>=best-band).slice(0,expert?3:4);
   if(near.length===1)return near[0];
 
   // Ponderar fuertemente hacia las mejores sin volver determinista el resultado.
@@ -814,7 +861,7 @@ aiTurn=async function(){
     if(checkBattleEnd())return;
 
     const plans=aiGeneratePlans(u);
-    const plan=aiPickNearBest(plans);
+    const plan=aiPickNearBest(plans,u);
 
     if(!plan)break;
 

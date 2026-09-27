@@ -16,79 +16,51 @@ const FILES={
   'arfeli.dagas_danzantes':ROOT+'champions/arfeli/dagas_danzantes.mp3',
   'arfeli.disparo_arco':ROOT+'champions/arfeli/disparo_arco.mp3',
   'arfeli.golpe_martillo':ROOT+'champions/arfeli/golpe_martillo.mp3',
-  'arfeli.corte_espada':ROOT+'champions/arfeli/corte_espada.mp3',
-  'arfeli.impulso':ROOT+'champions/arfeli/impulso.mp3',
 
   'coloso.absorcion_rocosa':ROOT+'champions/coloso/absorcion_rocosa.mp3',
   'coloso.creacion_pilar':ROOT+'champions/coloso/creacion_pilar.mp3',
   'coloso.golpe_sismico':ROOT+'champions/coloso/golpe_sismico.mp3',
-  'coloso.fusion_pilar':ROOT+'champions/coloso/fusion_pilar.mp3',
-  'coloso.lanzar_roca':ROOT+'champions/coloso/lanzar_roca.mp3',
 
   'piplus.ruptura_marca':ROOT+'champions/piplus/ruptura_marca.mp3',
   'piplus.marca':ROOT+'champions/piplus/marca.mp3',
   'piplus.impulso':ROOT+'champions/piplus/impulso.mp3',
-  'piplus.flecha_precision':ROOT+'champions/piplus/flecha_precision.mp3',
 
   'onod.enredaderas':ROOT+'champions/onod/enredaderas.mp3',
   'onod.germinar':ROOT+'champions/onod/germinar.mp3',
   'onod.esporas_toxicas':ROOT+'champions/onod/esporas_toxicas.mp3',
-  'onod.espina_venenosa':ROOT+'champions/onod/espina_venenosa.mp3',
-  'onod.savia_vital':ROOT+'champions/onod/savia_vital.mp3',
 
   /* IMPORTANTE: usar los nombres definitivos del pack.
      No intercambiar estos dos archivos. */
   'korgan.trampa_pinchos':ROOT+'champions/korgan/trampa_pinchos.mp3',
   'korgan.trampa_electrica':ROOT+'champions/korgan/trampa_electrica.mp3',
   'korgan.gancho':ROOT+'champions/korgan/gancho.mp3',
-  'korgan.granada':ROOT+'champions/korgan/granada.mp3',
-  'korgan.disparo_caza':ROOT+'champions/korgan/disparo_caza.mp3',
 
   'houngan.efigie':ROOT+'champions/houngan/efigie.mp3',
   'houngan.vinculo':ROOT+'champions/houngan/vinculo.mp3',
-  'houngan.dolor_reflejado':ROOT+'champions/houngan/dolor_reflejado.mp3',
-  'houngan.ritual_dolor':ROOT+'champions/houngan/ritual_dolor.mp3',
-  'houngan.transferencia':ROOT+'champions/houngan/transferencia.mp3',
-
-  'general.movimiento':ROOT+'general/movimiento_miniatura.mp3',
-  'general.inicio_turno':ROOT+'general/inicio_turno.mp3',
-  'general.fin_turno':ROOT+'general/fin_turno.mp3',
-  'general.victoria':ROOT+'general/victoria.mp3',
-  'general.derrota':ROOT+'general/derrota.mp3'
+  'houngan.dolor_reflejado':ROOT+'champions/houngan/dolor_reflejado.mp3'
 };
 
 const SPECIFIC={
   'arfeli:daggers':'arfeli.dagas_danzantes',
   'arfeli:bow':'arfeli.disparo_arco',
   'arfeli:hammer':'arfeli.golpe_martillo',
-  'arfeli:sword':'arfeli.corte_espada',
-  'arfeli:impulse':'arfeli.impulso',
 
   'coloso:absorb':'coloso.absorcion_rocosa',
   'coloso:pillar':'coloso.creacion_pilar',
   'coloso:quake':'coloso.golpe_sismico',
-  'coloso:fusion':'coloso.fusion_pilar',
-  'coloso:rock':'coloso.lanzar_roca',
 
   'piplus:rupture':'piplus.ruptura_marca',
   'piplus:marker':'piplus.marca',
-  'piplus:precise':'piplus.flecha_precision',
 
   'onod:vines':'onod.enredaderas',
   'onod:germinate':'onod.germinar',
   'onod:spores':'onod.esporas_toxicas',
-  'onod:thorn':'onod.espina_venenosa',
-  'onod:sap':'onod.savia_vital',
 
   'korgan:hook':'korgan.gancho',
-  'korgan:trap_bomb':'korgan.granada',
-  'korgan:shot':'korgan.disparo_caza',
 
   'houngan:doll':'houngan.efigie',
   'houngan:needle':'houngan.vinculo',
-  'houngan:reflected':'houngan.dolor_reflejado',
-  'houngan:ritual':'houngan.ritual_dolor',
-  'houngan:transfer':'houngan.transferencia'
+  'houngan:reflected':'houngan.dolor_reflejado'
 };
 
 const STRONG=new Set([
@@ -107,7 +79,6 @@ let unlocked=false;
 let muted=false;
 let preloading=null;
 let activeStrong=0;
-let suppressGenericHealUntil=0;
 const buffers=new Map();
 const loading=new Map();
 const lastPlay=new Map();
@@ -274,7 +245,7 @@ function setMuted(value){
 }
 function getState(){
   return{
-    version:'0.6.14',
+    version:'0.6.0',
     unlocked,
     muted,
     contextState:ctx?.state||'unavailable',
@@ -319,8 +290,6 @@ function genericCue(u,id){
 }
 
 function abilityCue(u,id){
-  const specificId=`${u?.championId||''}:${id}`;
-  if(specificId==='onod:sap'||specificId==='houngan:transfer')suppressGenericHealUntil=performance.now()+900;
   const key=SPECIFIC[`${u?.championId||''}:${id}`];
   if(key){
     play(key,{dedupe:`ability:${u?.id||''}:${id}`,dedupeMs:120});
@@ -398,7 +367,7 @@ function installHealHook(){
     const result=original(e,n);
     try{
       const gained=Math.max(0,(Number(e?.hp)||0)-before);
-      if(gained>0&&performance.now()>=suppressGenericHealUntil){
+      if(gained>0){
         play('core.curacion',{
           strong:false,
           dedupe:'result:heal',
@@ -472,47 +441,6 @@ function installDamageHook(){
   applyDamage=hooked;
 }
 
-function installMovementHook(){
-  if(typeof moveUnit==='function'&&!moveUnit.__ligaAudio0614){
-    const original=moveUnit;
-    const hooked=async function(u,x,y){
-      let valid=false;
-      try{valid=movementMap(u).has(key(x,y))&&!B?.busy}catch(_){}
-      if(valid)play('general.movimiento',{strong:false,dedupe:`move:${u?.id||''}`,dedupeMs:180});
-      return original(u,x,y);
-    };
-    hooked.__ligaAudio0614=true;moveUnit=hooked;
-  }
-  if(typeof moveDoll==='function'&&!moveDoll.__ligaAudio0614){
-    const original=moveDoll;
-    const hooked=async function(x,y){
-      let valid=false,doll=null;
-      try{doll=getEntity(B?.dollPhase?.dollId);valid=!!doll&&objectMovementMap(doll,B.dollPhase.pm).has(key(x,y))&&!B?.busy}catch(_){}
-      if(valid)play('general.movimiento',{strong:false,dedupe:`move:${doll?.id||'doll'}`,dedupeMs:180});
-      return original(x,y);
-    };
-    hooked.__ligaAudio0614=true;moveDoll=hooked;
-  }
-}
-function installTurnHooks(){
-  if(typeof beginTurn==='function'&&!beginTurn.__ligaAudio0614){
-    const original=beginTurn;
-    const hooked=function(...args){const result=original(...args);try{if(B&&!B.ended)play('general.inicio_turno',{strong:false,dedupe:`turn-start:${B.round}:${B.turn}`,dedupeMs:250})}catch(_){}return result};
-    hooked.__ligaAudio0614=true;beginTurn=hooked;
-  }
-  if(typeof nextTurn==='function'&&!nextTurn.__ligaAudio0614){
-    const original=nextTurn;
-    const hooked=function(...args){try{if(B&&!B.ended)play('general.fin_turno',{strong:false,dedupe:`turn-end:${B.round}:${B.turn}`,dedupeMs:250})}catch(_){}return original(...args)};
-    hooked.__ligaAudio0614=true;nextTurn=hooked;
-  }
-}
-function installResultHook(){
-  if(typeof showResult!=='function'||showResult.__ligaAudio0614)return;
-  const original=showResult;
-  const hooked=function(win,...rest){play(win?'general.victoria':'general.derrota',{dedupe:'battle-result',dedupeMs:3000,strong:true});return original(win,...rest)};
-  hooked.__ligaAudio0614=true;showResult=hooked;
-}
-
 function install(){
   try{installAbilityHook()}catch(_){}
   try{installImpulseHook()}catch(_){}
@@ -520,9 +448,6 @@ function install(){
   try{installHealHook()}catch(_){}
   try{installShieldHook()}catch(_){}
   try{installDamageHook()}catch(_){}
-  try{installMovementHook()}catch(_){}
-  try{installTurnHooks()}catch(_){}
-  try{installResultHook()}catch(_){}
 }
 
 /* Primer gesto real del usuario: desbloquear y precargar ~0.4 MB de SFX. */

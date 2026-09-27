@@ -25,6 +25,18 @@ jobs:
       - name: Instalar dependencias
         run: npm install @capacitor/core @capacitor/cli @capacitor/android
 
+      - name: Crear configuracion online
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          cat > online-config.js <<EOF
+          window.LDM_ONLINE_CONFIG = {
+            SUPABASE_URL: "$SUPABASE_URL",
+            SUPABASE_PUBLISHABLE_KEY: "$SUPABASE_PUBLISHABLE_KEY"
+          };
+          EOF
+
       - name: Preparar proyecto APK
         run: |
           mkdir -p apk-build/www

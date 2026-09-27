@@ -55,7 +55,7 @@ async function s(){
   rb();
   if(!('serviceWorker'in navigator))return;
   try{
-    r=await navigator.serviceWorker.register('./sw.js?v=0612',{updateViaCache:'none'});
+    r=await navigator.serviceWorker.register('./sw.js?v=0617',{updateViaCache:'none'});
     try{await r.update()}catch(_){}
 
     if(r.waiting&&navigator.serviceWorker.controller)ub();
@@ -70,7 +70,7 @@ async function s(){
     navigator.serviceWorker.addEventListener('controllerchange',()=>{
       if(!u)return;
       sessionStorage.removeItem('liga-pwa-updating');
-      location.replace('./index.html?v=0612');
+      location.replace('./index.html?v=0617');
     });
   }catch(e){console.warn('PWA:',e)}
 }

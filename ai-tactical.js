@@ -1,7 +1,7 @@
 (()=>{'use strict';
 
 /*
-  Liga de los Mundos v0.5.31
+  Liga de los Mundos v0.6.17
   IA táctica general — 🟡 EN PRUEBA
 
   Principios:
@@ -192,26 +192,56 @@ function aiRangeIdentity(u){
   if(u.championId==='arfeli'||u.championId==='coloso')return 'close';
   return 'ranged';
 }
+function aiPreferredBand(u){
+  // Preferencia blanda: nunca obliga una casilla concreta.
+  const bands={arfeli:[1,2],coloso:[1,3],piplus:[3,4],onod:[3,4],korgan:[3,4],houngan:[3,4]};
+  return bands[u.championId]||[2,4];
+}
+function aiKnownEnemyReach(foe){
+  let r=1;
+  for(const id of foe.aiRevealedAbilities||[]){
+    const a=ability(foe.championId,id);if(a)r=Math.max(r,effectiveRange?effectiveRange(foe,a):(a.range||1));
+  }
+  return r;
+}
+function aiCanThreatenFrom(u,pos,foe){
+  return aiWithTemporaryPosition(u,pos,()=>u.loadout.some(id=>{
+    const a=ability(u.championId,id);if(!a||u.pa<a.cost)return false;
+    if(['shield','stonearmor','pulse','sap','pillar','germinate','doll','transfer','impulse','hunterstep'].includes(id))return false;
+    try{return canUseAbility(u,id,foe.x,foe.y)}catch(_){return false}
+  }));
+}
 function aiPositionScore(u,pos,focus){
   if(!focus)return 0;
-  const d=md(pos,focus);
+  const d=md(pos,focus),band=aiPreferredBand(u);
   let s=0;
+  if(d>=band[0]&&d<=band[1])s+=8;
+  else s-=Math.min(8,Math.min(Math.abs(d-band[0]),Math.abs(d-band[1]))*2);
 
-  if(aiRangeIdentity(u)==='close'){
-    if(d===1)s+=7;
-    else if(d===2)s+=4;
-    else s-=Math.max(0,d-3)*.8;
-  }else{
-    if(d>=2&&d<=4)s+=5;
-    if(d===1)s-=8;
-    if(d>=5)s-=Math.min(4,d-4);
-  }
-
-  // Evitar terminar adyacente a varios enemigos sin ventaja clara.
-  const adjacent=enemyUnits(u,true).filter(z=>md(pos,z)===1).length;
-  if(aiRangeIdentity(u)==='ranged')s-=adjacent*6;
+  const foes=enemyUnits(u,true);
+  const adjacent=foes.filter(z=>md(pos,z)===1).length;
+  if(aiRangeIdentity(u)==='ranged')s-=adjacent*8;
   else s-=Math.max(0,adjacent-1)*2;
 
+  // Ventaja de alcance: amenazar sin regalar respuesta inmediata.
+  for(const foe of foes){
+    const fd=md(pos,foe),theirReach=aiKnownEnemyReach(foe);
+    const weThreaten=aiCanThreatenFrom(u,pos,foe);
+    if(weThreaten)s+=3;
+    if(weThreaten&&fd>theirReach)s+=6;
+    if(fd<=theirReach)s-=3;
+    if(fd<=Math.max(1,theirReach-(foe.pm||0)))s-=2;
+  }
+
+  // Objetos propios: cercanía útil, sin amontonarse.
+  for(const o of (B?.pillars||[]).filter(z=>z.alive&&z.side===u.side)){
+    const od=md(pos,o);
+    if((u.championId==='onod'&&o.type==='sprout')||(u.championId==='coloso'&&o.type==='pillar')||(u.championId==='houngan'&&o.type==='doll')){
+      if(od>=1&&od<=3)s+=2;
+    }
+  }
+  // Trampas conocidas enemigas nunca se consultan; las propias sirven para construir rutas de control.
+  if(u.championId==='korgan'&&aiKnownFriendlyTraps(u).some(t=>md(pos,t)<=3))s+=2;
   return s;
 }
 function aiWoundTravelCost(u,steps){
@@ -244,6 +274,23 @@ function aiKnownTrapPathBonus(u,path){
   }
   return 0;
 }
+function aiForcedPositionValue(u,target,end){
+  if(!target||!end)return 0;
+  const before=md(u,target),after=md(u,end),band=aiPreferredBand(u);
+  let v=0;
+  // Para rango, crear separación sin perder participación es valioso; para melee, acercar puede serlo.
+  if(aiRangeIdentity(u)==='ranged'){
+    if(after>=band[0]&&after<=band[1])v+=5;
+    if(before<=2&&after>before)v+=4;
+    if(after>band[1]+2)v-=4;
+  }else if(after<before)v+=2;
+  // No regalar al rival su propia distancia ideal.
+  const eb=aiPreferredBand(target);
+  const wasIdeal=before>=eb[0]&&before<=eb[1],nowIdeal=after>=eb[0]&&after<=eb[1];
+  if(!wasIdeal&&nowIdeal)v-=4;
+  if(wasIdeal&&!nowIdeal)v+=3;
+  return v;
+}
 
 // ─────────────────────────────────────────────
 // SCORING DE HABILIDADES
@@ -269,13 +316,26 @@ function aiShieldScore(u,target,amount){
   return useful*.65+exposed*3+(target.hp/target.maxHp<.5?4:0);
 }
 function aiStatusValue(target,type){
+  if(!target?.alive)return 0;
   if(type==='wound'){
-    const mobility=(target.pm||0)+md(target,cur()||target)*.15;
-    return 3+Math.min(6,mobility);
+    const likelyTravel=Math.max(0,target.pm||0);
+    const meleeNeed=aiRangeIdentity(target)==='close'?3:1;
+    return 2+Math.min(9,likelyTravel*1.25+meleeNeed);
   }
-  if(type==='poison')return 4+Math.min(4,(target.pa||0)*.6);
-  if(type==='pa')return (target.pa||0)>=4?8:5;
-  if(type==='pm')return (target.pm||0)>=3?6:3;
+  if(type==='poison'){
+    const likelyActions=Math.max(1,Math.min(3,Math.floor((target.pa||0)/2)));
+    return 2+likelyActions*2.2;
+  }
+  if(type==='pa'){
+    const pa=target.pa||0;
+    const knownCosts=(target.aiRevealedAbilities||[]).map(id=>ability(target.championId,id)?.cost||0);
+    const breaksKnownCombo=knownCosts.some(c=>c>0&&pa>=c&&pa-1<c);
+    return 4+(pa>=4?3:1)+(breaksKnownCombo?4:0);
+  }
+  if(type==='pm'){
+    const needsMove=aiRangeIdentity(target)==='close'||aiNearestEnemyDistance(target,target)>aiPreferredBand(target)[1];
+    return 3+Math.min(5,target.pm||0)+(needsMove?3:0);
+  }
   return 0;
 }
 function aiFollowUpBonus(u,id,target){
@@ -506,6 +566,7 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
     score=aiDamageScore(target,8);
     const path=aiForcedPath(u,target,dist,false);
     score+=aiKnownTrapPathBonus(u,path);
+    score+=aiForcedPositionValue(u,target,path[path.length-1]||target);
     // Piplus no quiere atraer gratis una amenaza encima.
     const end=path[path.length-1]||target;
     if(md(end,u)===1&&!aiKnownTrapPathBonus(u,path))score-=7;
@@ -515,6 +576,7 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
     score=aiDamageScore(target,16);
     const path=aiForcedPath(u,target,2,true);
     score+=aiKnownTrapPathBonus(u,path);
+    score+=aiForcedPositionValue(u,target,path[path.length-1]||target);
     if(target.hp>16&&u.loadout.includes('precise'))score-=5; // conservar Marca puede valer más
     if(target.hp<=16)score+=7;
   }
@@ -543,6 +605,7 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
     score=aiDamageScore(target,6);
     const path=aiForcedPath(u,target,2,false);
     score+=aiKnownTrapPathBonus(u,path);
+    score+=aiForcedPositionValue(u,target,path[path.length-1]||target);
     const end=path[path.length-1]||target;
     if(md(end,u)===1&&aiRangeIdentity(u)==='ranged'&&!aiKnownTrapPathBonus(u,path))score-=5;
   }
@@ -673,10 +736,13 @@ function aiCollectMovePlans(u,focus){
     const positionGain=aiPositionScore(u,pos,focus)-currentPosScore;
     const woundCost=aiWoundTravelCost(u,cost);
 
-    let score=afterAction+positionGain-cost*.8-woundCost*1.45;
+    const expert=u.aiDifficulty==='expert';
+    let score=afterAction+positionGain*(expert?2.15:1)-cost*(expert?.45:.8)-woundCost*1.45;
 
-    // Si quedarse quieto permite prácticamente el mismo plan, penalizar moverse.
-    if(currentAction>=afterAction-4)score-=7;
+    // Normal evita movimiento innecesario. Experto permite reposicionarse incluso si ya puede atacar:
+    // la casilla final forma parte del plan y puede justificar gastar PM.
+    if(!expert&&currentAction>=afterAction-4)score-=7;
+    if(expert&&currentAction>=2&&afterAction>=currentAction-4&&positionGain>1)score+=4+positionGain*.8;
 
     // Si actualmente no hay ninguna acción útil, acercarse puede ser un objetivo concreto.
     if(currentAction<2&&focus){
@@ -765,7 +831,19 @@ function aiExpertKnownResponseRisk(u,pos){
 }
 function aiExpertFutureValue(u,plan,focus){
   const pos=plan.kind==='move'?{x:plan.x,y:plan.y}:{x:u.x,y:u.y};
-  let value=aiPositionScore(u,pos,focus)*.45-aiExpertKnownResponseRisk(u,pos)*.65;
+  let value=aiPositionScore(u,pos,focus)*.8-aiExpertKnownResponseRisk(u,pos)*.72;
+  // PM restantes tienen valor cuando existe una retirada/reposición que mantiene presión.
+  if(plan.kind==='ability'&&u.pm>0&&focus){
+    const base=aiPositionScore(u,u,focus);
+    let best=base;
+    for(const [k] of movementMap(u)){
+      const [x,y]=k.split(',').map(Number),p={x,y};
+      const keepsPressure=aiCanThreatenFrom(u,p,focus);
+      const ps=aiPositionScore(u,p,focus)+(keepsPressure?3:-2);
+      if(ps>best)best=ps;
+    }
+    value+=Math.max(0,best-base)*.9;
+  }
   // Preparación y negación: premiar planes que sostienen la identidad táctica.
   if(plan.kind==='ability'){
     if(['pillar','germinate','trap_spikes','trap_snare','trap_bomb','doll','marker','needle'].includes(plan.id))value+=5;

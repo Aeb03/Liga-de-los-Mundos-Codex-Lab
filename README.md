@@ -1,19 +1,16 @@
-# Liga de los Mundos v0.6.13 — Selección 1v1 / 2v2 UI v1
+# Liga de los Mundos — v0.6.19-v02
 
-Estado: 🟡 LISTA PARA PROBAR
+Estado: EXPERIMENTAL
 
-Integra Liga_Mundos_Equipo2v2_UI_v1 como sistema visual compartido para las pantallas de selección previa 1v1 y 2v2.
+Primera capa del nuevo motor global de estados.
 
-- mismo fondo, header, tarjetas, panel derecho, selectores y botones en ambos modos;
-- conserva las imágenes actuales de los seis campeones;
-- tarjeta normal y seleccionada usan los frames aprobados;
-- 1v1 mantiene sólo Rival IA;
-- 2v2 mantiene Aliado IA, Rival IA 1 y Rival IA 2;
-- no cambia lógica, navegación, IA, loadout ni combate;
-- mockup de referencia NO integrado.
+Cambios incluidos:
+- Herida: máximo 3; daño por cada casilla recorrida, incluido desplazamiento forzado.
+- Veneno: máximo 3; daño al utilizar una habilidad.
+- Quemadura: máximo 4; daño al inicio y al final del turno; reducción posterior.
+- Reducción de Herida, Veneno y Quemadura a la mitad (redondeo hacia abajo) al final del turno.
 
-Base funcional: v0.6.12.
+Este paquete NO contiene todavía el rediseño completo de los seis campeones.
+No modifica módulos online.
 
-
-## v0.6.16 — Dificultad IA v1
-Selector NORMAL/EXPERTO y cerebro IA parametrizado. Estado: 🟡 EN PRUEBA.
+Archivo a reemplazar: app.js

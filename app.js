@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const SIZE=12, VERSION='0.6.18-v02';
+const SIZE=12, VERSION='0.6.19-v02';
 
 
 
@@ -379,7 +379,7 @@ function makeUnit(championId,side,id,controller='ai',customLoadout=null){
     alive:true,facing:side==='player'?'derecha':'izquierda',
     status:{wound:0,poison:0,burn:0,paPenaltyNext:0,pmPenaltyNext:0,curseDamage:0,markedBy:null,linkedBy:null},shieldStacks:[],
     monolith:false,monolithStoredPm:0,exitedMonolithThisTurn:false,monolithPillarGainUsed:false,
-    woundTriggeredThisTurn:false,stoneArmorTargetsUsed:[],skillUsesThisTurn:{},symbiosisUsed:false,markedTargetId:null,linkedTargetId:null,
+    stoneArmorTargetsUsed:[],skillUsesThisTurn:{},symbiosisUsed:false,markedTargetId:null,linkedTargetId:null,
     loadout:customLoadout?[...customLoadout]:[...BOT_LOADOUTS[championId]]
   };
 }
@@ -394,6 +394,24 @@ function skillUseAllowed(u,id){return skillUsesRemaining(u,id)>0}
 function registerSkillUse(u,id){
   if(!u.skillUsesThisTurn)u.skillUsesThisTurn={};
   u.skillUsesThisTurn[id]=skillUseCount(u,id)+1;
+}
+
+const STATUS_MAX={wound:3,poison:3,burn:4};
+function addStatus(u,type,amount=1){
+  if(!u?.status||!STATUS_MAX[type]||amount<=0)return 0;
+  const before=Math.max(0,u.status[type]||0),after=Math.min(STATUS_MAX[type],before+amount);
+  u.status[type]=after;const gained=after-before;
+  if(gained>0){const icon=type==='wound'?'🩸':type==='poison'?'☠️':'🔥';feedback(u,`${icon} +${gained}`,'status')}
+  return gained;
+}
+function halveStatusEndTurn(u,type){if(u?.status)u.status[type]=Math.floor(Math.max(0,u.status[type]||0)/2)}
+function applyWoundStep(u){
+  if(!u?.alive||u.kind!=='unit'||!u.status?.wound)return 0;
+  const n=u.status.wound;applyDamage(u,n,false);log(`🩸 Herida ${n}: ${u.name} recibe ${n} daño por recorrer 1 casilla.`);return n;
+}
+function triggerPoisonOnAbility(u){
+  if(!u?.alive||!u.status?.poison)return 0;
+  const n=u.status.poison;applyDamage(u,n,false);log(`☠️ Veneno ${n}: ${u.name} recibe ${n} daño por utilizar una habilidad.`);return n;
 }
 function shieldTotal(e){return (e?.shieldStacks||[]).reduce((n,s)=>n+s.amount,0)}
 function addShield(e,amount,label='Escudo'){if(!e||!e.alive)return;e.shieldStacks.push({amount,turns:2,label});feedback(e,`+${amount} 🛡️`,'shield')}
@@ -801,7 +819,6 @@ function beginTurn(){
   u.status.paPenaltyNext=0;
   u.exitedMonolithThisTurn=false;
   u.monolithPillarGainUsed=false;
-  u.woundTriggeredThisTurn=false;
   u.stoneArmorTargetsUsed=[];
   u.skillUsesThisTurn={};
   u.symbiosisUsed=false;
@@ -811,6 +828,7 @@ function beginTurn(){
   B.timer=30;B.selectedAction=null;B.skillsOpen=false;B.selectedUnitId=u.id;B.notice='';B.noticeSeq++;
   if(paPenalty){log(`🔨 Interferencia: ${u.name} comienza el turno con -${paPenalty} PA.`);feedback(u,`-${paPenalty} PA`,'status');}
   if(pmPenalty){log(`🌿 Control: ${u.name} comienza el turno con -${pmPenalty} PM.`);feedback(u,`-${pmPenalty} PM`,'status');}
+  if(u.status.burn>0){const n=u.status.burn;applyDamage(u,n,false);log(`🔥 Quemadura ${n}: ${u.name} recibe ${n} daño al inicio del turno.`);if(checkBattleEnd())return}
   renderBattle();
   timerId=setInterval(()=>{
     if(!B||B.ended)return clearInterval(timerId);
@@ -826,12 +844,13 @@ function beginTurn(){
 }
 
 function endTurnEffects(u){
-  ageShieldStacks(u);
-  ownedPillars(u).forEach(ageShieldStacks);
-  if(u.status.poison>0){
-    u.status.poison=Math.max(0,u.status.poison-1);
-    log(`☠️ ${u.name}: Veneno baja a ${u.status.poison}.`);
-  }
+  if(u.status.burn>0){const n=u.status.burn;applyDamage(u,n,false);log(`🔥 Quemadura ${n}: ${u.name} recibe ${n} daño al final del turno.`)}
+  const oldWound=u.status.wound||0,oldPoison=u.status.poison||0,oldBurn=u.status.burn||0;
+  halveStatusEndTurn(u,'wound');halveStatusEndTurn(u,'poison');halveStatusEndTurn(u,'burn');
+  if(oldWound!==u.status.wound)log(`🩸 ${u.name}: Herida baja a ${u.status.wound}.`);
+  if(oldPoison!==u.status.poison)log(`☠️ ${u.name}: Veneno baja a ${u.status.poison}.`);
+  if(oldBurn!==u.status.burn)log(`🔥 ${u.name}: Quemadura baja a ${u.status.burn}.`);
+  ageShieldStacks(u);ownedPillars(u).forEach(ageShieldStacks);
 }
 
 function advanceTurn(){
@@ -969,13 +988,6 @@ async function moveUnit(u,x,y){
   if(cost==null||B.busy)return;
   const path=gridPath(u,{x,y});if(path.length<2)return;
   B.busy=true;
-  if(u.status.wound>0&&!u.woundTriggeredThisTurn){
-    u.woundTriggeredThisTurn=true;
-    applyDamage(u,u.status.wound,false);
-    log(`🩸 Herida ${u.status.wound}: ${u.name} recibe ${u.status.wound} daño al moverse.`);
-    renderBattle();await sleep(220);
-    if(checkBattleEnd()){B.busy=false;return}
-  }
   let steps=0;
   for(let i=1;i<path.length&&u.alive;i++){
     const adj=adjacentEnemies(u);
@@ -988,7 +1000,9 @@ async function moveUnit(u,x,y){
     }
     const old={x:u.x,y:u.y};
     u.x=path[i][0];u.y=path[i][1];faceStep(u,old);steps++;
-    renderBattle();await sleep(125);await triggerTrapAt(u);
+    applyWoundStep(u);renderBattle();await sleep(125);
+    if(!u.alive||checkBattleEnd())break;
+    await triggerTrapAt(u);
   }
   u.pm=Math.max(0,u.pm-steps);
   if(steps)log(`👣 ${u.name} se mueve ${steps} casilla${steps!==1?'s':''}.`);
@@ -1174,7 +1188,7 @@ async function triggerTrapAt(target){
 }
 async function dashUnit(u,x,y){
   const dx=Math.sign(x-u.x),dy=Math.sign(y-u.y),steps=md(u,{x,y});
-  for(let i=0;i<steps&&u.alive;i++){const old={x:u.x,y:u.y};u.x+=dx;u.y+=dy;faceStep(u,old);renderBattle();await sleep(120);await triggerTrapAt(u)}
+  for(let i=0;i<steps&&u.alive;i++){const old={x:u.x,y:u.y};u.x+=dx;u.y+=dy;faceStep(u,old);applyWoundStep(u);renderBattle();await sleep(120);if(!u.alive||checkBattleEnd())break;await triggerTrapAt(u)}
 }
 function forcedDirection(source,target,away=true){
   const dx=target.x-source.x,dy=target.y-source.y;
@@ -1200,31 +1214,27 @@ async function forcedMove(target,source,distance=1,away=true,label='Empuje'){
       break;
     }
     const old={x:target.x,y:target.y};target.x=nx;target.y=ny;faceStep(target,old);
-    renderBattle();await sleep(150);await triggerTrapAt(target);
+    applyWoundStep(target);renderBattle();await sleep(150);if(!target.alive||checkBattleEnd())break;await triggerTrapAt(target);
   }
 }
 
 function spendPAAfterAction(u){
   if(u.alive&&u.status.curseDamage>0){const n=u.status.curseDamage;u.status.curseDamage=0;applyDamage(u,n,false);log(`☠️ Maldición: ${u.name} recibe ${n} daño por gastar PA.`)}
-  if(u.alive&&u.status.poison>0){
-    const n=u.status.poison;
-    applyDamage(u,n,false);
-    log(`☠️ Veneno ${n}: ${u.name} recibe ${n} daño por usar una acción con PA.`);
-  }
 }
 
 async function executeAbility(u,id,x,y,fromAI=false){
   if(!canUseAbility(u,id,x,y))return false;
   const a=ability(u.championId,id),target=entityAt(x,y);
   B.busy=true;B.noticeSeq++;B.notice=`${u.icon} ${u.name} — ${a.icon} ${a.name}`;
-  if(target)faceTarget(u,target);registerSkillUse(u,id);u.pa-=a.cost;renderBattle();await sleep(150);
+  if(target)faceTarget(u,target);registerSkillUse(u,id);u.pa-=a.cost;triggerPoisonOnAbility(u);renderBattle();await sleep(150);
+  if(!u.alive){B.notice='';B.selectedAction=null;B.busy=false;renderBattle();checkBattleEnd();return true}
   const objectTarget=isCombatObject(target);
 
   if(['sword','daggers','bow','spear','hammer','rock','quake'].includes(id)){
     let origin=u,projected=false;if(id==='quake'&&u.championId==='coloso'&&u.monolith){origin=quakeOriginForTarget(u,target)||u;projected=origin.type==='pillar'}
     const dmg=projected?8:skillDamage(u,a);applyDamage(target,dmg,false);
     log(projected?`🌋 ${origin.name} proyecta Golpe Sísmico: ${dmg} daño a ${target.name}.`:`${a.icon} ${a.name}: ${dmg} daño a ${target.name}.`);
-    if(!objectTarget&&id==='daggers'&&target.alive){target.status.wound+=1;feedback(target,'🩸 +1','status');log(`🩸 ${target.name} obtiene Herida ${target.status.wound}.`)}
+    if(!objectTarget&&id==='daggers'&&target.alive){addStatus(target,'wound',1);log(`🩸 ${target.name} obtiene Herida ${target.status.wound}.`)}
     if(!objectTarget&&id==='hammer'&&target.alive){target.status.paPenaltyNext=Math.max(target.status.paPenaltyNext||0,1);feedback(target,'PA -1 próximo','status');log(`🔨 ${target.name} sufrirá -1 PA al comenzar su próximo turno.`)}
     renderBattle();await sleep(180);
     if(!objectTarget&&target.alive&&id==='spear')await forcedMove(target,u,1,false,'Atracción');
@@ -1258,14 +1268,14 @@ async function executeAbility(u,id,x,y,fromAI=false){
   }else if(id==='germinate'){
     const n=B.nextObjectId++;const s={id:`sprout${n}`,number:n,type:'sprout',kind:'object',ownerId:u.id,side:u.side,name:`Brote ${ownedSprouts(u).length+1}`,icon:'🌱',x,y,hp:12,maxHp:12,alive:true,shieldStacks:[],blocksLOS:false};B.pillars.push(s);log(`🌱 ${u.name} hace germinar ${s.name}.`);
   }else if(id==='thorn'){
-    applyDamage(target,7,false);log(`☠️ Espina Venenosa: 7 daño a ${target.name}.`);if(!objectTarget&&target.alive){target.status.poison+=1;feedback(target,'☠️ +1','status');log(`☠️ ${target.name} obtiene Veneno ${target.status.poison}.`);triggerSymbiosis(u,target)}
+    applyDamage(target,7,false);log(`☠️ Espina Venenosa: 7 daño a ${target.name}.`);if(!objectTarget&&target.alive){addStatus(target,'poison',1);log(`☠️ ${target.name} obtiene Veneno ${target.status.poison}.`);triggerSymbiosis(u,target)}
   }else if(id==='vines'){
     applyDamage(target,6,false);log(`🌿 Enredaderas: 6 daño a ${target.name}.`);if(!objectTarget&&target.alive){target.status.pmPenaltyNext=Math.max(target.status.pmPenaltyNext||0,2);log(`🌿 ${target.name} tendrá -2 PM en su próximo turno.`)}
   }else if(id==='sap'){
     const near=ownedSprouts(u).some(s=>adj8(s,target)),got=heal(target,near?14:10);log(`💚 Savia Vital: ${target.name} recupera ${got} PV${near?' junto a un Brote':''}.`);triggerSymbiosis(u,target);
   }else if(id==='spores'){
     const center={x,y},cells=[center,{x:x+1,y},{x:x-1,y},{x,y:y+1},{x,y:y-1}];let poisonedTarget=null;
-    for(const z of allEntities().filter(z=>z.alive&&z.side!==u.side&&cells.some(c=>c.x===z.x&&c.y===z.y))){applyDamage(z,6,false);if(z.kind==='unit'&&z.alive){z.status.poison+=1;poisonedTarget=poisonedTarget||z;log(`🌬️ Esporas: ${z.name} recibe 6 daño y Veneno ${z.status.poison}.`)}else log(`🌬️ Esporas: ${z.name} recibe 6 daño.`)}
+    for(const z of allEntities().filter(z=>z.alive&&z.side!==u.side&&cells.some(c=>c.x===z.x&&c.y===z.y))){applyDamage(z,6,false);if(z.kind==='unit'&&z.alive){addStatus(z,'poison',1);poisonedTarget=poisonedTarget||z;log(`🌬️ Esporas: ${z.name} recibe 6 daño y Veneno ${z.status.poison}.`)}else log(`🌬️ Esporas: ${z.name} recibe 6 daño.`)}
     if(poisonedTarget)triggerSymbiosis(u,poisonedTarget);
   }else if(id==='awakening'){
     const source={x:target.x,y:target.y,name:target.name};destroyPillar(target);log(`🌳 ${u.name} consume ${source.name} y despierta el bosque.`);
@@ -1529,7 +1539,8 @@ function renderBattle(){
 async function executeImpulse(u,target,x,y){
   const a=ability(u.championId,'impulse');
   if(!a||u.pa<a.cost||!skillUseAllowed(u,'impulse')||!impulseTargetValid(u,target)||!straightDashValidFrom(target,x,y,2))return false;
-  B.busy=true;B.noticeSeq++;B.notice=`${u.icon} ${u.name} — ${a.icon} ${a.name}`;registerSkillUse(u,'impulse');u.pa-=a.cost;renderBattle();await sleep(140);
+  B.busy=true;B.noticeSeq++;B.notice=`${u.icon} ${u.name} — ${a.icon} ${a.name}`;registerSkillUse(u,'impulse');u.pa-=a.cost;triggerPoisonOnAbility(u);renderBattle();await sleep(140);
+  if(!u.alive){B.notice='';B.selectedAction=null;B.pendingImpulseTargetId=null;B.busy=false;renderBattle();checkBattleEnd();return true}
   await dashUnit(target,x,y);log(`💨 Impulso: ${target.name} se desplaza sin gastar PM.`);
   spendPAAfterAction(u);B.notice='';B.selectedAction=null;B.pendingImpulseTargetId=null;B.busy=false;renderBattle();if(checkBattleEnd())return true;if(B.pendingTimeout&&!B.ended){nextTurn();return true}return true;
 }

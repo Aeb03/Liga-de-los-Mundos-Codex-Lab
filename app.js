@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const SIZE=12, VERSION='0.6.19-v02';
+const SIZE=12, VERSION='0.6.20-v02';
 
 
 
@@ -127,259 +127,88 @@ function hudControls(key,collapsedLabel=''){
 }
 
 const CHAMPIONS={
-  arfeli:{
-    id:'arfeli',name:'Arfeli',title:'Guerrera versátil',role:'Agresión / versatilidad',icon:'⚔️',
-    hp:100,pa:6,pm:4,ini:5,
-    passive:{name:'Berserker',text:'Por debajo del 50% de Vida, sus ataques causan +2 daño.'},
+  arfeli:{id:'arfeli',name:'Arfeli',title:'Guerrera versátil',role:'Agresión / versatilidad',icon:'⚔️',hp:100,pa:6,pm:3,ini:5,
+    passive:{name:'Maestría con Armas',text:'Encadenar habilidades diferentes en el mismo turno aumenta daño o Escudo: +0, +1, +2… Repetir una habilidad reinicia la cadena.'},
     abilities:[
-      {id:'sword',icon:'⚔️',name:'Corte con Espada',cost:2,range:1,damage:12,maxUsesPerTurn:2,text:'12 de daño a un objetivo adyacente. Máximo 2 usos por turno.'},
-      {id:'daggers',icon:'🩸',name:'Dagas Danzantes',cost:3,range:1,damage:10,text:'10 de daño y aplica Herida 1.'},
-      {id:'bow',icon:'🏹',name:'Disparo con Arco',cost:3,range:4,damage:11,text:'11 de daño. Alcance 4 y requiere línea de visión.'},
-      {id:'shield',icon:'🛡️',name:'Portación de Escudo',cost:2,range:0,shield:15,maxUsesPerTurn:1,text:'Obtiene 15 de Escudo. Máximo 1 uso por turno.'},
-      {id:'spear',icon:'🔱',name:'Arte de la Lanza',cost:3,range:2,damage:10,text:'10 de daño y atrae al objetivo 1 casilla.'},
-      {id:'hammer',icon:'🔨',name:'Golpe de Martillo',cost:4,range:1,damage:16,text:'16 de daño. El objetivo pierde 1 PA en su próximo turno.'}
-    ]
-  },
-  coloso:{
-    id:'coloso',name:'Coloso',title:'Guardián rocoso',role:'Territorio / resistencia',icon:'🪨',
-    hp:115,pa:6,pm:3,ini:3,
-    passive:{name:'Conexión Rocosa',text:'Controla Pilares de 20 PV que bloquean movimiento y línea de visión.'},
+      {id:'sword',icon:'⚔️',name:'Corte con Espada',cost:2,range:1,damage:10,maxUsesPerTurn:2,text:'10 daño. Máximo 2 usos/turno.'},
+      {id:'daggers',icon:'🩸',name:'Dagas Danzantes',cost:3,range:1,damage:10,maxUsesPerTurn:1,text:'10 daño + Herida 2. Máximo 1 uso/turno.'},
+      {id:'bow',icon:'🏹',name:'Disparo con Arco',cost:3,range:4,damage:8,text:'8 daño. Requiere línea de visión.'},
+      {id:'spear',icon:'🔱',name:'Arte de la Lanza',cost:3,range:2,damage:10,text:'10 daño + atracción 1.'},
+      {id:'shield',icon:'🛡️',name:'Portación de Escudo',cost:3,range:0,shield:15,maxUsesPerTurn:1,text:'15 Escudo. Máximo 1 uso/turno.'},
+      {id:'hammer',icon:'🔨',name:'Golpe de Martillo',cost:4,range:3,damage:13,noLOS:true,text:'Selecciona enemigo válido. Arfeli salta a una casilla libre adyacente, causa 13 daño y aplica -1 PM al próximo turno.'}
+    ]},
+  coloso:{id:'coloso',name:'Coloso',title:'Guardián rocoso',role:'Territorio / resistencia',icon:'🪨',hp:115,pa:6,pm:3,ini:3,
+    passive:{name:'Conexión Rocosa',text:'Pilares propios de 15 PV reales. Máximo 2 normalmente y 3 en Monolito.'},
     abilities:[
-      {id:'pillar',icon:'🗿',name:'Creación de Pilar',cost:2,range:3,text:'Crea un Pilar de 20 PV en una casilla libre. Máximo 2; en Monolito, 3.'},
-      {id:'rock',icon:'💥',name:'Lanzar Roca',cost:3,range:4,damage:10,text:'10 de daño. En Monolito obtiene +1 alcance.'},
-      {id:'stonearmor',icon:'🛡️',name:'Armadura de Piedra',cost:2,range:3,shield:15,text:'Otorga 15 de Escudo a Coloso, un aliado o un Pilar propio. Máximo 1 vez por turno por objetivo.'},
-      {id:'absorb',icon:'🧲',name:'Absorción Rocosa',cost:3,range:3,text:'Consume un Pilar propio y recupera 20 PV.'},
-      {id:'fusion',icon:'🗿',name:'Fusión de Pilar',cost:4,range:1,text:'Consume un Pilar propio adyacente y entra en Monolito.'},
-      {id:'quake',icon:'🌋',name:'Golpe Sísmico',cost:3,range:1,damage:12,text:'12 de daño + empuje 1. En Monolito puede proyectarse desde un Pilar: 8 de daño + empuje 1; otros Pilares pueden activar Réplica.'}
-    ]
-  },
-  piplus:{
-    id:'piplus',name:'Piplus',title:'Tirador de apoyo',role:'Rango / apoyo / control',icon:'🎯',
-    hp:90,pa:6,pm:3,ini:6,
-    passive:{name:'Objetivo Marcado',text:'Puede mantener un enemigo Marcado. Varias habilidades mejoran contra ese objetivo.'},
+      {id:'rock',icon:'💥',name:'Lanzar Roca',cost:3,range:4,damage:8,text:'8 daño. Alcance 5 en Monolito.'},
+      {id:'stonearmor',icon:'🛡️',name:'Armadura de Piedra',cost:2,range:3,shield:10,maxUsesPerTurn:2,text:'10 Escudo. Máximo 2 usos/turno y cada objetivo una vez/turno.'},
+      {id:'absorb',icon:'🧲',name:'Absorción Rocosa',cost:2,range:3,text:'Consume Pilar no creado este turno y cura a Coloso sus PV reales actuales, máximo 15.'},
+      {id:'quake',icon:'🌋',name:'Golpe Sísmico',cost:3,range:1,damage:10,text:'Normal: 10 daño + empuje 1. Monolito: origen desde Pilar, 8 daño + empuje 1 y Réplicas de 6.'},
+      {id:'collapse',icon:'🪨',name:'Derrumbe',cost:3,range:3,text:'Selecciona Pilar propio y dirección. Cono 3/2/1; daño depende de PV reales del Pilar.'},
+      {id:'magnetism',icon:'🧲',name:'Magnetismo de Pilar',cost:3,range:3,text:'Selecciona Pilar y luego personaje a Manhattan 5; atrae hasta 2 casillas hacia el Pilar.'}
+    ]},
+  piplus:{id:'piplus',name:'Piplus',title:'Tirador de apoyo',role:'Rango / apoyo / control',icon:'🎯',hp:90,pa:6,pm:3,ini:6,
+    passive:{name:'Objetivo Marcado',text:'Acción propia Marca Objetivo: 0 PA, alcance 4, línea de visión, máximo 1/turno.'},
     abilities:[
-      {id:'marker',icon:'🎯',name:'Disparo Marcador',cost:2,range:4,damage:8,text:'8 de daño y Marca al combatiente alcanzado.'},
-      {id:'precise',icon:'🏹',name:'Disparo Preciso',cost:3,range:4,damage:12,text:'12 de daño; 14 si el objetivo está Marcado.'},
-      {id:'vector',icon:'🧲',name:'Tirón Vectorial',cost:3,range:4,damage:8,text:'8 de daño y atrae 1. Si está Marcado, atrae 2.'},
-      {id:'impulse',icon:'💨',name:'Impulso',cost:2,range:3,text:'Piplus o un aliado a alcance 3 se desplaza hasta 2 casillas en línea sin gastar PM ni activar Herida u oportunidad.'},
-      {id:'pulse',icon:'💚',name:'Pulso Reparador',cost:3,range:3,maxUsesPerTurn:1,text:'Cura 12 PV a Piplus o a un aliado. Máximo 1 uso por turno.'},
-      {id:'rupture',icon:'💥',name:'Ruptura de Marca',cost:4,range:4,damage:14,text:'Sólo contra el Marcado: 14 de daño, empuja 1 y consume la Marca.'}
-    ]
-  },
-  onod:{
-    id:'onod',name:'Onod',title:'Guardián del bosque',role:'Desgaste / control natural',icon:'🌿',
-    hp:95,pa:6,pm:3,ini:4,
-    passive:{name:'Simbiosis',text:'Una vez por turno, al aplicar Veneno o curar, un Brote propio cercano al objetivo recupera 3 PV.'},
+      {id:'precise',icon:'🏹',name:'Disparo Preciso',cost:3,range:4,damage:8,text:'8 daño; 10 contra Marcado.'},
+      {id:'vector',icon:'💥',name:'Impacto Vectorial',cost:3,range:3,damage:6,text:'6 daño + empuje 1; contra Marcado empuja 2.'},
+      {id:'impulse',icon:'💨',name:'Impulso',cost:2,range:2,maxUsesPerTurn:1,noLOS:true,text:'Piplus se mueve hasta 2 sin PM y puede cruzar obstáculos; termina en casilla válida.'},
+      {id:'interference',icon:'📡',name:'Interferencia',cost:2,range:4,maxUsesPerTurn:1,text:'Sólo Marcado: -1 PM próximo turno.'},
+      {id:'rupture',icon:'💥',name:'Ruptura de Marca',cost:4,range:4,damage:14,text:'Sólo Marcado: 14 daño y consume Marca. Bloquea nueva Marca ese turno.'},
+      {id:'fixation',icon:'🎯',name:'Fijación de Objetivo',cost:2,range:4,text:'Sólo Marcado. La próxima habilidad ofensiva contra él ese turno ignora línea de visión.'}
+    ]},
+  onod:{id:'onod',name:'Onod',title:'Guardián del bosque',role:'Desgaste / control natural',icon:'🌿',hp:95,pa:6,pm:3,ini:4,
+    passive:{name:'Simbiosis',text:'Curar sana 4 a todos los Brotes propios ortogonalmente adyacentes al objetivo; daño real de Veneno sana esa misma cantidad a esos Brotes.'},
     abilities:[
-      {id:'germinate',icon:'🌱',name:'Germinar',cost:2,range:3,text:'Crea un Brote de 12 PV. Máximo 2. Ocupa casilla pero no bloquea línea de visión.'},
-      {id:'thorn',icon:'☠️',name:'Espina Venenosa',cost:2,range:4,damage:7,text:'7 de daño y aplica Veneno 1.'},
-      {id:'vines',icon:'🌿',name:'Enredaderas',cost:3,range:3,damage:6,text:'6 de daño y el objetivo pierde 2 PM en su próximo turno.'},
-      {id:'sap',icon:'💚',name:'Savia Vital',cost:3,range:3,maxUsesPerTurn:1,text:'Cura 10 PV; cura 14 si el objetivo está junto a un Brote propio.'},
-      {id:'spores',icon:'🌬️',name:'Esporas Tóxicas',cost:4,range:3,damage:6,text:'Área: casilla objetivo y sus 4 cardinales. Enemigos reciben 6 de daño + Veneno 1.'},
-      {id:'awakening',icon:'🌳',name:'Despertar del Bosque',cost:4,range:3,text:'Consume un Brote. Enemigos adyacentes reciben 10 de daño y son empujados 1.'}
-    ]
-  },
-  korgan:{
-    id:'korgan',name:'Korgan',title:'Cazador de Arena',role:'Trampas / control del terreno',icon:'🪤',
-    hp:100,pa:6,pm:4,ini:4,
-    passive:{name:'Preparación',text:'Puede mantener hasta 3 trampas visibles activas en la Arena.'},
+      {id:'thorn',icon:'☠️',name:'Espina Venenosa',cost:2,range:4,damage:6,maxUsesPerTurn:2,text:'6 daño + Veneno 1. Máximo 2/turno.'},
+      {id:'vines',icon:'🌿',name:'Enredaderas',cost:3,range:3,text:'Área cruz: centro 6, laterales 4; todos -1 PM próximo turno.'},
+      {id:'sap',icon:'💚',name:'Savia Vital',cost:3,range:3,maxUsesPerTurn:2,text:'Cura 8; cura 12 junto a Brote propio. Máximo 2/turno.'},
+      {id:'spores',icon:'🌬️',name:'Esporas Tóxicas',cost:4,range:99,noLOS:true,text:'Elige cualquier Brote propio. Afecta las 8 casillas alrededor: 8 daño + Veneno 1.'},
+      {id:'awakening',icon:'🌳',name:'Despertar del Bosque',cost:4,range:0,noLOS:true,text:'Activa todos los Brotes: 8 daño por cada Brote ortogonalmente adyacente a cada enemigo.'},
+      {id:'reabsorb',icon:'♻️',name:'Reabsorción',cost:0,range:0,noLOS:true,text:'Absorbe TODOS los Brotes de turnos anteriores; +1 PA por Brote. Bloquea Germinar ese turno.'}
+    ]},
+  korgan:{id:'korgan',name:'Korgan',title:'Cazador de Arena',role:'Trampas / control del terreno',icon:'🪤',hp:100,pa:6,pm:4,ini:4,
+    passive:{name:'Preparación',text:'Máximo 3 trampas activas. Invisibles para el rival; el equipo propio las ve semitransparentes.'},
     abilities:[
-      {id:'trap_spikes',icon:'🪤',name:'Trampa de Pinchos',cost:2,range:3,text:'Coloca una trampa. El primer enemigo que entra recibe 10 de daño.'},
-      {id:'trap_snare',icon:'🧷',name:'Cepo',cost:3,range:3,text:'Al activarse: 6 de daño y -2 PM en el próximo turno.'},
-      {id:'trap_bomb',icon:'💣',name:'Carga Explosiva',cost:3,range:3,text:'Al activarse: 8 de daño al objetivo y 4 a las 4 casillas cardinales adyacentes.'},
-      {id:'shot',icon:'🏹',name:'Disparo de Caza',cost:3,range:4,damage:11,text:'11 de daño a distancia. Requiere línea de visión.'},
-      {id:'hook',icon:'🪝',name:'Gancho',cost:3,range:3,damage:7,text:'7 de daño y atrae 1 casilla.'},
-      {id:'hunterstep',icon:'🏃',name:'Paso del Cazador',cost:2,range:2,maxUsesPerTurn:1,text:'Se desplaza hasta 2 casillas en línea sin gastar PM. Máximo 1 uso por turno.'}
-    ]
-  },
-  houngan:{
-    id:'houngan',name:'Houngan',title:'Maestro Vudú',role:'Vínculos / maldiciones',icon:'🪆',
-    hp:90,pa:6,pm:3,ini:5,
-    passive:{name:'Vínculo Maldito',text:'Puede mantener un enemigo Vinculado. Sus rituales usan ese vínculo incluso a distancia.'},
+      {id:'trap_spikes',icon:'🪤',name:'Trampa de Pinchos',cost:2,range:3,maxUsesPerTurn:2,text:'10 daño + Herida 1 al entrar. Máximo 2 colocaciones/turno.'},
+      {id:'trap_electric',icon:'⚡',name:'Mina Eléctrica',cost:3,range:3,maxUsesPerTurn:1,text:'8 daño + -1 PA próximo turno. Máximo 1 colocación/turno.'},
+      {id:'grenade',icon:'💣',name:'Granada',cost:3,range:3,text:'Selecciona casilla. Cruz: centro 10; laterales 6 + empuje 1 hacia afuera.'},
+      {id:'shot',icon:'🏹',name:'Disparo de Caza',cost:3,range:5,damage:10,text:'10 daño. Sólo misma fila/columna y con línea de visión.'},
+      {id:'hook',icon:'🪝',name:'Gancho',cost:3,range:3,damage:6,text:'6 daño; Korgan elige atraer 1 o 2 casillas.'},
+      {id:'hunterstep',icon:'🏃',name:'Paso del Cazador',cost:1,range:2,maxUsesPerTurn:1,text:'Se mueve hasta 2 en línea sin gastar PM. Herida se aplica normalmente.'}
+    ]},
+  houngan:{id:'houngan',name:'Houngan',title:'Maestro Vudú',role:'Vínculos / maldiciones',icon:'🪆',hp:90,pa:6,pm:3,ini:5,
+    passive:{name:'Vínculo Vudú',text:'Máximo 1 personaje Vinculado. El Muñeco queda asociado al personaje que estaba Vinculado al crearlo.'},
     abilities:[
-      {id:'needle',icon:'🪡',name:'Aguja Vudú',cost:2,range:4,damage:7,text:'7 de daño y Vincula al combatiente alcanzado.'},
-      {id:'reflected',icon:'🩸',name:'Dolor Reflejado',cost:3,range:4,damage:10,text:'10 de daño al enemigo Vinculado dentro del alcance.'},
-      {id:'doll',icon:'🪆',name:'Muñeco Vudú',cost:3,range:3,text:'Invoca 1 Muñeco de 16 PV. Si hay un Vinculado, queda ligado a él y refleja la mitad del daño recibido como daño normal. Tras el turno de Houngan puede moverse hasta 3 casillas.'},
-      {id:'curse',icon:'☠️',name:'Maldición',cost:3,range:99,noLOS:true,maxUsesPerTurn:1,text:'Sin alcance: sólo sobre el Vinculado. Su próxima acción que gaste PA le causa 6 de daño normal.'},
-      {id:'transfer',icon:'🔄',name:'Transferencia',cost:3,range:3,text:'Si hay Muñeco a alcance, Houngan recupera hasta 8 PV y transfiere esa cantidad de daño al Muñeco.'},
-      {id:'ritual',icon:'👁️',name:'Ritual del Dolor',cost:4,range:4,damage:14,text:'14 de daño al Vinculado y consume el Vínculo. +4 si un Muñeco propio está cerca del objetivo.'}
-    ]
-  }
+      {id:'needle',icon:'🪡',name:'Aguja Vudú',cost:2,range:4,text:'Enemigo: 6 daño + Vínculo. Aliado: cura 6 + Vínculo.'},
+      {id:'transfer',icon:'🔄',name:'Transferencia',cost:2,range:3,text:'Houngan cura hasta 8; el Muñeco pierde exactamente los PV realmente recuperados.'},
+      {id:'ritual',icon:'👁️',name:'Ritual del Dolor',cost:4,range:4,damage:14,text:'Sólo enemigo Vinculado: 14 daño; 20 si su Muñeco correspondiente está ortogonalmente adyacente. Consume Vínculo.'},
+      {id:'curse',icon:'☠️',name:'Maldición',cost:3,range:3,damage:8,maxUsesPerTurn:1,text:'8 daño + Veneno 1. Máximo 1/turno.'},
+      {id:'paintransfer',icon:'🩸',name:'Transferencia de Dolor',cost:3,range:0,noLOS:true,text:'Persistente mientras existan Vínculo y Muñeco correspondientes: daño a Houngan se divide 50/50.'},
+      {id:'dance',icon:'💃',name:'Danza Vudú',cost:3,range:0,noLOS:true,text:'Durante todo el movimiento disponible del Muñeco, el Vinculado intenta copiar cada paso en la misma dirección.'}
+    ]}
 };
 
 const BOT_LOADOUTS={
   arfeli:['sword','daggers','bow','shield'],
-  coloso:['pillar','rock','fusion','quake'],
-  piplus:['marker','precise','vector','pulse'],
-  onod:['germinate','thorn','vines','spores'],
-  korgan:['trap_spikes','trap_snare','shot','hook'],
-  houngan:['needle','doll','curse','ritual']
+  coloso:['rock','stonearmor','absorb','quake'],
+  piplus:['precise','vector','impulse','rupture'],
+  onod:['thorn','vines','sap','spores'],
+  korgan:['trap_spikes','trap_electric','grenade','shot'],
+  houngan:['needle','transfer','ritual','curse']
 };
 
-const FIXED_OBS=new Set(['5,4','6,4','5,7','6,7']);
-const PLAYER_DEPLOY=['0,3','1,3','0,4','2,5','1,6','2,6'];
-const ENEMY_DEPLOY=['11,3','10,3','11,4','9,5','10,6','9,6'];
-
-let setup={
-  mode:'1v1',championId:'arfeli',allyId:'coloso',enemyId:'random',enemy2Id:'random',aiDifficulty:'normal',
-  loadout:['sword','daggers','bow','shield']
-};
-let B=null,timerId=null;
-
-const PROFILE_KEY='arena-tactica-profile-v030';
-function loadProfile(){
-  const base={name:'Competidor',played:0,wins:0,losses:0,favorite:'arfeli'};
-  try{
-    const raw=localStorage.getItem(PROFILE_KEY);
-    const saved=raw?JSON.parse(raw):{};
-    return {...base,...saved};
-  }catch(e){return base}
-}
-function saveProfile(profile){
-  try{localStorage.setItem(PROFILE_KEY,JSON.stringify(profile))}catch(e){}
-}
-let profile=loadProfile();
-
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const key=(x,y)=>`${x},${y}`;
-const ISO_TILE_W=80, ISO_TILE_H=40;
-const ISO_WORLD_W=SIZE*ISO_TILE_W, ISO_WORLD_H=SIZE*ISO_TILE_H;
-function isoViewCoords(x,y){
-  const r=((B?.camera?.rotation||0)%4+4)%4;
-  if(r===1)return {x:SIZE-1-y,y:x};
-  if(r===2)return {x:SIZE-1-x,y:SIZE-1-y};
-  if(r===3)return {x:y,y:SIZE-1-x};
-  return {x,y};
-}
-function isoCenter(x,y){
-  const v=isoViewCoords(x,y);
-  return {
-    x:(v.x-v.y+SIZE)*(ISO_TILE_W/2),
-    y:(v.x+v.y+1)*(ISO_TILE_H/2)
-  };
-}
-function isoTilePoints(x,y){
-  const c=isoCenter(x,y),hw=ISO_TILE_W/2,hh=ISO_TILE_H/2;
-  return `${c.x},${c.y-hh} ${c.x+hw},${c.y} ${c.x},${c.y+hh} ${c.x-hw},${c.y}`;
-}
-function isoTileMarkup(x,y,classes=[]){
-  const tone=(x+y)%2?'iso-tone-b':'iso-tone-a';
-  return `<polygon class="${[...classes,tone,'iso-tile'].join(' ')}" data-x="${x}" data-y="${y}" points="${isoTilePoints(x,y)}"></polygon>`;
-}
-function isoEntityStyle(x,y,boost=0){
-  const c=isoCenter(x,y),v=isoViewCoords(x,y),left=c.x/ISO_WORLD_W*100,top=c.y/ISO_WORLD_H*100;
-  const depth=100+(v.x+v.y)*20+v.x+boost;
-  return `left:${left.toFixed(4)}%;top:${top.toFixed(4)}%;z-index:${depth}`;
-}
-function isoEntityMarkup(z,current,view){
-  return `<div class="iso-entity iso-combat-entity" style="${isoEntityStyle(z.x,z.y,8)}">${renderEntity(z,current,view)}</div>`;
-}
-function isoObstacleMarkup(x,y){
-  return `<div class="iso-entity iso-fixed-obstacle" style="${isoEntityStyle(x,y,2)}" aria-hidden="true"><span>🪨</span></div>`;
-}
-function isoTrapMarkup(trap,x,y){
-  return `<div class="iso-entity iso-trap" style="${isoEntityStyle(x,y,4)}" aria-hidden="true"><span>${trap.icon}</span></div>`;
-}
-function isoBoardMarkup(tiles,pieces){
-  return `<div class="battle-grid iso-grid" id="grid"><svg class="iso-floor" viewBox="0 0 ${ISO_WORLD_W} ${ISO_WORLD_H}" preserveAspectRatio="xMidYMid meet" aria-label="Arena táctica isométrica">${tiles}</svg><div class="iso-entities">${pieces}</div></div>`;
-}
-function battleCameraState(){
-  if(!B)return {x:0,y:0,rotation:0};
-  if(!B.camera)B.camera={x:0,y:0,rotation:0};
-  if(!Number.isInteger(B.camera.rotation))B.camera.rotation=0;
-  B.camera.rotation=((B.camera.rotation%4)+4)%4;
-  return B.camera;
-}
-function clampBattleCamera(grid,x,y){
-  const w=Math.max(1,grid?.offsetWidth||1),h=Math.max(1,grid?.offsetHeight||1);
-  const limitX=Math.max(90,w*.46),limitY=Math.max(70,h*.46);
-  return {x:Math.max(-limitX,Math.min(limitX,x)),y:Math.max(-limitY,Math.min(limitY,y))};
-}
-function applyBattleCamera(grid=$('#grid')){
-  if(!grid||!B)return;
-  const c=battleCameraState(),next=clampBattleCamera(grid,c.x||0,c.y||0);
-  B.camera={...c,...next};
-  grid.style.setProperty('--camera-x',`${next.x}px`);
-  grid.style.setProperty('--camera-y',`${next.y}px`);
-}
-function centerBattleCameraOn(entity){
-  const grid=$('#grid');if(!grid||!B||!entity)return;
-  const current=battleCameraState(),rect=grid.getBoundingClientRect();
-  const baseLeft=rect.left-current.x,baseTop=rect.top-current.y;
-  const c=isoCenter(entity.x,entity.y);
-  const localX=(c.x/ISO_WORLD_W)*grid.offsetWidth,localY=(c.y/ISO_WORLD_H)*grid.offsetHeight;
-  const vv=window.visualViewport;
-  const targetX=(vv?.offsetLeft||0)+(vv?.width||window.innerWidth)/2;
-  const targetY=(vv?.offsetTop||0)+(vv?.height||window.innerHeight)*.52;
-  B.camera={...current,...clampBattleCamera(grid,targetX-(baseLeft+localX),targetY-(baseTop+localY))};
-  applyBattleCamera(grid);
-}
-function bindBattleCamera(grid=$('#grid')){
-  if(!grid||!B)return;
-  applyBattleCamera(grid);
-  let pointer=null,startX=0,startY=0,baseX=0,baseY=0,moved=false,suppressClick=false,raf=0,next=null;
-  const paint=()=>{raf=0;if(!next)return;B.camera={...battleCameraState(),...next};applyBattleCamera(grid)};
-  grid.addEventListener('pointerdown',e=>{
-    if(e.pointerType==='mouse'&&e.button!==0)return;
-    pointer=e.pointerId;startX=e.clientX;startY=e.clientY;
-    const c=battleCameraState();baseX=c.x;baseY=c.y;moved=false;next=null;
-    try{grid.setPointerCapture(pointer)}catch{}
-  });
-  grid.addEventListener('pointermove',e=>{
-    if(pointer!==e.pointerId)return;
-    const dx=e.clientX-startX,dy=e.clientY-startY;
-    if(!moved&&Math.hypot(dx,dy)<7)return;
-    moved=true;e.preventDefault();
-    next=clampBattleCamera(grid,baseX+dx,baseY+dy);
-    if(!raf)raf=requestAnimationFrame(paint);
-  });
-  const finish=e=>{
-    if(pointer!==e.pointerId)return;
-    if(raf){cancelAnimationFrame(raf);raf=0;if(next){B.camera={...battleCameraState(),...next};applyBattleCamera(grid)}}
-    if(moved){suppressClick=true;e.preventDefault()}
-    try{grid.releasePointerCapture(pointer)}catch{}
-    pointer=null;
-  };
-  grid.addEventListener('pointerup',finish);
-  grid.addEventListener('pointercancel',finish);
-  grid.addEventListener('click',e=>{
-    if(!suppressClick)return;
-    suppressClick=false;e.preventDefault();e.stopImmediatePropagation();
-  },true);
-}
-function rotateBattleCamera(step){
-  if(!B||B.ended)return;
-  const focus=getEntity(B.selectedUnitId)||cur();
-  const c=battleCameraState();
-  B.camera={x:0,y:0,rotation:((c.rotation||0)+step+4)%4};
-  renderBattle();
-  requestAnimationFrame(()=>{
-    const target=focus?.alive===false?(cur()||focus):focus;
-    if(target)centerBattleCameraOn(target);
-  });
-}
-const inside=(x,y)=>x>=0&&y>=0&&x<SIZE&&y<SIZE;
-const md=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
-const adj8=(a,b)=>Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y))===1;
-const adjCardinal=(a,b)=>md(a,b)===1;
-const champ=id=>CHAMPIONS[id];
-const ability=(champId,id)=>champ(champId).abilities.find(a=>a.id===id);
-const randomChampionExcluding=(excluded=[])=>{
-  const blocked=new Set(excluded.filter(Boolean));
-  const ids=Object.keys(CHAMPIONS).filter(x=>!blocked.has(x));
-  return ids[Math.floor(Math.random()*ids.length)]||Object.keys(CHAMPIONS)[0];
-};
-const randomOpponent=id=>randomChampionExcluding([id]);
-
-function makeUnit(championId,side,id,controller='ai',customLoadout=null){
+function makeUnit(championId,side,id,controller='ai',customLoadout=null,aiDifficulty='normal'){
   const c=champ(championId);
   return{
-    id,kind:'unit',type:'unit',championId,side,controller,name:c.name,icon:c.icon,
+    id,kind:'unit',type:'unit',championId,side,controller,aiDifficulty:aiDifficulty==='expert'?'expert':'normal',name:c.name,icon:c.icon,
     x:-1,y:-1,hp:c.hp,maxHp:c.hp,pa:c.pa,maxPa:c.pa,pm:c.pm,maxPm:c.pm,ini:c.ini,
     alive:true,facing:side==='player'?'derecha':'izquierda',
     status:{wound:0,poison:0,burn:0,paPenaltyNext:0,pmPenaltyNext:0,curseDamage:0,markedBy:null,linkedBy:null},shieldStacks:[],
     monolith:false,monolithStoredPm:0,exitedMonolithThisTurn:false,monolithPillarGainUsed:false,
     stoneArmorTargetsUsed:[],skillUsesThisTurn:{},symbiosisUsed:false,markedTargetId:null,linkedTargetId:null,
+    ownActions:{pillarCreated:false,markUsed:false,markBlocked:false,germinated:0,witherUsed:false,disarmUsed:false,reabsorbUsed:false,rockRecycleUsed:false},
+    arfeliChain:[],fixationTargetId:null,painTransferDollId:null,painTransferLinkId:null,danceDollId:null,danceLinkId:null,
     loadout:customLoadout?[...customLoadout]:[...BOT_LOADOUTS[championId]]
   };
 }
@@ -411,7 +240,10 @@ function applyWoundStep(u){
 }
 function triggerPoisonOnAbility(u){
   if(!u?.alive||!u.status?.poison)return 0;
-  const n=u.status.poison;applyDamage(u,n,false);log(`☠️ Veneno ${n}: ${u.name} recibe ${n} daño por utilizar una habilidad.`);return n;
+  const n=u.status.poison,actual=applyDamage(u,n,false);
+  log(`☠️ Veneno ${n}: ${u.name} recibe ${actual} daño real al utilizar una habilidad.`);
+  if(actual>0)symbiosisFromPoisonDamage(u,actual);
+  return actual;
 }
 function shieldTotal(e){return (e?.shieldStacks||[]).reduce((n,s)=>n+s.amount,0)}
 function addShield(e,amount,label='Escudo'){if(!e||!e.alive)return;e.shieldStacks.push({amount,turns:2,label});feedback(e,`+${amount} 🛡️`,'shield')}
@@ -732,7 +564,7 @@ function startBattle(){
     units.push(makeUnit(enemyId,'enemy','enemy1','ai',null,setup.aiDifficulty));
   }
   B={
-    mode:setup.mode,round:1,turn:0,timer:30,selectedAction:null,selectedUnitId:'player',pendingImpulseTargetId:null,
+    mode:setup.mode,round:1,turn:0,timer:30,selectedAction:null,selectedUnitId:'player',pendingImpulseTargetId:null,pendingPreview:null,pendingStage:null,pendingChoice:null,
     skillsOpen:false,logOpen:false,busy:false,pendingTimeout:false,notice:'',
     hudCollapsed:{player:true,enemy:true},hudBottomCollapsed:false,
     deployment:true,deployPos:null,camera:{x:0,y:0,rotation:0},pillars:[],traps:[],dollPhase:null,nextPillarId:1,nextObjectId:1,nextTrapId:1,nextQuakeId:1,fxSeq:0,noticeSeq:0,log:[],
@@ -822,10 +654,12 @@ function beginTurn(){
   u.stoneArmorTargetsUsed=[];
   u.skillUsesThisTurn={};
   u.symbiosisUsed=false;
+  u.ownActions={pillarCreated:false,markUsed:false,markBlocked:false,germinated:0,witherUsed:false,disarmUsed:false,reabsorbUsed:false,rockRecycleUsed:false};
+  u.arfeliChain=[];
   const pmPenalty=Math.max(0,u.status.pmPenaltyNext||0);
   u.status.pmPenaltyNext=0;
   if(u.monolith){u.monolithStoredPm=u.maxPm;u.pm=0}else u.pm=Math.max(0,u.maxPm-pmPenalty);
-  B.timer=30;B.selectedAction=null;B.skillsOpen=false;B.selectedUnitId=u.id;B.notice='';B.noticeSeq++;
+  B.timer=30;B.selectedAction=null;B.pendingPreview=null;B.pendingStage=null;B.pendingChoice=null;B.skillsOpen=false;B.selectedUnitId=u.id;B.notice='';B.noticeSeq++;
   if(paPenalty){log(`🔨 Interferencia: ${u.name} comienza el turno con -${paPenalty} PA.`);feedback(u,`-${paPenalty} PA`,'status');}
   if(pmPenalty){log(`🌿 Control: ${u.name} comienza el turno con -${pmPenalty} PM.`);feedback(u,`-${pmPenalty} PM`,'status');}
   if(u.status.burn>0){const n=u.status.burn;applyDamage(u,n,false);log(`🔥 Quemadura ${n}: ${u.name} recibe ${n} daño al inicio del turno.`);if(checkBattleEnd())return}
@@ -851,11 +685,18 @@ function endTurnEffects(u){
   if(oldPoison!==u.status.poison)log(`☠️ ${u.name}: Veneno baja a ${u.status.poison}.`);
   if(oldBurn!==u.status.burn)log(`🔥 ${u.name}: Quemadura baja a ${u.status.burn}.`);
   ageShieldStacks(u);ownedPillars(u).forEach(ageShieldStacks);
+  u.fixationTargetId=null;
+  if(u.championId==='houngan'){
+    const d=getEntity(u.painTransferDollId),l=getEntity(u.painTransferLinkId);
+    if(!d?.alive||!l?.alive||u.linkedTargetId!==u.painTransferLinkId||d.linkedTargetId!==u.painTransferLinkId){
+      u.painTransferDollId=null;u.painTransferLinkId=null;
+    }
+  }
 }
 
 function advanceTurn(){
   if(!B||B.ended)return;
-  B.dollPhase=null;B.selectedAction=null;B.pendingImpulseTargetId=null;B.skillsOpen=false;B.busy=false;B.pendingTimeout=false;
+  B.dollPhase=null;B.selectedAction=null;B.pendingImpulseTargetId=null;B.pendingPreview=null;B.pendingStage=null;B.pendingChoice=null;B.skillsOpen=false;B.busy=false;B.pendingTimeout=false;
   let safety=0;
   do{
     B.turn++;
@@ -868,15 +709,16 @@ function startDollPhase(owner,doll){
   if(!B||B.ended||!owner?.alive||!doll?.alive)return advanceTurn();
   clearInterval(timerId);
   B.dollPhase={ownerId:owner.id,dollId:doll.id,pm:3,maxPm:3};
-  B.selectedAction=null;B.pendingImpulseTargetId=null;B.skillsOpen=false;B.busy=false;B.pendingTimeout=false;B.selectedUnitId=doll.id;
+  B.selectedAction=null;B.pendingImpulseTargetId=null;B.pendingPreview=null;B.pendingStage=null;B.pendingChoice=null;B.skillsOpen=false;B.busy=false;B.pendingTimeout=false;B.selectedUnitId=doll.id;
   log(`🪆 ${doll.name} dispone de 3 PM después del turno de ${owner.name}.`);
   renderBattle();
   if(owner.controller==='ai')setTimeout(aiDollPhase,380);
 }
 function finishDollPhase(){
   if(!B?.dollPhase)return;
-  const doll=getEntity(B.dollPhase.dollId);
+  const owner=getUnit(B.dollPhase.ownerId),doll=getEntity(B.dollPhase.dollId);
   if(doll?.alive)log(`🪆 ${doll.name} finaliza su movimiento.`);
+  if(owner){owner.danceDollId=null;owner.danceLinkId=null}
   advanceTurn();
 }
 function nextTurn(){
@@ -886,7 +728,7 @@ function nextTurn(){
   const old=cur();
   if(old?.alive)endTurnEffects(old);
   if(checkBattleEnd())return;
-  B.selectedAction=null;B.pendingImpulseTargetId=null;B.skillsOpen=false;B.busy=false;B.pendingTimeout=false;
+  B.selectedAction=null;B.pendingImpulseTargetId=null;B.pendingPreview=null;B.pendingStage=null;B.pendingChoice=null;B.skillsOpen=false;B.busy=false;B.pendingTimeout=false;
   if(old?.alive&&old.championId==='houngan'){
     const doll=ownedDoll(old);
     if(doll?.alive)return startDollPhase(old,doll);
@@ -940,22 +782,31 @@ function objectGridPath(obj,goal){
   while(p){out.push(p);p=prev.get(key(p[0],p[1]))}
   return out.reverse();
 }
+async function danceCopyStep(owner,dx,dy){
+  if(!owner?.danceDollId||!owner?.danceLinkId)return;
+  const doll=getEntity(owner.danceDollId),linked=getEntity(owner.danceLinkId);
+  if(!doll?.alive||!linked?.alive||owner.linkedTargetId!==linked.id||doll.linkedTargetId!==linked.id)return;
+  const nx=linked.x+dx,ny=linked.y+dy;
+  if(!inside(nx,ny)||isFixedObstacle(nx,ny)||entityAt(nx,ny)){log(`💃 Danza Vudú: ${linked.name} no puede copiar este paso.`);return}
+  const old={x:linked.x,y:linked.y};linked.x=nx;linked.y=ny;faceStep(linked,old);applyWoundStep(linked);
+  renderBattle();await sleep(90);if(linked.alive&&!checkBattleEnd())await triggerTrapAt(linked);
+}
 async function moveDoll(x,y){
   const phase=B?.dollPhase;if(!phase||B.busy)return false;
   const doll=getEntity(phase.dollId);if(!doll?.alive)return finishDollPhase();
   const reach=objectMovementMap(doll,phase.pm),cost=reach.get(key(x,y));
   if(cost==null)return false;
   const path=objectGridPath(doll,{x,y});if(path.length<2)return false;
-  B.busy=true;
-  let steps=0;
+  const owner=getUnit(phase.ownerId);
+  B.busy=true;let steps=0;
   for(let i=1;i<path.length&&doll.alive;i++){
-    doll.x=path[i][0];doll.y=path[i][1];steps++;phase.pm=Math.max(0,phase.pm-1);
-    renderBattle();await sleep(120);await triggerTrapAt(doll);
+    const ox=doll.x,oy=doll.y;doll.x=path[i][0];doll.y=path[i][1];steps++;phase.pm=Math.max(0,phase.pm-1);
+    renderBattle();await sleep(100);await danceCopyStep(owner,doll.x-ox,doll.y-oy);await triggerTrapAt(doll);
     if(checkBattleEnd()){B.busy=false;return true}
   }
   if(steps)log(`🪆 ${doll.name} se mueve ${steps} casilla${steps!==1?'s':''}.`);
   B.busy=false;renderBattle();
-  if(!doll.alive||phase.pm<=0){await sleep(160);finishDollPhase()}
+  if(!doll.alive||phase.pm<=0){await sleep(140);finishDollPhase()}
   return true;
 }
 
@@ -988,6 +839,7 @@ async function moveUnit(u,x,y){
   if(cost==null||B.busy)return;
   const path=gridPath(u,{x,y});if(path.length<2)return;
   B.busy=true;
+  if(u.championId==='coloso')u.ownActions.pillarCreated=true;
   let steps=0;
   for(let i=1;i<path.length&&u.alive;i++){
     const adj=adjacentEnemies(u);
@@ -1056,25 +908,23 @@ function setLinkedTarget(u,target){
 }
 function clearLinkedTarget(u){setLinkedTarget(u,null)}
 function straightDashValidFrom(mover,x,y,max=2){
-  const d=Math.abs(x-mover.x)+Math.abs(y-mover.y);if(d<1||d>max||!(x===mover.x||y===mover.y)||!free(x,y))return false;
+  const d=Math.abs(x-mover.x)+Math.abs(y-mover.y);
+  if(d<1||d>max||!(x===mover.x||y===mover.y)||!free(x,y))return false;
   const dx=Math.sign(x-mover.x),dy=Math.sign(y-mover.y);let cx=mover.x,cy=mover.y;
-  for(let i=0;i<d;i++){cx+=dx;cy+=dy;if(isFixedObstacle(cx,cy)||entityAt(cx,cy))return false}
+  for(let i=0;i<d-1;i++){cx+=dx;cy+=dy;if(entityAt(cx,cy))return false}
   return true;
 }
 function straightDashValid(u,x,y,max=2){return straightDashValidFrom(u,x,y,max)}
-function impulseTargetValid(u,target){
-  if(!u||!target||target.kind!=='unit'||target.side!==u.side||!target.alive)return false;
-  if(target.id===u.id)return true;
-  const a=ability(u.championId,'impulse');return !!(a&&inRange(u,target,a.range)&&(!requiresLOS(a)||clearLOS(u,target)));
-}
 function impulseDestinationValid(u,x,y){
-  const target=getUnit(B?.pendingImpulseTargetId);return !!(impulseTargetValid(u,target)&&straightDashValidFrom(target,x,y,2));
+  return !!(u?.championId==='piplus'&&straightDashValidFrom(u,x,y,2));
 }
-function tileInRangeLOS(u,pos,a){return inRange(u,pos,effectiveRange(u,a))&&(!requiresLOS(a)||clearLOS(u,pos))}
+function tileInRangeLOS(u,pos,a,ignoreLos=false){
+  return inRange(u,pos,effectiveRange(u,a))&&(ignoreLos||!requiresLOS(a)||clearLOS(u,pos));
+}
 function objectDescription(z){
-  if(z.type==='pillar')return 'Bloquea movimiento y línea de visión.';
-  if(z.type==='sprout')return 'Brote de Onod. 12 PV, puede recibir daño, ocupa casilla y no bloquea línea de visión.';
-  if(z.type==='doll')return z.linkedTargetId?'Muñeco Vudú de 16 PV vinculado. Refleja la mitad del daño recibido y puede moverse 3 PM tras Houngan.':'Muñeco Vudú de 16 PV sin vínculo. Puede moverse 3 PM tras Houngan.';
+  if(z.type==='pillar')return 'Pilar de Coloso. 15 PV reales. Bloquea movimiento y línea de visión.';
+  if(z.type==='sprout')return 'Brote de Onod. 12 PV, ocupa casilla y no bloquea línea de visión.';
+  if(z.type==='doll')return `Muñeco Vudú de ${z.maxHp} PV asociado a ${getEntity(z.linkedTargetId)?.name||'un vínculo anterior'}. Sólo activa efectos si coincide con el Vínculo actual.`;
   return 'Objeto de combate.';
 }
 function bestFreeTile(u,target,range=3,preferNear=true){
@@ -1085,68 +935,152 @@ function bestFreeTile(u,target,range=3,preferNear=true){
   }
   return best;
 }
-function triggerSymbiosis(u,target){
-  if(u.championId!=='onod'||u.symbiosisUsed||!target)return;
-  const s=ownedSprouts(u).find(s=>md(s,target)<=2&&s.hp<s.maxHp);
-  if(!s)return;
-  const got=heal(s,3);if(got){u.symbiosisUsed=true;log(`🌿 Simbiosis: ${s.name} recupera ${got} PV.`)}
+function symbiosisHealFromOnod(onod,target){
+  if(onod?.championId!=='onod'||!target)return;
+  const sprouts=ownedSprouts(onod).filter(s=>adjCardinal(s,target)&&s.hp<s.maxHp);
+  for(const s of sprouts){const got=heal(s,4);if(got)log(`🌿 Simbiosis: ${s.name} recupera ${got} PV.`)}
+}
+function symbiosisFromPoisonDamage(target,actual){
+  if(!target?.alive||actual<=0)return;
+  for(const onod of B.units.filter(z=>z.alive&&z.championId==='onod'&&z.side!==target.side)){
+    for(const s of ownedSprouts(onod).filter(s=>adjCardinal(s,target)&&s.hp<s.maxHp)){
+      const got=heal(s,actual);if(got)log(`🌿 Simbiosis: ${s.name} recupera ${got} PV por daño real de Veneno.`);
+    }
+  }
+}
+function triggerSymbiosis(u,target){symbiosisHealFromOnod(u,target)}
+function arfeliChainBonus(u,id){
+  if(u?.championId!=='arfeli')return 0;
+  u.arfeliChain=u.arfeliChain||[];
+  if(u.arfeliChain.includes(id)){u.arfeliChain=[id];return 0}
+  const bonus=u.arfeliChain.length;u.arfeliChain.push(id);return bonus;
+}
+function correspondingDoll(u){
+  const d=ownedDoll(u),l=getLinkedTarget(u);
+  return d?.alive&&l?.alive&&d.linkedTargetId===l.id?d:null;
+}
+function offensiveAgainstMarked(u,id,target){
+  return ['precise','vector','rupture'].includes(id)&&u?.fixationTargetId&&target?.id===u.fixationTargetId;
+}
+function collapseCells(pillar,dx,dy){
+  const perp={x:-dy,y:dx},out=[];
+  for(const off of [-1,0,1])out.push({x:pillar.x+dx+perp.x*off,y:pillar.y+dy+perp.y*off,band:'near'});
+  for(const off of [-1,1])out.push({x:pillar.x+dx*2+perp.x*off,y:pillar.y+dy*2+perp.y*off,band:'middle'});
+  out.push({x:pillar.x+dx*3,y:pillar.y+dy*3,band:'far'});
+  return out.filter(c=>inside(c.x,c.y));
+}
+function areaCellsForPreview(pre){
+  if(!pre)return[];
+  if(pre.id==='vines'||pre.id==='grenade')return [{x:pre.x,y:pre.y},{x:pre.x+1,y:pre.y},{x:pre.x-1,y:pre.y},{x:pre.x,y:pre.y+1},{x:pre.x,y:pre.y-1}].filter(c=>inside(c.x,c.y));
+  if(pre.id==='spores'){
+    const s=getEntity(pre.sourceId);if(!s)return[];
+    const out=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(dx||dy){const x=s.x+dx,y=s.y+dy;if(inside(x,y))out.push({x,y})}return out;
+  }
+  if(pre.id==='awakening'){
+    const u=cur(),seen=new Map();
+    for(const s of ownedSprouts(u))for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const x=s.x+dx,y=s.y+dy;if(inside(x,y))seen.set(key(x,y),{x,y})}
+    return [...seen.values()];
+  }
+  if(pre.id==='collapse'){
+    const p=getEntity(pre.pillarId);return p?collapseCells(p,pre.dx,pre.dy):[];
+  }
+  return [];
+}
+function previewContains(x,y){return areaCellsForPreview(B?.pendingPreview).some(c=>c.x===x&&c.y===y)}
+function validCollapseDirection(p,x,y){
+  return !!(p&&Math.abs(x-p.x)+Math.abs(y-p.y)===1);
+}
+function markActionUsed(u){
+  if(u?.championId==='coloso')u.ownActions.pillarCreated=true;
 }
 function abilityRangeState(u,id,x,y){
   const a=ability(u.championId,id);if(!a)return null;
-  const pos={x,y};
+  const pos={x,y},target=entityAt(x,y);
   if(id==='shield')return x===u.x&&y===u.y?{inside:true,blocked:false}:null;
-  if(id==='stonearmor'&&x===u.x&&y===u.y)return {inside:true,blocked:false};
-  if(id==='curse')return getLinkedTarget(u)?.x===x&&getLinkedTarget(u)?.y===y?{inside:true,blocked:false}:null;
-  if(id==='impulse'){
-    if(B?.pendingImpulseTargetId)return impulseDestinationValid(u,x,y)?{inside:true,blocked:false}:null;
-    const target=entityAt(x,y);return impulseTargetValid(u,target)?{inside:true,blocked:false}:null;
+  if(id==='impulse'||id==='hunterstep')return straightDashValidFrom(u,x,y,2)?{inside:true,blocked:false}:null;
+  if(id==='awakening'||id==='reabsorb'||id==='paintransfer'||id==='dance')return x===u.x&&y===u.y?{inside:true,blocked:false}:null;
+  if(id==='spores')return target?.type==='sprout'&&target.ownerId===u.id?{inside:true,blocked:false}:null;
+  if(id==='collapse'||id==='magnetism'){
+    const limit=u.monolith?5:3;
+    return target?.type==='pillar'&&target.ownerId===u.id&&inRange(u,target,limit)?{inside:true,blocked:false}:null;
   }
-  if(id==='hunterstep')return straightDashValid(u,x,y,2)?{inside:true,blocked:false}:null;
+  if(id==='stonearmor'&&x===u.x&&y===u.y)return {inside:true,blocked:false};
   if(id==='quake'&&u.championId==='coloso'&&u.monolith){
     const insideQuake=adj8(u,pos)||ownedPillars(u).some(p=>adj8(p,pos));return insideQuake?{inside:true,blocked:false}:null;
   }
   const r=effectiveRange(u,a);if(!inRange(u,pos,r))return null;
-  const blocked=requiresLOS(a)&&!clearLOS(u,pos);return {inside:true,blocked};
+  const ignore=offensiveAgainstMarked(u,id,target);
+  const blocked=requiresLOS(a)&&!ignore&&!clearLOS(u,pos);return {inside:true,blocked};
 }
 
 function canUseAbility(u,id,x,y){
   const a=ability(u.championId,id);if(!a||!u.loadout.includes(id)||u.pa<a.cost||B.busy||!skillUseAllowed(u,id))return false;
   const target=entityAt(x,y),pos={x,y},r=effectiveRange(u,a);
   if(id==='shield')return x===u.x&&y===u.y;
-  if(id==='impulse')return !B?.pendingImpulseTargetId&&impulseTargetValid(u,target);
+  if(id==='impulse')return impulseDestinationValid(u,x,y);
   if(id==='hunterstep')return straightDashValid(u,x,y,2);
-  if(id==='pillar')return ownedPillars(u).length<(u.monolith?3:2)&&free(x,y)&&tileInRangeLOS(u,pos,a);
   if(id==='stonearmor'){
     if(!target||u.stoneArmorTargetsUsed.includes(target.id))return false;
     if(target.id===u.id)return true;
     if(target.kind==='unit'&&target.side===u.side)return tileInRangeLOS(u,target,a);
     return target.type==='pillar'&&target.ownerId===u.id&&tileInRangeLOS(u,target,a);
   }
-  if(id==='absorb')return !!(target?.type==='pillar'&&target.ownerId===u.id&&tileInRangeLOS(u,target,a));
-  if(id==='fusion')return !!(!u.monolith&&!u.exitedMonolithThisTurn&&target?.type==='pillar'&&target.ownerId===u.id&&adj8(u,target));
-  if(id==='germinate')return ownedSprouts(u).length<2&&free(x,y)&&tileInRangeLOS(u,pos,a);
-  if(['trap_spikes','trap_snare','trap_bomb'].includes(id))return activeTraps(u).length<3&&free(x,y)&&tileInRangeLOS(u,pos,a);
-  if(id==='doll')return !ownedDoll(u)&&free(x,y)&&tileInRangeLOS(u,pos,a);
-  if(id==='pulse'||id==='sap')return !!(target?.kind==='unit'&&target.side===u.side&&(target.id===u.id||tileInRangeLOS(u,target,a)));
-  if(id==='awakening')return !!(target?.type==='sprout'&&target.ownerId===u.id&&tileInRangeLOS(u,target,a));
-  if(id==='transfer')return !!(target?.type==='doll'&&target.ownerId===u.id&&u.hp<u.maxHp&&tileInRangeLOS(u,target,a));
-  if(id==='curse'){const linked=getLinkedTarget(u);return !!(linked&&target?.id===linked.id)}
-  if(id==='reflected'||id==='ritual'){const linked=getLinkedTarget(u);return !!(linked&&target?.id===linked.id&&tileInRangeLOS(u,linked,a))}
-  if(id==='rupture'){const marked=getMarkedTarget(u);return !!(marked&&target?.id===marked.id&&tileInRangeLOS(u,marked,a))}
-  if(id==='spores')return tileInRangeLOS(u,pos,a);
+  if(id==='absorb'){
+    return !!(target?.type==='pillar'&&target.ownerId===u.id&&!(target.createdRound===B.round&&target.createdTurn===B.turn)&&tileInRangeLOS(u,target,a));
+  }
+  if(id==='collapse'||id==='magnetism'){
+    const limit=u.monolith?5:3;
+    return !!(target?.type==='pillar'&&target.ownerId===u.id&&inRange(u,target,limit));
+  }
+  if(['trap_spikes','trap_electric'].includes(id))return activeTraps(u).length<3&&free(x,y)&&tileInRangeLOS(u,pos,a);
+  if(id==='sap')return !!(target?.kind==='unit'&&target.side===u.side&&(target.id===u.id||tileInRangeLOS(u,target,a)));
+  if(id==='spores')return !!(target?.type==='sprout'&&target.ownerId===u.id);
+  if(id==='awakening')return x===u.x&&y===u.y&&ownedSprouts(u).length>0;
+  if(id==='reabsorb')return x===u.x&&y===u.y&&ownedSprouts(u).some(s=>!(s.createdRound===B.round&&s.createdTurn===B.turn));
+  if(id==='interference'||id==='fixation'||id==='rupture'){
+    const marked=getMarkedTarget(u);
+    return !!(marked&&target?.id===marked.id&&inRange(u,marked,a.range)&&(!requiresLOS(a)||id==='fixation'||u.fixationTargetId===marked.id||clearLOS(u,marked)));
+  }
+  if(id==='needle'){
+    return !!(target?.kind==='unit'&&target.alive&&inRange(u,target,a.range)&&clearLOS(u,target));
+  }
+  if(id==='transfer'){
+    const d=correspondingDoll(u);return !!(d&&target?.id===d.id&&u.hp<u.maxHp&&tileInRangeLOS(u,d,a));
+  }
+  if(id==='ritual'){
+    const linked=getLinkedTarget(u);return !!(linked&&linked.side!==u.side&&target?.id===linked.id&&tileInRangeLOS(u,linked,a));
+  }
+  if(id==='curse'){
+    return !!(target?.kind==='unit'&&target.side!==u.side&&tileInRangeLOS(u,target,a));
+  }
+  if(id==='paintransfer'||id==='dance'){
+    return x===u.x&&y===u.y&&!!correspondingDoll(u);
+  }
+  if(id==='vines'||id==='grenade'){
+    return tileInRangeLOS(u,pos,a);
+  }
+  if(id==='shot'){
+    return !!(damageableEnemy(u,target)&&(target.x===u.x||target.y===u.y)&&inRange(u,target,5)&&clearLOS(u,target));
+  }
+  if(id==='hook'){
+    return !!(damageableEnemy(u,target)&&inRange(u,target,3)&&clearLOS(u,target));
+  }
   const foe=target;if(!damageableEnemy(u,foe))return false;
+  if(id==='hammer'){
+    if(!inRange(u,foe,3))return false;
+    return [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].some(([dx,dy])=>free(foe.x+dx,foe.y+dy));
+  }
   if(id==='quake'&&u.championId==='coloso'&&u.monolith)return quakeCanReach(u,foe);
   if(!inRange(u,foe,r))return false;
-  if(requiresLOS(a)&&!clearLOS(u,foe))return false;
+  if(requiresLOS(a)&&!offensiveAgainstMarked(u,id,foe)&&!clearLOS(u,foe))return false;
   return true;
 }
 
-function berserkerBonus(u){
-  return u.championId==='arfeli'&&u.hp<u.maxHp*.5?2:0;
-}
-function skillDamage(u,a){return (a.damage||0)+berserkerBonus(u)}
 
-function applyDamage(e,n,ignoreShield=false){
+function berserkerBonus(u){return 0}
+function skillDamage(u,a){return (a.damage||0)}
+
+function applyDamageCore(e,n,ignoreShield=false,opts={}){
   if(!e||!e.alive||n<=0)return 0;
   let remaining=n,absorbed=0;
   if(!ignoreShield){
@@ -1159,11 +1093,31 @@ function applyDamage(e,n,ignoreShield=false){
   else if(absorbed)feedback(e,`🛡️-${absorbed}`,'shield-hit');
   else if(actualHp)feedback(e,`-${actualHp}`,'damage');
   if(e.hp<=0){e.hp=0;e.alive=false;if(isCombatObject(e))log(`${e.icon||'◼️'} ${e.name} fue destruido.`);else log(`📣 ${e.name} queda fuera de combate.`)}
-  if(e.type==='doll'&&actualHp>0&&e.linkedTargetId){
-    const linked=getEntity(e.linkedTargetId),echo=Math.floor(actualHp/2);
-    if(linked?.alive&&linked.kind==='unit'&&echo>0){applyDamage(linked,echo,false);log(`🪆 Vínculo del Muñeco: ${linked.name} recibe ${echo} daño normal.`)}
+  if(e.type==='doll'&&actualHp>0&&!opts.skipDollEffect){
+    const owner=getUnit(e.ownerId),linked=getEntity(e.linkedTargetId);
+    const active=owner?.alive&&linked?.alive&&owner.linkedTargetId===e.linkedTargetId;
+    if(active){
+      const effect=Math.ceil(actualHp/2);
+      if(linked.side!==owner.side){applyDamage(linked,effect,false,{skipPainTransfer:false});log(`🪆 Muñeco: ${linked.name} recibe ${effect} daño indirecto.`)}
+      else{const got=heal(linked,effect);if(got)log(`🪆 Muñeco: ${linked.name} recupera ${got} PV.`)}
+    }
   }
-  return absorbed;
+  return actualHp;
+}
+function applyDamage(e,n,ignoreShield=false,opts={}){
+  if(!e||!e.alive||n<=0)return 0;
+  if(e.kind==='unit'&&e.championId==='houngan'&&!opts.skipPainTransfer){
+    const d=getEntity(e.painTransferDollId);
+    const valid=d?.alive&&d.type==='doll'&&e.painTransferLinkId&&e.linkedTargetId===e.painTransferLinkId&&d.id===e.painTransferDollId&&d.linkedTargetId===e.painTransferLinkId;
+    if(valid){
+      const houganPart=Math.ceil(n/2),dollPart=Math.floor(n/2);
+      const realHougan=applyDamageCore(e,houganPart,ignoreShield,{...opts,skipPainTransfer:true});
+      if(dollPart>0)applyDamageCore(d,dollPart,ignoreShield,{...opts,skipPainTransfer:true});
+      log(`🩸 Transferencia de Dolor: ${houganPart} a Houngan / ${dollPart} al Muñeco.`);
+      return realHougan;
+    }
+  }
+  return applyDamageCore(e,n,ignoreShield,opts);
 }
 function heal(u,n){
   const before=u.hp;u.hp=Math.min(u.maxHp,u.hp+n);
@@ -1178,12 +1132,8 @@ function trapAt(x,y){return B?.traps.find(t=>t.active&&t.x===x&&t.y===y)||null}
 async function triggerTrapAt(target){
   const trap=B?.traps.find(t=>t.active&&t.side!==target.side&&t.x===target.x&&t.y===target.y);if(!trap)return;
   trap.active=false;
-  if(trap.trapType==='spikes'){applyDamage(target,10,false);log(`🪤 Trampa de Pinchos: ${target.name} recibe 10 daño.`)}
-  if(trap.trapType==='snare'){applyDamage(target,6,false);if(target.kind==='unit')target.status.pmPenaltyNext=Math.max(target.status.pmPenaltyNext||0,2);log(`🧷 Cepo: ${target.name} recibe 6 daño y -2 PM en su próximo turno.`)}
-  if(trap.trapType==='bomb'){
-    applyDamage(target,8,false);log(`💣 Carga Explosiva: ${target.name} recibe 8 daño.`);
-    for(const z of allEntities().filter(z=>z.alive&&z.id!==target.id&&adjCardinal(z,trap))){applyDamage(z,4,false);log(`💥 Explosión: ${z.name} recibe 4 daño.`)}
-  }
+  if(trap.trapType==='spikes'){applyDamage(target,10,false);if(target.kind==='unit'&&target.alive)addStatus(target,'wound',1);log(`🪤 Trampa de Pinchos: ${target.name} recibe 10 daño + Herida 1.`)}
+  if(trap.trapType==='electric'){applyDamage(target,8,false);if(target.kind==='unit'&&target.alive)target.status.paPenaltyNext=Math.max(target.status.paPenaltyNext||0,1);log(`⚡ Mina Eléctrica: ${target.name} recibe 8 daño y -1 PA en su próximo turno.`)}
   renderBattle();await sleep(180);
 }
 async function dashUnit(u,x,y){
@@ -1222,95 +1172,135 @@ function spendPAAfterAction(u){
   if(u.alive&&u.status.curseDamage>0){const n=u.status.curseDamage;u.status.curseDamage=0;applyDamage(u,n,false);log(`☠️ Maldición: ${u.name} recibe ${n} daño por gastar PA.`)}
 }
 
-async function executeAbility(u,id,x,y,fromAI=false){
+async function executeAbility(u,id,x,y,fromAI=false,extra={}){
   if(!canUseAbility(u,id,x,y))return false;
   const a=ability(u.championId,id),target=entityAt(x,y);
-  B.busy=true;B.noticeSeq++;B.notice=`${u.icon} ${u.name} — ${a.icon} ${a.name}`;
-  if(target)faceTarget(u,target);registerSkillUse(u,id);u.pa-=a.cost;triggerPoisonOnAbility(u);renderBattle();await sleep(150);
+  B.busy=true;B.noticeSeq++;B.notice=`${u.icon} ${u.name} — ${a.icon} ${a.name}`;markActionUsed(u);
+  if(target)faceTarget(u,target);registerSkillUse(u,id);u.pa-=a.cost;triggerPoisonOnAbility(u);
   if(!u.alive){B.notice='';B.selectedAction=null;B.busy=false;renderBattle();checkBattleEnd();return true}
-  const objectTarget=isCombatObject(target);
+  const objectTarget=isCombatObject(target),arfeliBonus=u.championId==='arfeli'?arfeliChainBonus(u,id):0;
+  renderBattle();await sleep(120);
 
-  if(['sword','daggers','bow','spear','hammer','rock','quake'].includes(id)){
-    let origin=u,projected=false;if(id==='quake'&&u.championId==='coloso'&&u.monolith){origin=quakeOriginForTarget(u,target)||u;projected=origin.type==='pillar'}
-    const dmg=projected?8:skillDamage(u,a);applyDamage(target,dmg,false);
-    log(projected?`🌋 ${origin.name} proyecta Golpe Sísmico: ${dmg} daño a ${target.name}.`:`${a.icon} ${a.name}: ${dmg} daño a ${target.name}.`);
-    if(!objectTarget&&id==='daggers'&&target.alive){addStatus(target,'wound',1);log(`🩸 ${target.name} obtiene Herida ${target.status.wound}.`)}
-    if(!objectTarget&&id==='hammer'&&target.alive){target.status.paPenaltyNext=Math.max(target.status.paPenaltyNext||0,1);feedback(target,'PA -1 próximo','status');log(`🔨 ${target.name} sufrirá -1 PA al comenzar su próximo turno.`)}
-    renderBattle();await sleep(180);
-    if(!objectTarget&&target.alive&&id==='spear')await forcedMove(target,u,1,false,'Atracción');
-    if(!objectTarget&&target.alive&&id==='quake'){
-      const qid=`quake-${B.nextQuakeId++}`;if(projected)origin.lastReplicaQuakeId=qid;await forcedMove(target,origin,1,true,projected?'Resonancia':'Empuje');if(u.monolith&&target.alive)await triggerReplicas(u,target,qid)
-    }
+  if(['sword','daggers','bow','spear'].includes(id)){
+    const dmg=(a.damage||0)+arfeliBonus;applyDamage(target,dmg,false);log(`${a.icon} ${a.name}: ${dmg} daño a ${target.name}.`);
+    if(id==='daggers'&&target.kind==='unit'&&target.alive){addStatus(target,'wound',2);log(`🩸 ${target.name} obtiene Herida ${target.status.wound}.`)}
+    if(id==='spear'&&target.kind==='unit'&&target.alive)await forcedMove(target,u,1,false,'Atracción');
   }else if(id==='shield'){
-    addShield(u,15,'Portación de Escudo');log(`🛡️ ${u.name} obtiene 15 de Escudo.`);
-  }else if(id==='pillar'){
-    const number=B.nextPillarId++;const p={id:`pillar${number}`,number,type:'pillar',kind:'object',ownerId:u.id,side:u.side,name:`Pilar ${number}`,icon:'🗿',x,y,hp:20,maxHp:20,alive:true,shieldStacks:[],blocksLOS:true,lastReplicaQuakeId:null};B.pillars.push(p);log(`🗿 ${u.name} crea ${p.name}.`);
+    const amount=15+arfeliBonus;addShield(u,amount,'Portación de Escudo');log(`🛡️ ${u.name} obtiene ${amount} de Escudo.`);
+  }else if(id==='hammer'){
+    const spots=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
+      .map(([dx,dy])=>({x:target.x+dx,y:target.y+dy}))
+      .filter(p=>free(p.x,p.y)).sort((p,q)=>md(u,p)-md(u,q));
+    if(spots.length){u.x=spots[0].x;u.y=spots[0].y;faceTarget(u,target)}
+    const dmg=13+arfeliBonus;applyDamage(target,dmg,false);log(`🔨 Golpe de Martillo: ${dmg} daño a ${target.name}.`);
+    if(target.kind==='unit'&&target.alive){target.status.pmPenaltyNext=Math.max(target.status.pmPenaltyNext||0,1);log(`🔨 ${target.name} tendrá -1 PM en su próximo turno.`)}
+
+  }else if(id==='rock'){
+    applyDamage(target,8,false);log(`💥 Lanzar Roca: 8 daño a ${target.name}.`);
   }else if(id==='stonearmor'){
-    u.stoneArmorTargetsUsed.push(target.id);addShield(target,15,'Armadura de Piedra');log(`🛡️ ${target.name} obtiene 15 de Escudo con Armadura de Piedra.`);
+    u.stoneArmorTargetsUsed.push(target.id);addShield(target,10,'Armadura de Piedra');log(`🛡️ ${target.name} obtiene 10 de Escudo.`);
   }else if(id==='absorb'){
-    const name=target.name;destroyPillar(target);const got=heal(u,20);log(`🧲 ${u.name} absorbe ${name} y recupera ${got} PV.`);
-  }else if(id==='fusion'){
-    destroyPillar(target);u.monolithStoredPm=u.pm;u.monolith=true;u.pm=0;addShield(u,20,'Monolito');log(`🗿 ${u.name} entra en Monolito y obtiene 20 de Escudo.`);
-
-  }else if(id==='marker'){
-    applyDamage(target,8,false);log(`🎯 Disparo Marcador: 8 daño a ${target.name}.`);if(!objectTarget&&target.alive){setMarkedTarget(u,target);log(`🎯 ${target.name} queda Marcado.`)}
+    const amount=Math.min(15,target.hp),name=target.name;destroyPillar(target);const got=heal(u,amount);log(`🧲 Absorción Rocosa: ${name} aporta ${amount} PV reales; ${u.name} recupera ${got}.`);
+  }else if(id==='quake'){
+    let origin=u,projected=false;
+    if(u.monolith){origin=quakeOriginForTarget(u,target)||u;projected=origin.type==='pillar'}
+    const dmg=projected?8:10;applyDamage(target,dmg,false);log(`🌋 Golpe Sísmico: ${dmg} daño a ${target.name}.`);
+    if(target.alive){
+      const qid=`quake-${B.nextQuakeId++}`;if(projected)origin.lastReplicaQuakeId=qid;
+      await forcedMove(target,origin,1,true,'Empuje');
+      if(u.monolith&&target.alive)await triggerReplicas(u,target,qid);
+    }
+  }else if(id==='collapse'){
+    const p=getEntity(extra.pillarId),cells=collapseCells(p,extra.dx,extra.dy),hp=p?.hp||0;
+    if(p){
+      destroyPillar(p);
+      for(const c of cells){
+        const z=entityAt(c.x,c.y);if(!z?.alive||z.side===u.side)continue;
+        const dmg=c.band==='near'?Math.max(3,hp-6):c.band==='middle'?Math.max(3,hp-3):Math.max(3,hp);
+        applyDamage(z,dmg,false);log(`🪨 Derrumbe (${c.band}): ${z.name} recibe ${dmg} daño.`);
+      }
+    }
+  }else if(id==='magnetism'){
+    const p=getEntity(extra.pillarId),pullTarget=extra.forcedTarget||getEntity(extra.targetId);
+    if(p&&pullTarget?.kind==='unit')await forcedMove(pullTarget,p,2,false,'Magnetismo');
   }else if(id==='precise'){
-    const bonus=!objectTarget&&getMarkedTarget(u)?.id===target.id?2:0;applyDamage(target,12+bonus,false);log(`🏹 Disparo Preciso: ${12+bonus} daño a ${target.name}${bonus?' por Marca':''}.`);
+    const marked=getMarkedTarget(u)?.id===target.id,dmg=marked?10:8;applyDamage(target,dmg,false);log(`🏹 Disparo Preciso: ${dmg} daño a ${target.name}.`);
   }else if(id==='vector'){
-    const marked=!objectTarget&&getMarkedTarget(u)?.id===target.id,dist=marked?2:1;applyDamage(target,8,false);log(`🧲 Tirón Vectorial: 8 daño a ${target.name}.`);if(!objectTarget&&target.alive)await forcedMove(target,u,dist,false,'Atracción');
-  }else if(id==='hunterstep'){
-    await dashUnit(u,x,y);log(`${a.icon} ${u.name} se desplaza sin gastar PM.`);
-  }else if(id==='pulse'){
-    const got=heal(target,12);log(`💚 Pulso Reparador: ${target.name} recupera ${got} PV.`);
+    const marked=getMarkedTarget(u)?.id===target.id,dist=marked?2:1;applyDamage(target,6,false);log(`💥 Impacto Vectorial: 6 daño a ${target.name}.`);
+    if(target.kind==='unit'&&target.alive)await forcedMove(target,u,dist,true,'Impacto Vectorial');
+  }else if(id==='interference'){
+    target.status.pmPenaltyNext=Math.max(target.status.pmPenaltyNext||0,1);log(`📡 ${target.name} tendrá -1 PM en su próximo turno.`);
   }else if(id==='rupture'){
-    applyDamage(target,14,false);log(`💥 Ruptura de Marca: 14 daño a ${target.name}.`);if(!objectTarget&&target.alive)await forcedMove(target,u,1,true,'Empuje');clearMarkedTarget(u);
-
-  }else if(id==='germinate'){
-    const n=B.nextObjectId++;const s={id:`sprout${n}`,number:n,type:'sprout',kind:'object',ownerId:u.id,side:u.side,name:`Brote ${ownedSprouts(u).length+1}`,icon:'🌱',x,y,hp:12,maxHp:12,alive:true,shieldStacks:[],blocksLOS:false};B.pillars.push(s);log(`🌱 ${u.name} hace germinar ${s.name}.`);
+    applyDamage(target,14,false);clearMarkedTarget(u);u.ownActions.markBlocked=true;u.fixationTargetId=null;log(`💥 Ruptura de Marca: 14 daño. La Marca se consume.`);
+  }else if(id==='fixation'){
+    u.fixationTargetId=target.id;log(`🎯 Fijación: la próxima habilidad ofensiva contra ${target.name} este turno ignora línea de visión.`);
+  }else if(id==='hunterstep'){
+    await dashUnit(u,x,y);log(`🏃 Paso del Cazador: ${u.name} se desplaza sin gastar PM.`);
   }else if(id==='thorn'){
-    applyDamage(target,7,false);log(`☠️ Espina Venenosa: 7 daño a ${target.name}.`);if(!objectTarget&&target.alive){addStatus(target,'poison',1);log(`☠️ ${target.name} obtiene Veneno ${target.status.poison}.`);triggerSymbiosis(u,target)}
+    applyDamage(target,6,false);if(target.kind==='unit'&&target.alive)addStatus(target,'poison',1);log(`☠️ Espina Venenosa: 6 daño + Veneno 1 a ${target.name}.`);
   }else if(id==='vines'){
-    applyDamage(target,6,false);log(`🌿 Enredaderas: 6 daño a ${target.name}.`);if(!objectTarget&&target.alive){target.status.pmPenaltyNext=Math.max(target.status.pmPenaltyNext||0,2);log(`🌿 ${target.name} tendrá -2 PM en su próximo turno.`)}
+    const cells=[{x,y},{x:x+1,y},{x:x-1,y},{x,y:y+1},{x,y:y-1}];
+    for(const c of cells){
+      const z=entityAt(c.x,c.y);if(!z?.alive||z.side===u.side||z.kind!=='unit')continue;
+      const dmg=(c.x===x&&c.y===y)?6:4;applyDamage(z,dmg,false);if(z.alive)z.status.pmPenaltyNext=Math.max(z.status.pmPenaltyNext||0,1);
+      log(`🌿 Enredaderas: ${z.name} recibe ${dmg} daño y -1 PM próximo turno.`);
+    }
   }else if(id==='sap'){
-    const near=ownedSprouts(u).some(s=>adj8(s,target)),got=heal(target,near?14:10);log(`💚 Savia Vital: ${target.name} recupera ${got} PV${near?' junto a un Brote':''}.`);triggerSymbiosis(u,target);
+    const near=ownedSprouts(u).some(s=>adjCardinal(s,target)),amount=near?12:8,got=heal(target,amount);
+    log(`💚 Savia Vital: ${target.name} recupera ${got} PV${near?' junto a Brote':''}.`);symbiosisHealFromOnod(u,target);
   }else if(id==='spores'){
-    const center={x,y},cells=[center,{x:x+1,y},{x:x-1,y},{x,y:y+1},{x,y:y-1}];let poisonedTarget=null;
-    for(const z of allEntities().filter(z=>z.alive&&z.side!==u.side&&cells.some(c=>c.x===z.x&&c.y===z.y))){applyDamage(z,6,false);if(z.kind==='unit'&&z.alive){addStatus(z,'poison',1);poisonedTarget=poisonedTarget||z;log(`🌬️ Esporas: ${z.name} recibe 6 daño y Veneno ${z.status.poison}.`)}else log(`🌬️ Esporas: ${z.name} recibe 6 daño.`)}
-    if(poisonedTarget)triggerSymbiosis(u,poisonedTarget);
+    const s=target;
+    for(const z of B.units.filter(z=>z.alive&&z.side!==u.side&&Math.max(Math.abs(z.x-s.x),Math.abs(z.y-s.y))===1)){
+      applyDamage(z,8,false);if(z.alive)addStatus(z,'poison',1);log(`🌬️ Esporas Tóxicas: ${z.name} recibe 8 daño + Veneno 1.`);
+    }
   }else if(id==='awakening'){
-    const source={x:target.x,y:target.y,name:target.name};destroyPillar(target);log(`🌳 ${u.name} consume ${source.name} y despierta el bosque.`);
-    for(const z of B.units.filter(z=>z.alive&&z.side!==u.side&&adj8(z,source))){applyDamage(z,10,false);log(`🌳 ${z.name} recibe 10 daño.`);if(z.alive)await forcedMove(z,source,1,true,'Raíces')}
-
-  }else if(['trap_spikes','trap_snare','trap_bomb'].includes(id)){
-    const trapType=id==='trap_spikes'?'spikes':id==='trap_snare'?'snare':'bomb',icon=id==='trap_spikes'?'🪤':id==='trap_snare'?'🧷':'💣';
-    B.traps.push({id:`trap${B.nextTrapId++}`,trapType,icon,x,y,ownerId:u.id,side:u.side,active:true});log(`${icon} ${u.name} coloca ${a.name}.`);
+    const enemies=B.units.filter(z=>z.alive&&z.side!==u.side);
+    for(const z of enemies){
+      const hits=ownedSprouts(u).filter(s=>adjCardinal(s,z)).length;if(!hits)continue;
+      const dmg=8*hits;applyDamage(z,dmg,false);log(`🌳 Despertar del Bosque: ${z.name} recibe ${dmg} daño (${hits} Brote${hits>1?'s':''}).`);
+    }
+  }else if(id==='reabsorb'){
+    const old=ownedSprouts(u).filter(s=>!(s.createdRound===B.round&&s.createdTurn===B.turn)),count=old.length;
+    old.forEach(destroyPillar);u.pa+=count;u.ownActions.reabsorbUsed=true;log(`♻️ Reabsorción: absorbe ${count} Brote${count!==1?'s':''} y recupera ${count} PA.`);
+  }else if(['trap_spikes','trap_electric'].includes(id)){
+    const trapType=id==='trap_spikes'?'spikes':'electric',icon=id==='trap_spikes'?'🪤':'⚡';
+    B.traps.push({id:`trap${B.nextTrapId++}`,trapType,icon,x,y,ownerId:u.id,side:u.side,active:true});log(`🪤 ${u.name} preparó una trampa.`);
+  }else if(id==='grenade'){
+    const center={x,y},targets=[{x,y,center:true},{x:x+1,y},{x:x-1,y},{x,y:y+1},{x,y:y-1}];
+    for(const c of targets){
+      const z=entityAt(c.x,c.y);if(!z?.alive||z.side===u.side)continue;
+      if(c.center){applyDamage(z,10,false);log(`💣 Granada: ${z.name} recibe 10 daño en el centro.`)}
+      else{applyDamage(z,6,false);log(`💣 Granada: ${z.name} recibe 6 daño.`);if(z.kind==='unit'&&z.alive)await forcedMove(z,center,1,true,'Granada')}
+    }
   }else if(id==='shot'){
-    applyDamage(target,11,false);log(`🏹 Disparo de Caza: 11 daño a ${target.name}.`);
+    applyDamage(target,10,false);log(`🏹 Disparo de Caza: 10 daño a ${target.name}.`);
   }else if(id==='hook'){
-    applyDamage(target,7,false);log(`🪝 Gancho: 7 daño a ${target.name}.`);if(!objectTarget&&target.alive)await forcedMove(target,u,1,false,'Gancho');
-
+    applyDamage(target,6,false);log(`🪝 Gancho: 6 daño a ${target.name}.`);
+    if(target.kind==='unit'&&target.alive)await forcedMove(target,u,extra.pull||1,false,'Gancho');
   }else if(id==='needle'){
-    applyDamage(target,7,false);log(`🪡 Aguja Vudú: 7 daño a ${target.name}.`);if(!objectTarget&&target.alive){setLinkedTarget(u,target);log(`🪡 ${target.name} queda Vinculado a ${u.name}.`)}
-  }else if(id==='reflected'){
-    applyDamage(target,10,false);log(`🩸 Dolor Reflejado: ${target.name} recibe 10 daño.`);
-    const extra=B.units.find(z=>z.alive&&z.side===target.side&&z.id!==target.id&&adj8(z,target));if(extra){applyDamage(extra,4,false);log(`🩸 ${extra.name} recibe 4 daño reflejado.`)}
-  }else if(id==='doll'){
-    const n=B.nextObjectId++,linked=getLinkedTarget(u);const d={id:`doll${n}`,type:'doll',kind:'object',ownerId:u.id,side:u.side,name:'Muñeco Vudú',icon:'🪆',x,y,hp:16,maxHp:16,alive:true,shieldStacks:[],blocksLOS:false,linkedTargetId:linked?.id||null};B.pillars.push(d);log(`🪆 ${u.name} invoca un Muñeco Vudú${linked?` vinculado a ${linked.name}`:''}.`);
-  }else if(id==='curse'){
-    target.status.curseDamage=6;log(`☠️ ${target.name} queda Maldito: su próxima acción con PA le causará 6 daño.`);
+    if(target.side===u.side){const got=heal(target,6);setLinkedTarget(u,target);log(`🪡 Aguja Vudú: ${target.name} recupera ${got} PV y queda Vinculado.`)}
+    else{applyDamage(target,6,false);if(target.alive)setLinkedTarget(u,target);log(`🪡 Aguja Vudú: 6 daño a ${target.name} + Vínculo.`)}
   }else if(id==='transfer'){
-    const amount=Math.min(8,u.maxHp-u.hp),got=heal(u,amount);applyDamage(target,got,false);log(`🔄 Transferencia: ${u.name} recupera ${got} PV y el Muñeco recibe ${got} daño.`);
+    const d=target,need=Math.min(8,u.maxHp-u.hp),got=heal(u,need);if(got>0)applyDamage(d,got,false);log(`🔄 Transferencia: ${u.name} recupera ${got} PV y el Muñeco pierde exactamente ${got} PV.`);
   }else if(id==='ritual'){
-    const near=ownedDoll(u)&&md(ownedDoll(u),target)<=2,damage=14+(near?4:0);applyDamage(target,damage,false);log(`👁️ Ritual del Dolor: ${target.name} recibe ${damage} daño${near?' con resonancia del Muñeco':''}.`);clearLinkedTarget(u);
+    const d=correspondingDoll(u),damage=d&&adjCardinal(d,target)?20:14;applyDamage(target,damage,false);log(`👁️ Ritual del Dolor: ${target.name} recibe ${damage} daño.`);clearLinkedTarget(u);u.painTransferDollId=null;u.painTransferLinkId=null;
+  }else if(id==='curse'){
+    applyDamage(target,8,false);if(target.alive)addStatus(target,'poison',1);log(`☠️ Maldición: ${target.name} recibe 8 daño + Veneno 1.`);
+  }else if(id==='paintransfer'){
+    const d=correspondingDoll(u),l=getLinkedTarget(u);u.painTransferDollId=d.id;u.painTransferLinkId=l.id;log(`🩸 Transferencia de Dolor queda activa mientras se mantengan ese Vínculo y ese Muñeco.`);
+  }else if(id==='dance'){
+    const d=correspondingDoll(u),l=getLinkedTarget(u);u.danceDollId=d.id;u.danceLinkId=l.id;log(`💃 Danza Vudú preparada: ${l.name} intentará copiar cada paso del Muñeco.`);
   }
 
-  spendPAAfterAction(u);B.notice='';B.selectedAction=null;B.busy=false;renderBattle();if(checkBattleEnd())return true;if(B.pendingTimeout&&!B.ended){nextTurn();return true}return true;
+  if(u.fixationTargetId&&target?.id===u.fixationTargetId&&['precise','vector','rupture'].includes(id)&&id!=='fixation')u.fixationTargetId=null;
+  spendPAAfterAction(u);B.notice='';B.selectedAction=null;B.pendingPreview=null;B.pendingStage=null;B.pendingChoice=null;B.busy=false;renderBattle();
+  if(checkBattleEnd())return true;if(B.pendingTimeout&&!B.ended){nextTurn();return true}return true;
 }
 
 async function triggerReplicas(u,target,quakeId){
   const used=new Set();
   while(target.alive){
-    const p=ownedPillars(u).find(p=>!used.has(p.id)&&p.lastReplicaQuakeId!==quakeId&&adj8(p,target));
+    const p=ownedPillars(u).find(p=>!used.has(p.id)&&p.lastReplicaQuakeId!==quakeId&&adjCardinal(p,target));
     if(!p)break;
     used.add(p.id);
     p.lastReplicaQuakeId=quakeId;
@@ -1330,38 +1320,64 @@ function leaveMonolith(u,reason=''){
 }
 function exitMonolith(){
   const u=cur();if(!u||u.controller!=='human'||!u.monolith||B.busy)return;
-  leaveMonolith(u);renderBattle();
+  u.ownActions.pillarCreated=true;leaveMonolith(u);renderBattle();
 }
-function selectConsumePillar(){
-  const u=cur();if(!u||!u.monolith||u.monolithPillarGainUsed||!ownedPillars(u).length)return;
-  B.selectedAction=B.selectedAction==='consumePillar'?null:'consumePillar';B.skillsOpen=false;renderBattle();
+function ownActionRange(u,action,x,y){
+  const p={x,y},z=entityAt(x,y);
+  if(action==='createPillar')return u.championId==='coloso'&&!u.ownActions.pillarCreated&&ownedPillars(u).length<(u.monolith?3:2)&&free(x,y)&&inRange(u,p,5)&&clearLOS(u,p);
+  if(action==='fusionPillar')return u.championId==='coloso'&&!u.monolith&&u.pa>=3&&z?.type==='pillar'&&z.ownerId===u.id&&adjCardinal(u,z);
+  if(action==='rockRecycle')return u.championId==='coloso'&&u.monolith&&!u.ownActions.rockRecycleUsed&&z?.type==='pillar'&&z.ownerId===u.id;
+  if(action==='markTarget')return u.championId==='piplus'&&!u.ownActions.markUsed&&!u.ownActions.markBlocked&&z?.kind==='unit'&&z.side!==u.side&&inRange(u,z,4)&&clearLOS(u,z);
+  if(action==='germinateOwn')return u.championId==='onod'&&!u.ownActions.reabsorbUsed&&u.pa>=1&&u.ownActions.germinated<2&&ownedSprouts(u).length<3&&free(x,y)&&inRange(u,p,3)&&clearLOS(u,p);
+  if(action==='witherSprout')return u.championId==='onod'&&!u.ownActions.witherUsed&&z?.type==='sprout'&&z.ownerId===u.id;
+  if(action==='disarmTrap')return u.championId==='korgan'&&!u.ownActions.disarmUsed&&B.traps.some(q=>q.active&&q.ownerId===u.id&&q.x===x&&q.y===y);
+  if(action==='createDoll')return u.championId==='houngan'&&u.pa>=2&&!!getLinkedTarget(u)&&free(x,y)&&inRange(u,p,3)&&clearLOS(u,p);
+  return false;
 }
-function validConsumePillar(x,y){
-  const u=cur(),p=pillarAt(x,y);return !!(u?.monolith&&!u.monolithPillarGainUsed&&p?.ownerId===u.id);
+function selectOwnAction(action){
+  const u=cur();if(!u||u.controller!=='human'||B.busy)return;
+  B.selectedAction=B.selectedAction===action?null:action;B.pendingPreview=null;B.pendingStage=null;B.pendingChoice=null;B.skillsOpen=false;B.pendingImpulseTargetId=null;renderBattle();
 }
-function consumePillarForPA(x,y){
-  if(!validConsumePillar(x,y))return;
-  const u=cur(),p=pillarAt(x,y),pillarName=p.name;destroyPillar(p);u.pa+=1;u.monolithPillarGainUsed=true;B.selectedAction=null;
-  feedback(u,'+1 PA','pa');log(`⚡ ${u.name} consume ${pillarName} y obtiene +1 PA.`);renderBattle();
-}
-function selectRemoveSprout(){
-  const u=cur();if(!u||u.controller!=='human'||u.championId!=='onod'||!ownedSprouts(u).length||B.busy)return;
-  B.selectedAction=B.selectedAction==='removeSprout'?null:'removeSprout';B.skillsOpen=false;renderBattle();
-}
-function validRemoveSprout(x,y){
-  const u=cur(),s=entityAt(x,y);return !!(u?.championId==='onod'&&s?.type==='sprout'&&s.ownerId===u.id&&s.alive);
-}
-function removeSproutFree(x,y){
-  if(!validRemoveSprout(x,y))return;
-  const s=entityAt(x,y),name=s.name;destroyPillar(s);B.selectedAction=null;
-  log(`🌱 ${cur().name} retira ${name} sin gastar PA.`);renderBattle();
+function executeOwnAction(action,x,y){
+  const u=cur();if(!ownActionRange(u,action,x,y))return false;
+  const z=entityAt(x,y);
+  if(action!=='createPillar'&&u.championId==='coloso')u.ownActions.pillarCreated=true;
+  if(action==='createPillar'){
+    const number=B.nextPillarId++;
+    B.pillars.push({id:`pillar${number}`,number,type:'pillar',kind:'object',ownerId:u.id,side:u.side,name:`Pilar ${number}`,icon:'🗿',x,y,hp:15,maxHp:15,alive:true,shieldStacks:[],blocksLOS:true,lastReplicaQuakeId:null,createdRound:B.round,createdTurn:B.turn});
+    u.ownActions.pillarCreated=true;log(`🗿 ${u.name} crea Pilar ${number} con 15 PV.`);
+  }else if(action==='fusionPillar'){
+    u.pa-=3;destroyPillar(z);u.monolithStoredPm=u.pm;u.monolith=true;u.pm=0;log(`🗿 ${u.name} consume ${z.name} y entra en Monolito.`);
+  }else if(action==='rockRecycle'){
+    const name=z.name;destroyPillar(z);u.ownActions.rockRecycleUsed=true;
+    const damaged=ownedPillars(u).filter(p=>p.hp<p.maxHp).sort((a,b)=>a.hp-b.hp)[0];
+    if(damaged){damaged.hp=15;log(`♻️ Reciclaje Rocoso: ${name} se sacrifica y ${damaged.name} vuelve a 15 PV.`)}
+    else{addShield(u,6,'Reciclaje Rocoso');log(`♻️ Reciclaje Rocoso: ${name} se sacrifica y ${u.name} obtiene 6 de Escudo.`)}
+  }else if(action==='markTarget'){
+    setMarkedTarget(u,z);u.ownActions.markUsed=true;log(`🎯 ${u.name} marca a ${z.name}.`);
+  }else if(action==='germinateOwn'){
+    u.pa-=1;u.ownActions.germinated++;
+    const n=B.nextObjectId++;
+    B.pillars.push({id:`sprout${n}`,number:n,type:'sprout',kind:'object',ownerId:u.id,side:u.side,name:`Brote ${n}`,icon:'🌱',x,y,hp:12,maxHp:12,alive:true,shieldStacks:[],blocksLOS:false,createdRound:B.round,createdTurn:B.turn});
+    log(`🌱 ${u.name} germina un Brote por 1 PA.`);
+  }else if(action==='witherSprout'){
+    const name=z.name;destroyPillar(z);u.ownActions.witherUsed=true;log(`🍂 ${u.name} marchita ${name} sin obtener beneficio.`);
+  }else if(action==='disarmTrap'){
+    const trap=B.traps.find(q=>q.active&&q.ownerId===u.id&&q.x===x&&q.y===y);trap.active=false;u.ownActions.disarmUsed=true;u.pa+=1;feedback(u,'+1 PA','pa');log(`🪤 ${u.name} desarma una trampa propia y recupera 1 PA.`);
+  }else if(action==='createDoll'){
+    u.pa-=2;const linked=getLinkedTarget(u),old=ownedDoll(u);if(old)destroyPillar(old);
+    const enemy=linked.side!==u.side,hp=enemy?16:20,n=B.nextObjectId++;
+    B.pillars.push({id:`doll${n}`,type:'doll',kind:'object',ownerId:u.id,side:u.side,name:'Muñeco Vudú',icon:'🪆',x,y,hp,maxHp:hp,alive:true,shieldStacks:[],blocksLOS:false,linkedTargetId:linked.id});
+    log(`🪆 ${u.name} crea un Muñeco de ${hp} PV asociado a ${linked.name}.`);
+  }
+  B.selectedAction=null;renderBattle();return true;
 }
 
 function statusText(u){
-  const a=[];if(u.status.wound)a.push(`🩸 Herida ${u.status.wound}`);if(u.status.poison)a.push(`☠️ Veneno ${u.status.poison}`);if(u.status.burn)a.push(`🔥 Quemadura ${u.status.burn}`);if(u.status.paPenaltyNext)a.push('🔨 PA -1 próximo turno');if(u.status.pmPenaltyNext)a.push(`🌿 PM -${u.status.pmPenaltyNext} próximo turno`);if(u.status.curseDamage)a.push('☠️ Maldición');if(u.status.markedBy)a.push('🎯 Marcado');if(u.status.linkedBy)a.push('🪡 Vinculado');if(u.monolith)a.push('🗿 Monolito');if(berserkerBonus(u))a.push('🔥 Berserker +2');return a.length?a.join(' · '):'Sin estados';
+  const a=[];if(u.status.wound)a.push(`🩸 Herida ${u.status.wound}`);if(u.status.poison)a.push(`☠️ Veneno ${u.status.poison}`);if(u.status.burn)a.push(`🔥 Quemadura ${u.status.burn}`);if(u.status.paPenaltyNext)a.push('🔨 PA -1 próximo turno');if(u.status.pmPenaltyNext)a.push(`🌿 PM -${u.status.pmPenaltyNext} próximo turno`);if(u.status.curseDamage)a.push('☠️ Maldición');if(u.status.markedBy)a.push('🎯 Marcado');if(u.status.linkedBy)a.push('🪡 Vinculado');if(u.monolith)a.push('🗿 Monolito');return a.length?a.join(' · '):'Sin estados';
 }
 function statusChips(u){
-  const a=[];if(u.status.wound)a.push(`<span class="state-chip">🩸 Herida ${u.status.wound}</span>`);if(u.status.poison)a.push(`<span class="state-chip">☠️ Veneno ${u.status.poison}</span>`);if(u.status.burn)a.push(`<span class="state-chip">🔥 Quemadura ${u.status.burn}</span>`);if(u.status.paPenaltyNext)a.push('<span class="state-chip control">🔨 PA -1 próximo</span>');if(u.status.pmPenaltyNext)a.push(`<span class="state-chip control">🌿 PM -${u.status.pmPenaltyNext} próximo</span>`);if(u.status.curseDamage)a.push('<span class="state-chip control">☠️ Maldición</span>');if(u.status.markedBy)a.push('<span class="state-chip">🎯 Marcado</span>');if(u.status.linkedBy)a.push('<span class="state-chip">🪡 Vinculado</span>');if(u.monolith)a.push('<span class="state-chip monolith">🗿 Monolito</span>');if(berserkerBonus(u))a.push('<span class="state-chip berserker">🔥 Berserker +2</span>');return a.length?a.join(''):'<span class="state-empty">Sin estados</span>';
+  const a=[];if(u.status.wound)a.push(`<span class="state-chip">🩸 Herida ${u.status.wound}</span>`);if(u.status.poison)a.push(`<span class="state-chip">☠️ Veneno ${u.status.poison}</span>`);if(u.status.burn)a.push(`<span class="state-chip">🔥 Quemadura ${u.status.burn}</span>`);if(u.status.paPenaltyNext)a.push('<span class="state-chip control">🔨 PA -1 próximo</span>');if(u.status.pmPenaltyNext)a.push(`<span class="state-chip control">🌿 PM -${u.status.pmPenaltyNext} próximo</span>`);if(u.status.curseDamage)a.push('<span class="state-chip control">☠️ Maldición</span>');if(u.status.markedBy)a.push('<span class="state-chip">🎯 Marcado</span>');if(u.status.linkedBy)a.push('<span class="state-chip">🪡 Vinculado</span>');if(u.monolith)a.push('<span class="state-chip monolith">🗿 Monolito</span>');return a.length?a.join(''):'<span class="state-empty">Sin estados</span>';
 }
 function statusIcons(u){
   const a=[];if(u.status.wound)a.push(`🩸${u.status.wound}`);if(u.status.poison)a.push(`☠️${u.status.poison}`);if(u.status.paPenaltyNext)a.push('🔨-1PA');if(u.status.pmPenaltyNext)a.push(`🌿-${u.status.pmPenaltyNext}PM`);if(u.status.curseDamage)a.push('☠️');if(u.status.markedBy)a.push('🎯');if(u.status.linkedBy)a.push('🪡');if(u.monolith)a.push('🗿');return a.join(' ');
@@ -1375,25 +1391,20 @@ function renderEntity(z,current,view){
 }
 function validTargetTile(x,y,action){
   const u=cur();if(!u||u.controller!=='human')return false;
-  if(action==='consumePillar')return validConsumePillar(x,y);
-  if(action==='removeSprout')return validRemoveSprout(x,y);
+  if(['createPillar','fusionPillar','rockRecycle','markTarget','germinateOwn','witherSprout','disarmTrap','createDoll'].includes(action))return ownActionRange(u,action,x,y);
   if(action==='impulse'&&B?.pendingImpulseTargetId)return impulseDestinationValid(u,x,y);
   return canUseAbility(u,action,x,y);
 }
 function invalidAbilityReason(u,id,x,y){
   const a=ability(u.championId,id),target=entityAt(x,y);if(!a)return 'Acción no disponible.';if(!skillUseAllowed(u,id))return `${a.name}: límite de usos por turno alcanzado.`;if(u.pa<a.cost)return 'PA insuficientes.';
-  if(['pillar','germinate','doll','trap_spikes','trap_snare','trap_bomb'].includes(id)&&!free(x,y))return 'La casilla está ocupada.';
-  if(['pillar'].includes(id)&&ownedPillars(u).length>=(u.monolith?3:2))return 'Máximo de Pilares alcanzado.';
-  if(id==='germinate'&&ownedSprouts(u).length>=2)return 'Máximo de 2 Brotes activos.';
-  if(['trap_spikes','trap_snare','trap_bomb'].includes(id)&&activeTraps(u).length>=3)return 'Máximo de 3 trampas activas.';
-  if(id==='doll'&&ownedDoll(u))return 'Ya hay un Muñeco Vudú activo.';
-  if(id==='curse'&&!getLinkedTarget(u))return 'Necesitás un enemigo Vinculado.';
-  if(['reflected','ritual'].includes(id)&&!getLinkedTarget(u))return 'Necesitás un enemigo Vinculado.';
+  if(['trap_spikes','trap_electric'].includes(id)&&!free(x,y))return 'La casilla está ocupada.';
+    if(['trap_spikes','trap_electric'].includes(id)&&activeTraps(u).length>=3)return 'Máximo de 3 trampas activas.';
+      if(id==='ritual'&&!getLinkedTarget(u))return 'Necesitás un enemigo Vinculado.';
   if(id==='rupture'&&!getMarkedTarget(u))return 'Necesitás un enemigo Marcado.';
-  if(id==='impulse')return B?.pendingImpulseTargetId?'Elegí una casilla libre en línea a 1 o 2 casillas del aliado.':'Elegí a Piplus o a un aliado dentro de alcance 3.';
+  if(id==='impulse')return 'Elegí una casilla final libre a 1 o 2 casillas en línea.';
   if(id==='hunterstep')return 'Elegí una casilla libre en línea a 1 o 2 casillas.';
-  if(!target&&!['spores','pillar','germinate','doll','trap_spikes','trap_snare','trap_bomb'].includes(id))return 'Elegí un objetivo.';
-  if(target?.side===u.side&&!['pulse','sap','stonearmor','absorb','fusion','awakening','transfer'].includes(id))return 'Objetivo aliado no válido.';
+  if(!target&&!['vines','grenade','awakening','reabsorb','paintransfer','dance','impulse','hunterstep','trap_spikes','trap_electric'].includes(id))return 'Elegí un objetivo.';
+  if(target?.side===u.side&&!['sap','stonearmor','absorb','awakening','transfer','needle'].includes(id))return 'Objetivo aliado no válido.';
   if(id==='quake'&&u.monolith&&target&&!quakeCanReach(u,target))return 'Fuera del alcance de Coloso y de sus Pilares.';
   const rs=abilityRangeState(u,id,x,y);if(!rs?.inside)return 'Fuera de alcance.';if(rs.blocked)return 'Sin línea de visión.';return 'Objetivo no válido.';
 }
@@ -1401,10 +1412,16 @@ function invalidAbilityReason(u,id,x,y){
 function actionInfo(id){
   const u=cur();
   if(id==='move')return {name:'Mover',cost:'1 PM/casilla',text:'Movimiento ortogonal. Podés dividir el movimiento antes y después de usar habilidades.',target:'Casilla libre',range:'Hasta PM disponibles'};
-  if(id==='consumePillar')return {name:'Consumir Pilar',cost:'0 PA',text:'Una vez por turno en Monolito, consume un Pilar propio y obtiene +1 PA.',target:'Pilar propio',range:'Cualquier Pilar propio'};
-  if(id==='removeSprout')return {name:'Retirar Brote',cost:'0 PA',text:'Retira voluntariamente un Brote propio. Para volver a colocarlo deberá usar Germinar y pagar su coste normal.',target:'Brote propio',range:'Sin alcance'};
+  if(id==='createPillar')return {name:'Crear Pilar',cost:'0 PA',text:'Sólo como primera acción del turno. Crea un Pilar de 15 PV.',target:'Casilla libre',range:'5'};
+  if(id==='fusionPillar')return {name:'Fusión de Pilar',cost:'3 PA',text:'Consume un Pilar ortogonalmente adyacente y entra en Monolito.',target:'Pilar propio',range:'1'};
+  if(id==='rockRecycle')return {name:'Reciclaje Rocoso',cost:'0 PA',text:'Monolito, 1/turno. Sacrifica un Pilar: repara otro a 15 PV o da 6 Escudo.',target:'Pilar propio',range:'Cualquiera'};
+  if(id==='markTarget')return {name:'Marcar Objetivo',cost:'0 PA',text:'Marca un enemigo. Máximo 1/turno.',target:'Enemigo',range:'4 + LOS'};
+  if(id==='germinateOwn')return {name:'Germinar Brote',cost:'1 PA',text:'Crea Brote de 12 PV. Máximo 2/turno y 3 activos.',target:'Casilla libre',range:'3 + LOS'};
+  if(id==='witherSprout')return {name:'Marchitar Brote',cost:'0 PA',text:'Retira voluntariamente un Brote propio. Máximo 1/turno.',target:'Brote propio',range:'Cualquiera'};
+  if(id==='disarmTrap')return {name:'Desarmar Trampa',cost:'0 PA',text:'Retira una trampa propia y recupera 1 PA. Máximo 1/turno.',target:'Trampa propia',range:'Cualquiera'};
+  if(id==='createDoll')return {name:'Muñeco Vudú',cost:'2 PA',text:'Requiere Vínculo. Reemplaza el Muñeco anterior y queda asociado a ese Vinculado.',target:'Casilla libre',range:'3 + LOS'};
   const a=ability(u.championId,id);if(!a)return null;
-  const placement=['pillar','germinate','doll','trap_spikes','trap_snare','trap_bomb','hunterstep','spores'].includes(id);const support=['pulse','sap','stonearmor'].includes(id);return{name:a.name,cost:`${a.cost} PA`,text:a.text,target:id==='impulse'?(B?.pendingImpulseTargetId?'Destino del aliado':'Piplus o aliado'):placement?'Casilla/posición':support?'Aliado/propio':id==='absorb'||id==='fusion'||id==='awakening'||id==='transfer'?'Invocación propia':'Enemigo/objeto enemigo',range:id==='curse'?'Global por Vínculo':a.range===0?'Personal':`Alcance ${effectiveRange(u,a)}`};
+  const placement=['trap_spikes','trap_electric','hunterstep','vines','grenade'].includes(id);const support=['sap','stonearmor'].includes(id);return{name:a.name,cost:`${a.cost} PA`,text:a.text,target:id==='impulse'?(B?.pendingImpulseTargetId?'Destino del aliado':'Piplus o aliado'):placement?'Casilla/posición':support?'Aliado/propio':id==='absorb'||id==='awakening'||id==='transfer'||id==='spores'?'Invocación propia':'Enemigo/objeto enemigo',range:a.range===0?'Personal':`Alcance ${effectiveRange(u,a)}`};
 }
 function infoPanel(id){
   const z=actionInfo(id);if(!z)return'';
@@ -1423,15 +1440,16 @@ function renderBattle(){
     if(moves.has(k))cl.push('move');
     if(z?.id===(phase&&doll?doll.id:u.id))cl.push('turn-unit');
     if(z?.id===B.selectedUnitId)cl.push('inspected');
-    if(!phase&&u.controller==='human'&&B.selectedAction&&!['move','consumePillar','removeSprout'].includes(B.selectedAction)){
+    if(!phase&&u.controller==='human'&&B.selectedAction&&!['move','createPillar','fusionPillar','rockRecycle','markTarget','germinateOwn','witherSprout','disarmTrap','createDoll'].includes(B.selectedAction)){
       const rs=abilityRangeState(u,B.selectedAction,x,y);
       if(rs?.inside)cl.push('skill-range');
       if(rs?.blocked)cl.push('range-blocked');
     }
-    if(!phase&&u.controller==='human'&&B.selectedAction&&B.selectedAction!=='move'&&validTargetTile(x,y,B.selectedAction))cl.push('target');
+    if(B.pendingPreview&&previewContains(x,y))cl.push('target');
+    else if(!phase&&u.controller==='human'&&B.selectedAction&&B.selectedAction!=='move'&&!['vines','grenade','spores','awakening','collapse'].includes(B.selectedAction)&&validTargetTile(x,y,B.selectedAction))cl.push('target');
     tiles+=isoTileMarkup(x,y,cl);
     if(isFixedObstacle(x,y))pieces+=isoObstacleMarkup(x,y);
-    if(trap)pieces+=isoTrapMarkup(trap,x,y);
+    if(trap&&trap.side==='player')pieces+=isoTrapMarkup(trap,x,y);
     if(z)pieces+=isoEntityMarkup(z,u,view);
   }
   const order=B.order.map((id,i)=>{const z=getUnit(id);return`<span class="turn-chip ${z.side==='player'?'blue-team':'red-team'} ${!z.alive?'ko':''} ${id===u.id?'current':''}" title="${i+1}. ${z.name}${!z.alive?' · KO':''}"><span class="turn-number">${i+1}</span><span class="turn-team-dot">${z.side==='player'?'🔵':'🔴'}</span><span class="turn-icon">${z.icon}</span><span class="turn-name">${z.name}</span></span>`}).join('');
@@ -1454,8 +1472,14 @@ function renderBattle(){
       return `<button data-skill="${id}" class="${B.selectedAction===id?'active-action':''}" ${u.pa<a.cost||remaining<=0?'disabled':''}><span class="pa-cost">${a.cost} PA</span>${useBadge}<span class="skill-icon">${a.icon}</span><b>${a.name}</b><small>${a.text}</small></button>`;
     }).join('');
     const specialParts=[];
-    if(u.championId==='coloso'&&u.monolith)specialParts.push(`<button id="exitMonolith">Salir de Monolito · 0 PA</button><button id="consumePillar" ${u.monolithPillarGainUsed||!ownedPillars(u).length?'disabled':''}>Consumir Pilar · +1 PA</button>`);
-    if(u.championId==='onod'&&ownedSprouts(u).length)specialParts.push(`<button id="removeSprout" class="${B.selectedAction==='removeSprout'?'active-action':''}">Retirar Brote · 0 PA</button>`);
+    if(u.championId==='coloso'){
+      if(!u.monolith)specialParts.push(`<button data-own-action="createPillar" ${u.ownActions.pillarCreated||ownedPillars(u).length>=2?'disabled':''}>Crear Pilar · 0 PA</button><button data-own-action="fusionPillar" ${u.pa<3||!ownedPillars(u).length?'disabled':''}>Fusión de Pilar · 3 PA</button>`);
+      if(u.monolith)specialParts.push(`<button id="exitMonolith">Salir de Monolito · 0 PA</button><button data-own-action="createPillar" ${u.ownActions.pillarCreated||ownedPillars(u).length>=3?'disabled':''}>Crear Pilar · 0 PA</button><button data-own-action="rockRecycle" ${u.ownActions.rockRecycleUsed||!ownedPillars(u).length?'disabled':''}>Reciclaje Rocoso · 0 PA</button>`);
+    }
+    if(u.championId==='piplus')specialParts.push(`<button data-own-action="markTarget" ${u.ownActions.markUsed||u.ownActions.markBlocked?'disabled':''}>Marcar Objetivo · 0 PA</button>`);
+    if(u.championId==='onod')specialParts.push(`<button data-own-action="germinateOwn" ${u.pa<1||u.ownActions.germinated>=2||u.ownActions.reabsorbUsed||ownedSprouts(u).length>=3?'disabled':''}>Germinar Brote · 1 PA</button><button data-own-action="witherSprout" ${u.ownActions.witherUsed||!ownedSprouts(u).length?'disabled':''}>Marchitar Brote · 0 PA</button>`);
+    if(u.championId==='korgan')specialParts.push(`<button data-own-action="disarmTrap" ${u.ownActions.disarmUsed||!activeTraps(u).length?'disabled':''}>Desarmar Trampa · +1 PA</button>`);
+    if(u.championId==='houngan')specialParts.push(`<button data-own-action="createDoll" ${u.pa<2||!getLinkedTarget(u)?'disabled':''}>Muñeco Vudú · 2 PA</button>`);
     const special=specialParts.length?`<div class="special-actions">${specialParts.join('')}</div>`:'';
     controls=`<div class="hud">
       <button id="move" class="${B.selectedAction==='move'?'active-action':''}">👣<b>Mover</b></button>
@@ -1465,10 +1489,12 @@ function renderBattle(){
     <div class="skill-drawer ${B.skillsOpen?'open':'closed'}">${skillButtons}</div>
     ${special}
     ${B.selectedAction?infoPanel(B.selectedAction):''}
-    ${B.selectedAction&&!['move','consumePillar','removeSprout'].includes(B.selectedAction)?`<div class="range-legend"><span><i class="swatch range"></i>Rango</span><span><i class="swatch valid"></i>Objetivo válido</span><span><i class="swatch blocked"></i>LOS bloqueada</span></div>`:''}
-    <p class="combat-help">${B.selectedAction?'Tocá una casilla u objetivo resaltado.':'Tocá un combatiente o invocación para inspeccionarlo, o elegí una acción.'}</p>`;
+    ${B.selectedAction&&!['move','createPillar','fusionPillar','rockRecycle','markTarget','germinateOwn','witherSprout','disarmTrap','createDoll'].includes(B.selectedAction)?`<div class="range-legend"><span><i class="swatch range"></i>Rango de selección</span><span><i class="swatch valid"></i>Área/objetivo</span><span><i class="swatch blocked"></i>LOS bloqueada</span></div>`:''}
+    ${B.pendingPreview?`<div class="special-actions"><button id="confirmPreview">✅ Confirmar</button><button id="cancelPreview">✖ Cancelar</button></div>`:''}
+    ${B.pendingChoice?.id==='hook'?`<div class="special-actions"><button data-hook-pull="1">Atraer 1</button><button data-hook-pull="2">Atraer 2</button><button id="cancelPreview">Cancelar</button></div>`:''}
+    <p class="combat-help">${B.pendingPreview?'El área marcada es el efecto real. Confirmá o cancelá.':B.pendingStage?.id==='collapse'?'Elegí una dirección ortogonal desde el Pilar.':B.pendingStage?.id==='magnetism'?'Elegí un personaje a Manhattan 5 desde el Pilar.':B.selectedAction?'Tocá una casilla u objetivo resaltado.':'Tocá un combatiente o invocación para inspeccionarlo, o elegí una acción.'}</p>`;
   }else controls=`<div class="ai">🤖 ${u.side==='player'?'Tu aliado IA':'El rival IA'} está jugando…</div>`;
-  const selectedAbility=!phase&&u.controller==='human'&&B.selectedAction&&!['move','consumePillar','removeSprout'].includes(B.selectedAction)?ability(u.championId,B.selectedAction):null;
+  const selectedAbility=!phase&&u.controller==='human'&&B.selectedAction&&!['move','createPillar','fusionPillar','rockRecycle','markTarget','germinateOwn','witherSprout','disarmTrap','createDoll'].includes(B.selectedAction)?ability(u.championId,B.selectedAction):null;
   const logText=B.log.slice(-8).join('<br>')||'Comienza el combate.';
   const headTitle=phase&&doll?`🪆 Muñeco · ${u.name}`:`Ronda ${B.round}`;
   const activeTurnLabel=phase&&doll?`${doll.icon} ${doll.name}`:`${u.side==='player'?'🔵':'🔴'} ${u.icon} ${u.name}`;
@@ -1527,47 +1553,104 @@ function renderBattle(){
   if(!phase){
     $('#move')?.addEventListener('click',()=>{if(B.busy)return;B.pendingImpulseTargetId=null;B.selectedAction=B.selectedAction==='move'?null:'move';B.skillsOpen=false;renderBattle()});
     $('#skills')?.addEventListener('click',()=>{if(B.busy)return;B.skillsOpen=!B.skillsOpen;if(B.skillsOpen&&B.selectedAction==='move')B.selectedAction=null;renderBattle()});
-    $$('[data-skill]').forEach(b=>b.onclick=()=>{if(B.busy)return;const id=b.dataset.skill;if(B.selectedAction===id){B.selectedAction=null;B.pendingImpulseTargetId=null}else{B.selectedAction=id;B.pendingImpulseTargetId=null}B.skillsOpen=true;renderBattle()});
+    $$('[data-skill]').forEach(b=>b.onclick=()=>{if(B.busy)return;const id=b.dataset.skill;if(B.selectedAction===id){B.selectedAction=null}else{B.selectedAction=id}B.pendingImpulseTargetId=null;B.pendingPreview=null;B.pendingStage=null;B.pendingChoice=null;B.skillsOpen=true;renderBattle()});
     $('#end')?.addEventListener('click',()=>{if(!B.busy)nextTurn()});
     $('#exitMonolith')?.addEventListener('click',exitMonolith);
-    $('#consumePillar')?.addEventListener('click',selectConsumePillar);
-    $('#removeSprout')?.addEventListener('click',selectRemoveSprout);
+    $$('[data-own-action]').forEach(b=>b.addEventListener('click',()=>selectOwnAction(b.dataset.ownAction)));
+    $('#confirmPreview')?.addEventListener('click',()=>confirmPendingPreview());
+    $('#cancelPreview')?.addEventListener('click',()=>{B.pendingPreview=null;B.pendingStage=null;B.pendingChoice=null;renderBattle()});
+    $$('[data-hook-pull]').forEach(b=>b.addEventListener('click',()=>confirmHookPull(+b.dataset.hookPull)));
   }else $('#finishDoll')?.addEventListener('click',()=>{if(!B.busy)finishDollPhase()});
   $('#toggleLog')?.addEventListener('click',()=>{B.logOpen=!B.logOpen;renderBattle()});
 }
 
-async function executeImpulse(u,target,x,y){
+async function executeImpulse(u,x,y){
   const a=ability(u.championId,'impulse');
-  if(!a||u.pa<a.cost||!skillUseAllowed(u,'impulse')||!impulseTargetValid(u,target)||!straightDashValidFrom(target,x,y,2))return false;
-  B.busy=true;B.noticeSeq++;B.notice=`${u.icon} ${u.name} — ${a.icon} ${a.name}`;registerSkillUse(u,'impulse');u.pa-=a.cost;triggerPoisonOnAbility(u);renderBattle();await sleep(140);
-  if(!u.alive){B.notice='';B.selectedAction=null;B.pendingImpulseTargetId=null;B.busy=false;renderBattle();checkBattleEnd();return true}
-  await dashUnit(target,x,y);log(`💨 Impulso: ${target.name} se desplaza sin gastar PM.`);
-  spendPAAfterAction(u);B.notice='';B.selectedAction=null;B.pendingImpulseTargetId=null;B.busy=false;renderBattle();if(checkBattleEnd())return true;if(B.pendingTimeout&&!B.ended){nextTurn();return true}return true;
+  if(!a||u.pa<a.cost||!skillUseAllowed(u,'impulse')||!impulseDestinationValid(u,x,y))return false;
+  const dx=Math.sign(x-u.x),dy=Math.sign(y-u.y),steps=md(u,{x,y});
+  const adjacent=B.units.find(z=>z.alive&&z.side!==u.side&&adjCardinal(u,z)&&z.x===u.x-dx&&z.y===u.y-dy);
+  B.busy=true;B.noticeSeq++;B.notice=`${u.icon} ${u.name} — ${a.icon} ${a.name}`;registerSkillUse(u,'impulse');u.pa-=a.cost;triggerPoisonOnAbility(u);
+  if(!u.alive){B.notice='';B.selectedAction=null;B.busy=false;renderBattle();checkBattleEnd();return true}
+  if(adjacent?.alive)await forcedMove(adjacent,u,1,true,'Impulso');
+  for(let i=0;i<steps&&u.alive;i++){
+    const old={x:u.x,y:u.y};u.x+=dx;u.y+=dy;faceStep(u,old);applyWoundStep(u);
+    renderBattle();await sleep(120);if(!u.alive||checkBattleEnd())break;await triggerTrapAt(u);
+  }
+  log(`💨 Impulso: ${u.name} se desplaza ${steps} casilla${steps!==1?'s':''} sin gastar PM.`);
+  spendPAAfterAction(u);B.notice='';B.selectedAction=null;B.busy=false;renderBattle();if(checkBattleEnd())return true;if(B.pendingTimeout&&!B.ended)nextTurn();return true;
 }
 
+async function confirmPendingPreview(){
+  const pre=B?.pendingPreview,u=cur();if(!pre||!u||B.busy)return;
+  const p={...pre};B.pendingPreview=null;
+  if(p.id==='collapse'){
+    const pillar=getEntity(p.pillarId);if(!pillar?.alive){B.pendingStage=null;renderBattle();return}
+    await executeAbility(u,'collapse',pillar.x,pillar.y,false,{pillarId:p.pillarId,dx:p.dx,dy:p.dy});
+  }else if(p.id==='spores'){
+    const s=getEntity(p.sourceId);if(s?.alive)await executeAbility(u,'spores',s.x,s.y,false);
+  }else if(p.id==='awakening'){
+    await executeAbility(u,'awakening',u.x,u.y,false);
+  }else{
+    await executeAbility(u,p.id,p.x,p.y,false);
+  }
+}
+async function confirmHookPull(distance){
+  const ch=B?.pendingChoice,u=cur();if(!ch||ch.id!=='hook'||B.busy)return;
+  const z=getEntity(ch.targetId);B.pendingChoice=null;
+  if(z?.alive)await executeAbility(u,'hook',z.x,z.y,false,{pull:distance});
+}
 async function battleTap(e){
   if(!B||B.ended||B.busy||cur().controller!=='human')return;
-  const t=e.target.closest('.tile');if(!t)return;
-  const x=+t.dataset.x,y=+t.dataset.y,z=entityAt(x,y),u=cur();
+  const tile=e.target.closest('.tile');if(!tile)return;
+  const x=+tile.dataset.x,y=+tile.dataset.y,z=entityAt(x,y),u=cur();
   if(B.dollPhase){
     const doll=getEntity(B.dollPhase.dollId);
     if(z?.id===doll?.id){B.selectedUnitId=z.id;renderBattle();return}
     const ok=await moveDoll(x,y);if(!ok)showNotice('El Muñeco puede moverse sólo por casillas libres usando sus PM.');return;
   }
-  if(!B.selectedAction){
-    if(z){B.selectedUnitId=z.id;renderBattle()}return;
+  if(B.pendingPreview||B.pendingChoice)return;
+  if(B.pendingStage?.id==='collapse'){
+    const p=getEntity(B.pendingStage.pillarId);
+    if(!validCollapseDirection(p,x,y)){showNotice('Elegí una casilla ortogonal al Pilar para indicar la dirección.');return}
+    B.pendingPreview={id:'collapse',pillarId:p.id,dx:x-p.x,dy:y-p.y};renderBattle();return;
   }
+  if(B.pendingStage?.id==='magnetism'){
+    const p=getEntity(B.pendingStage.pillarId);
+    if(!p?.alive||!z?.alive||z.kind!=='unit'||md(p,z)>5){showNotice('Elegí un personaje a Manhattan 5 desde el Pilar.');return}
+    B.pendingStage=null;await executeAbility(u,'magnetism',p.x,p.y,false,{pillarId:p.id,targetId:z.id,forcedTarget:z});return;
+  }
+  if(!B.selectedAction){if(z){B.selectedUnitId=z.id;renderBattle()}return}
   if(B.selectedAction==='move'){await moveUnit(u,x,y);if(!u.alive&&!B.ended)nextTurn();return}
-  if(B.selectedAction==='consumePillar'){consumePillarForPA(x,y);return}
-  if(B.selectedAction==='removeSprout'){removeSproutFree(x,y);return}
+  if(['createPillar','fusionPillar','rockRecycle','markTarget','germinateOwn','witherSprout','disarmTrap','createDoll'].includes(B.selectedAction)){
+    if(!executeOwnAction(B.selectedAction,x,y))showNotice('Objetivo o casilla no válida para esta acción.');return;
+  }
   if(B.selectedAction==='impulse'){
-    if(!B.pendingImpulseTargetId){
-      if(!impulseTargetValid(u,z)){showNotice('Elegí a Piplus o a un aliado dentro de alcance 3.');return}
-      B.pendingImpulseTargetId=z.id;B.selectedUnitId=z.id;showNotice(`💨 Elegí el destino de ${z.name}: hasta 2 casillas en línea.`,1200);renderBattle();return;
-    }
-    const target=getUnit(B.pendingImpulseTargetId);
-    if(!impulseDestinationValid(u,x,y)){showNotice('Destino inválido: hasta 2 casillas en línea y sin obstáculos.');return}
-    await executeImpulse(u,target,x,y);if(!u.alive&&!B.ended)nextTurn();return;
+    if(!impulseDestinationValid(u,x,y)){showNotice('Destino inválido: 1 o 2 casillas en línea, final libre. Puede cruzar obstáculos fijos.');return}
+    await executeImpulse(u,x,y);if(!u.alive&&!B.ended)nextTurn();return;
+  }
+  if(B.selectedAction==='collapse'){
+    if(!canUseAbility(u,'collapse',x,y)){showNotice(invalidAbilityReason(u,'collapse',x,y));return}
+    B.pendingStage={id:'collapse',pillarId:z.id};showNotice('🪨 Ahora elegí la dirección del Derrumbe.',1100);renderBattle();return;
+  }
+  if(B.selectedAction==='magnetism'){
+    if(!canUseAbility(u,'magnetism',x,y)){showNotice(invalidAbilityReason(u,'magnetism',x,y));return}
+    B.pendingStage={id:'magnetism',pillarId:z.id};showNotice('🧲 Elegí el personaje que será atraído hasta 2 casillas.',1100);renderBattle();return;
+  }
+  if(['vines','grenade'].includes(B.selectedAction)){
+    if(!canUseAbility(u,B.selectedAction,x,y)){showNotice(invalidAbilityReason(u,B.selectedAction,x,y));return}
+    B.pendingPreview={id:B.selectedAction,x,y};renderBattle();return;
+  }
+  if(B.selectedAction==='spores'){
+    if(!canUseAbility(u,'spores',x,y)){showNotice('Elegí uno de tus Brotes activos.');return}
+    B.pendingPreview={id:'spores',sourceId:z.id};renderBattle();return;
+  }
+  if(B.selectedAction==='awakening'){
+    if(!canUseAbility(u,'awakening',u.x,u.y)){showNotice('Necesitás al menos un Brote activo.');return}
+    B.pendingPreview={id:'awakening'};renderBattle();return;
+  }
+  if(B.selectedAction==='hook'){
+    if(!canUseAbility(u,'hook',x,y)){showNotice(invalidAbilityReason(u,'hook',x,y));return}
+    B.pendingChoice={id:'hook',targetId:z.id};renderBattle();return;
   }
   if(!canUseAbility(u,B.selectedAction,x,y)){showNotice(invalidAbilityReason(u,B.selectedAction,x,y));return}
   await executeAbility(u,B.selectedAction,x,y,false);if(!u.alive&&!B.ended)nextTurn();
@@ -1611,70 +1694,123 @@ function showResult(win){
   $('#lobby').onclick=showLobby;
 }
 
-function offensiveIds(u){return u.loadout.filter(id=>['sword','daggers','bow','spear','hammer','rock','quake','marker','precise','vector','rupture','thorn','vines','spores','shot','hook','needle','reflected','ritual'].includes(id))}
+function offensiveIds(u){
+  return u.loadout.filter(id=>[
+    'sword','daggers','bow','spear','hammer',
+    'rock','quake','collapse','magnetism',
+    'precise','vector','rupture',
+    'thorn','vines','spores','awakening',
+    'grenade','shot','hook',
+    'needle','ritual','curse'
+  ].includes(id));
+}
 function validAbilityTargets(u,id){
   const out=[];
   for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++)if(canUseAbility(u,id,x,y))out.push({x,y});
   return out;
 }
-function bestMoveForAI(u,target){
-  const reach=movementMap(u),ids=offensiveIds(u).filter(id=>u.pa>=ability(u.championId,id).cost);
-  let best=null,bestScore=1e9;
-  for(const [k,cost] of reach){
-    const [x,y]=k.split(',').map(Number),fake={...u,x,y};
-    let score=md(fake,target)*10+cost;
-    for(const id of ids){
-      const a=ability(u.championId,id),r=effectiveRange(u,a);
-      if(inRange(fake,target,r)&&(!requiresLOS(a)||clearLOSFrom(fake,target,u.id))){
-        score-=50+(a.damage||0);
-        if(u.championId==='arfeli'&&id==='bow'){
-          score-=28;
-          if(md(fake,target)>=3)score-=12;
-        }
-      }
-    }
-    if(score<bestScore){bestScore=score;best={x,y,cost}}
-  }
-  return best;
-}
+function isExpertAI(u){return u?.aiDifficulty==='expert'}
+function aiWait(u,normal=190,expert=120){return sleep(isExpertAI(u)?expert:normal)}
 function clearLOSFrom(fake,b,ignoreId){
   return lineCells(fake,b).every(([x,y])=>{
     if(isFixedObstacle(x,y))return false;
     const z=entityAt(x,y);return !z||z.id===ignoreId||z.blocksLOS===false;
   });
 }
-function bestPillarTile(u,target){
-  let best=null,score=1e9;
+function aiCanUseFrom(u,id,from,target){
+  const a=ability(u.championId,id);if(!a||u.pa<a.cost||!target?.alive)return false;
+  const r=effectiveRange(u,a);
+  if(id==='shot'&&!(from.x===target.x||from.y===target.y))return false;
+  if(!inRange(from,target,r))return false;
+  if(requiresLOS(a)&&!clearLOSFrom(from,target,u.id))return false;
+  return true;
+}
+function bestMoveForAI(u,target){
+  const reach=movementMap(u),ids=offensiveIds(u).filter(id=>{
+    const a=ability(u.championId,id);
+    return a&&u.pa>=a.cost&&!['collapse','magnetism','awakening','spores'].includes(id);
+  });
+  let best=null,bestScore=1e9;
+  for(const [k,cost] of reach){
+    const [x,y]=k.split(',').map(Number),fake={...u,x,y};
+    let score=md(fake,target)*10+cost*.6;
+    for(const id of ids){
+      const a=ability(u.championId,id);
+      if(aiCanUseFrom(u,id,fake,target)){
+        score-=55+(a.damage||0)*2;
+        if(id==='daggers'&&target.status?.wound<3)score-=7;
+        if(id==='thorn'&&target.status?.poison<3)score-=7;
+        if(id==='shot')score-=5;
+      }
+    }
+    if(isExpertAI(u)){
+      const adjacentEnemies=enemyUnits(u,true).filter(z=>md(fake,z)===1).length;
+      if(u.championId!=='arfeli'&&u.championId!=='coloso')score+=adjacentEnemies*4;
+      if(u.championId==='arfeli'&&u.loadout.includes('daggers')&&md(fake,target)===1)score-=8;
+    }
+    if(score<bestScore){bestScore=score;best={x,y,cost}}
+  }
+  return best;
+}
+function bestFreeTileAI(u,target,range=3,preferNear=true){
+  let best=null,bestScore=1e9;
   for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
-    const pos={x,y};
-    if(!free(x,y)||!inRange(u,pos,3)||!clearLOS(u,pos))continue;
-    let s=md(pos,target)*5;
-    if(adj8(pos,target))s-=22;
-    if(ownedPillars(u).some(p=>adj8(p,pos)))s-=2;
-    if(s<score){score=s;best={x,y}}
+    const p={x,y};if(!free(x,y)||!inRange(u,p,range)||!clearLOS(u,p))continue;
+    let score=(preferNear?md(p,target):-md(p,target))*6;
+    score+=Math.abs(x-SIZE/2)*.08+Math.abs(y-SIZE/2)*.08;
+    if(score<bestScore){bestScore=score;best=p}
+  }
+  return best;
+}
+function bestPillarTile(u,target){
+  let best=null,bestScore=1e9;
+  for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+    const p={x,y};if(!ownActionRange(u,'createPillar',x,y))continue;
+    let score=md(p,target)*5;
+    if(adjCardinal(p,target))score-=18;
+    if(md(p,target)<=2)score-=6;
+    if(ownedPillars(u).some(q=>adjCardinal(q,p)))score+=2;
+    if(score<bestScore){bestScore=score;best=p}
+  }
+  return best;
+}
+function bestSproutTile(u,target){
+  let best=null,bestScore=1e9;
+  for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+    if(!ownActionRange(u,'germinateOwn',x,y))continue;
+    const p={x,y};
+    const nearEnemy=enemyUnits(u,true).filter(z=>adjCardinal(p,z)).length;
+    const aroundEnemy=enemyUnits(u,true).filter(z=>Math.max(Math.abs(z.x-x),Math.abs(z.y-y))===1).length;
+    let score=md(p,target)*4-nearEnemy*12-aroundEnemy*4;
+    if(score<bestScore){bestScore=score;best=p}
   }
   return best;
 }
 function aiCanAttackNow(u,target){
-  return offensiveIds(u).some(id=>u.pa>=ability(u.championId,id).cost&&canUseAbility(u,id,target.x,target.y));
-}
-function aiHasUsefulPillarPlacement(u,target){
-  if(!u.loadout.includes('pillar')||u.pa<2||ownedPillars(u).length>=(u.monolith?3:2))return false;
-  const pt=bestPillarTile(u,target);
-  return !!(pt&&adj8(pt,target));
+  const direct=offensiveIds(u).some(id=>{
+    if(['collapse','magnetism','spores','awakening'].includes(id))return false;
+    const a=ability(u.championId,id);return a&&u.pa>=a.cost&&canUseAbility(u,id,target.x,target.y);
+  });
+  if(direct)return true;
+  if(u.loadout.includes('spores')&&u.pa>=4){
+    return ownedSprouts(u).some(s=>enemyUnits(u,true).some(z=>Math.max(Math.abs(z.x-s.x),Math.abs(z.y-s.y))===1));
+  }
+  return false;
 }
 function shouldAIExitMonolith(u,target){
   if(u.championId!=='coloso'||!u.monolith)return false;
   if(aiCanAttackNow(u,target))return false;
-  if(aiHasUsefulPillarPlacement(u,target))return false;
-  return true;
+  if(!u.ownActions.rockRecycleUsed&&ownedPillars(u).length>=2)return false;
+  if(!u.ownActions.pillarCreated&&ownedPillars(u).length<3&&bestPillarTile(u,target))return false;
+  return md(u,target)>5;
 }
 function chooseEnemyTarget(u){
-  const foes=enemyUnits(u,true);
-  if(!foes.length)return null;
+  const foes=enemyUnits(u,true);if(!foes.length)return null;
   return [...foes].sort((a,b)=>{
-    const sa=md(u,a)*8+(a.hp/a.maxHp)*5;
-    const sb=md(u,b)*8+(b.hp/b.maxHp)*5;
+    const markedA=getMarkedTarget(u)?.id===a.id?-9:0,markedB=getMarkedTarget(u)?.id===b.id?-9:0;
+    const linkedA=getLinkedTarget(u)?.id===a.id?-7:0,linkedB=getLinkedTarget(u)?.id===b.id?-7:0;
+    const sa=md(u,a)*8+(a.hp/a.maxHp)*7+markedA+linkedA;
+    const sb=md(u,b)*8+(b.hp/b.maxHp)*7+markedB+linkedB;
     return sa-sb;
   })[0];
 }
@@ -1684,31 +1820,137 @@ function chooseHealTarget(u,id,threshold=.72){
     .sort((a,b)=>(a.hp/a.maxHp)-(b.hp/b.maxHp))[0]||null;
 }
 function chooseStoneArmorTarget(u){
-  return teamUnits(u,true)
-    .filter(z=>shieldTotal(z)<8&&canUseAbility(u,'stonearmor',z.x,z.y))
-    .sort((a,b)=>(a.hp/a.maxHp)-(b.hp/b.maxHp))[0]||null;
+  const candidates=[...teamUnits(u,true),...ownedPillars(u)];
+  return candidates
+    .filter(z=>z.alive&&shieldTotal(z)<7&&canUseAbility(u,'stonearmor',z.x,z.y))
+    .sort((a,b)=>{
+      const av=a.maxHp? a.hp/a.maxHp:1,bv=b.maxHp?b.hp/b.maxHp:1;
+      return av-bv;
+    })[0]||null;
+}
+function aiAreaScore(u,id,x,y){
+  const cells=id==='vines'||id==='grenade'
+    ?[{x,y},{x:x+1,y},{x:x-1,y},{x,y:y+1},{x,y:y-1}]
+    :[];
+  let score=0;
+  for(const c of cells){
+    const z=entityAt(c.x,c.y);if(!z?.alive)continue;
+    if(z.side!==u.side)score+=z.kind==='unit'?12:5;
+    else score-=z.kind==='unit'?10:4;
+  }
+  return score;
+}
+function bestAreaPlay(u,id){
+  const a=ability(u.championId,id);if(!a||u.pa<a.cost)return null;
+  let best=null,bestScore=-1e9;
+  for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+    if(!canUseAbility(u,id,x,y))continue;
+    const score=aiAreaScore(u,id,x,y);
+    if(score>bestScore){bestScore=score;best={x,y,score}}
+  }
+  return bestScore>0?best:null;
+}
+function bestSporePlay(u){
+  if(!u.loadout.includes('spores')||u.pa<4)return null;
+  let best=null,bestScore=0;
+  for(const s of ownedSprouts(u)){
+    if(!canUseAbility(u,'spores',s.x,s.y))continue;
+    let score=0;
+    for(const z of B.units.filter(z=>z.alive&&Math.max(Math.abs(z.x-s.x),Math.abs(z.y-s.y))===1)){
+      score+=z.side!==u.side?12:-10;
+    }
+    if(score>bestScore){bestScore=score;best={sprout:s,score}}
+  }
+  return best;
+}
+function bestAwakeningScore(u){
+  if(!u.loadout.includes('awakening')||u.pa<4||!ownedSprouts(u).length)return 0;
+  let score=0;
+  for(const z of B.units.filter(z=>z.alive)){
+    const hits=ownedSprouts(u).filter(s=>adjCardinal(s,z)).length;
+    if(hits)score+=(z.side!==u.side?1:-1)*8*hits;
+  }
+  return score;
+}
+function bestCollapsePlay(u){
+  if(!u.loadout.includes('collapse')||u.pa<3)return null;
+  let best=null,bestScore=0;
+  const limit=u.monolith?5:3;
+  for(const p of ownedPillars(u)){
+    if(!inRange(u,p,limit))continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const cells=collapseCells(p,dx,dy);let score=0;
+      for(const c of cells){
+        const z=entityAt(c.x,c.y);if(!z?.alive)continue;
+        const dmg=c.band==='near'?Math.max(3,p.hp-6):c.band==='middle'?Math.max(3,p.hp-3):Math.max(3,p.hp);
+        score+=(z.side!==u.side?1:-1)*dmg;
+      }
+      if(score>bestScore){bestScore=score;best={pillar:p,dx,dy,score}}
+    }
+  }
+  return best;
+}
+function bestMagnetismPlay(u){
+  if(!u.loadout.includes('magnetism')||u.pa<3)return null;
+  const limit=u.monolith?5:3;let best=null,bestScore=-1e9;
+  for(const p of ownedPillars(u)){
+    if(!inRange(u,p,limit))continue;
+    for(const z of B.units.filter(z=>z.alive&&md(p,z)<=5)){
+      const dist=md(p,z),score=z.side!==u.side?(20-dist*2):(isExpertAI(u)?2-dist:-20);
+      if(score>bestScore){bestScore=score;best={pillar:p,target:z,score}}
+    }
+  }
+  return best?.target.side!==u.side?best:null;
 }
 function bestAttackPlay(u){
   let best=null,bestScore=-1e9;
   for(const target of enemyUnits(u,true)){
     for(const id of offensiveIds(u)){
+      if(['collapse','magnetism','spores','awakening','vines','grenade','hook'].includes(id))continue;
       const a=ability(u.championId,id);if(!a||u.pa<a.cost||!canUseAbility(u,id,target.x,target.y))continue;
       let dmg=a.damage||0;
-      if(id==='precise'&&getMarkedTarget(u)?.id===target.id)dmg=14;
-      if(id==='ritual'&&ownedDoll(u)&&md(ownedDoll(u),target)<=2)dmg=18;
-      const score=dmg*4+(1-target.hp/target.maxHp)*15-md(u,target);
-      if(score>bestScore){bestScore=score;best={id,target}}
+      if(id==='precise'&&getMarkedTarget(u)?.id===target.id)dmg=10;
+      if(id==='ritual'){
+        const d=correspondingDoll(u);dmg=d&&adjCardinal(d,target)?20:14;
+      }
+      if(id==='quake'&&u.monolith)dmg=8;
+      let score=dmg*4+(1-target.hp/target.maxHp)*16-md(u,target);
+      if(id==='daggers'&&target.status.wound<3)score+=8;
+      if(id==='thorn'&&target.status.poison<3)score+=8;
+      if(id==='rupture'&&target.hp<=14)score+=16;
+      if(id==='needle'&&!getLinkedTarget(u))score+=10;
+      if(score>bestScore){bestScore=score;best={id,target,score}}
+    }
+  }
+  const vines= u.loadout.includes('vines') ? bestAreaPlay(u,'vines') : null;
+  if(vines&&vines.score*4>bestScore)best={id:'vines',target:vines,score:vines.score*4};
+  const grenade=u.loadout.includes('grenade') ? bestAreaPlay(u,'grenade') : null;
+  if(grenade&&grenade.score*4>bestScore)best={id:'grenade',target:grenade,score:grenade.score*4};
+  const spores=bestSporePlay(u);
+  if(spores&&spores.score*4>bestScore)best={id:'spores',target:spores.sprout,score:spores.score*4};
+  const awakenScore=bestAwakeningScore(u);
+  if(awakenScore>0&&awakenScore*3>bestScore)best={id:'awakening',target:u,score:awakenScore*3};
+  const collapse=bestCollapsePlay(u);
+  if(collapse&&collapse.score*3>bestScore)best={id:'collapse',target:collapse.pillar,extra:{pillarId:collapse.pillar.id,dx:collapse.dx,dy:collapse.dy},score:collapse.score*3};
+  const magnet=bestMagnetismPlay(u);
+  if(magnet&&magnet.score>bestScore)best={id:'magnetism',target:magnet.pillar,extra:{pillarId:magnet.pillar.id,targetId:magnet.target.id,forcedTarget:magnet.target},score:magnet.score};
+  if(u.loadout.includes('hook')&&u.pa>=3){
+    for(const target of enemyUnits(u,true)){
+      if(!canUseAbility(u,'hook',target.x,target.y))continue;
+      const score=24+(1-target.hp/target.maxHp)*10;
+      if(score>bestScore)best={id:'hook',target,extra:{pull:isExpertAI(u)?2:1},score};
     }
   }
   return best;
 }
 function bestDollMove(doll,owner){
   const phase=B?.dollPhase;if(!phase||!doll?.alive)return null;
-  const target=getEntity(doll.linkedTargetId)||chooseEnemyTarget(owner);
-  if(!target)return null;
-  const reach=objectMovementMap(doll,phase.pm);let best=null,bestScore=md(doll,target);
+  const target=getEntity(doll.linkedTargetId)||chooseEnemyTarget(owner);if(!target)return null;
+  const reach=objectMovementMap(doll,phase.pm);let best=null,bestScore=1e9;
   for(const [k,cost] of reach){
-    const [x,y]=k.split(',').map(Number),score=md({x,y},target)+cost*.05;
+    const [x,y]=k.split(',').map(Number);
+    let score=md({x,y},target)+cost*.05;
+    if(owner.danceDollId===doll.id&&owner.danceLinkId===target.id)score-=Math.max(0,md(doll,target)-md({x,y},target))*2;
     if(score<bestScore){bestScore=score;best={x,y,cost}}
   }
   return best;
@@ -1719,45 +1961,187 @@ async function aiDollPhase(){
   if(!owner?.alive||!doll?.alive)return finishDollPhase();
   const move=bestDollMove(doll,owner);
   if(move)await moveDoll(move.x,move.y);
-  if(B?.dollPhase&&!B.ended)setTimeout(finishDollPhase,220);
+  if(B?.dollPhase&&!B.ended)setTimeout(finishDollPhase,isExpertAI(owner)?140:220);
 }
-
+async function aiOwnAction(u,action,x,y){
+  if(!ownActionRange(u,action,x,y))return false;
+  executeOwnAction(action,x,y);await aiWait(u,160,100);return true;
+}
+function farthestUselessTrap(u,target){
+  return activeTraps(u).sort((a,b)=>md(b,target)-md(a,target))[0]||null;
+}
+function farthestUselessSprout(u,target){
+  return ownedSprouts(u).sort((a,b)=>md(b,target)-md(a,target))[0]||null;
+}
+async function aiTryOwnActions(u,target){
+  if(u.championId==='coloso'){
+    if(u.monolith&&!u.ownActions.rockRecycleUsed&&ownedPillars(u).length){
+      const damaged=ownedPillars(u).some(p=>p.hp<p.maxHp),needShield=shieldTotal(u)<4&&u.hp/u.maxHp<.7;
+      if((damaged||needShield)&&await aiOwnAction(u,'rockRecycle',ownedPillars(u)[0].x,ownedPillars(u)[0].y))return true;
+    }
+    if(!u.ownActions.pillarCreated&&ownedPillars(u).length<(u.monolith?3:2)){
+      const pt=bestPillarTile(u,target);if(pt&&await aiOwnAction(u,'createPillar',pt.x,pt.y))return true;
+    }
+    if(!u.monolith&&u.pa>=3){
+      const p=ownedPillars(u).find(p=>adjCardinal(u,p));
+      if(p&&md(u,target)>2&&isExpertAI(u)&&await aiOwnAction(u,'fusionPillar',p.x,p.y))return true;
+    }
+  }
+  if(u.championId==='piplus'&&!getMarkedTarget(u)&&!u.ownActions.markUsed&&!u.ownActions.markBlocked){
+    if(ownActionRange(u,'markTarget',target.x,target.y)&&await aiOwnAction(u,'markTarget',target.x,target.y))return true;
+  }
+  if(u.championId==='onod'){
+    if(ownedSprouts(u).length>=3&&!u.ownActions.witherUsed&&ownedSprouts(u).every(s=>md(s,target)>4)){
+      const s=farthestUselessSprout(u,target);if(s&&await aiOwnAction(u,'witherSprout',s.x,s.y))return true;
+    }
+    if(u.pa>=1&&!u.ownActions.reabsorbUsed&&u.ownActions.germinated<2&&ownedSprouts(u).length<3){
+      const pt=bestSproutTile(u,target);if(pt&&await aiOwnAction(u,'germinateOwn',pt.x,pt.y))return true;
+    }
+  }
+  if(u.championId==='korgan'&&activeTraps(u).length>=3&&!u.ownActions.disarmUsed&&u.pa<=2){
+    const trap=farthestUselessTrap(u,target);
+    if(trap&&md(trap,target)>4&&await aiOwnAction(u,'disarmTrap',trap.x,trap.y))return true;
+  }
+  if(u.championId==='houngan'&&getLinkedTarget(u)&&u.pa>=2){
+    const d=correspondingDoll(u),existing=ownedDoll(u);
+    if(!d){
+      const linked=getLinkedTarget(u),pt=bestFreeTileAI(u,linked||target,3,false);
+      if(pt&&await aiOwnAction(u,'createDoll',pt.x,pt.y))return true;
+    }else if(existing&&isExpertAI(u)&&existing.hp<=4){
+      const linked=getLinkedTarget(u),pt=bestFreeTileAI(u,linked||target,3,false);
+      if(pt&&await aiOwnAction(u,'createDoll',pt.x,pt.y))return true;
+    }
+  }
+  return false;
+}
+async function aiTrySupport(u,target){
+  if(u.championId==='onod'&&u.loadout.includes('sap')&&u.pa>=3){
+    const ally=chooseHealTarget(u,'sap',isExpertAI(u)?.82:.68);
+    if(ally){await executeAbility(u,'sap',ally.x,ally.y,true);await aiWait(u);return true}
+  }
+  if(u.championId==='coloso'){
+    if(u.loadout.includes('stonearmor')&&u.pa>=2){
+      const ally=chooseStoneArmorTarget(u);
+      if(ally&&((ally.hp/ally.maxHp)<(isExpertAI(u)?.85:.7)||shieldTotal(ally)===0)){
+        await executeAbility(u,'stonearmor',ally.x,ally.y,true);await aiWait(u);return true;
+      }
+    }
+    if(u.loadout.includes('absorb')&&u.pa>=2&&u.hp/u.maxHp<(isExpertAI(u)?.68:.5)){
+      const p=ownedPillars(u).filter(p=>!(p.createdRound===B.round&&p.createdTurn===B.turn)&&canUseAbility(u,'absorb',p.x,p.y))
+        .sort((a,b)=>b.hp-a.hp)[0];
+      if(p){await executeAbility(u,'absorb',p.x,p.y,true);await aiWait(u);return true}
+    }
+  }
+  if(u.championId==='arfeli'&&u.loadout.includes('shield')&&u.pa>=3&&shieldTotal(u)<6&&u.hp/u.maxHp<(isExpertAI(u)?.82:.68)&&canUseAbility(u,'shield',u.x,u.y)){
+    await executeAbility(u,'shield',u.x,u.y,true);await aiWait(u);return true;
+  }
+  if(u.championId==='houngan'){
+    const d=correspondingDoll(u);
+    if(u.loadout.includes('transfer')&&u.pa>=2&&d&&u.hp<u.maxHp-3&&canUseAbility(u,'transfer',d.x,d.y)){
+      await executeAbility(u,'transfer',d.x,d.y,true);await aiWait(u);return true;
+    }
+    if(u.loadout.includes('paintransfer')&&u.pa>=3&&d&&!u.painTransferDollId&&canUseAbility(u,'paintransfer',u.x,u.y)){
+      await executeAbility(u,'paintransfer',u.x,u.y,true);await aiWait(u);return true;
+    }
+    if(u.loadout.includes('dance')&&u.pa>=3&&d&&canUseAbility(u,'dance',u.x,u.y)&&isExpertAI(u)){
+      await executeAbility(u,'dance',u.x,u.y,true);await aiWait(u);return true;
+    }
+  }
+  if(u.championId==='piplus'&&getMarkedTarget(u)){
+    const marked=getMarkedTarget(u);
+    if(u.loadout.includes('interference')&&u.pa>=2&&marked.status.pmPenaltyNext<1&&canUseAbility(u,'interference',marked.x,marked.y)&&isExpertAI(u)){
+      await executeAbility(u,'interference',marked.x,marked.y,true);await aiWait(u);return true;
+    }
+    if(u.loadout.includes('fixation')&&u.pa>=2&&canUseAbility(u,'fixation',marked.x,marked.y)&&!clearLOS(u,marked)&&isExpertAI(u)){
+      await executeAbility(u,'fixation',marked.x,marked.y,true);await aiWait(u);return true;
+    }
+  }
+  if(u.championId==='onod'&&u.loadout.includes('reabsorb')&&u.pa<=1){
+    const old=ownedSprouts(u).filter(s=>!(s.createdRound===B.round&&s.createdTurn===B.turn));
+    if(old.length>=2&&canUseAbility(u,'reabsorb',u.x,u.y)){
+      await executeAbility(u,'reabsorb',u.x,u.y,true);await aiWait(u);return true;
+    }
+  }
+  return false;
+}
+async function aiTryTrap(u,target){
+  if(u.championId!=='korgan'||activeTraps(u).length>=3)return false;
+  const ids=['trap_spikes','trap_electric'].filter(id=>u.loadout.includes(id)&&u.pa>=ability(u.championId,id).cost&&skillUseAllowed(u,id));
+  if(!ids.length)return false;
+  const id=(isExpertAI(u)&&ids.includes('trap_electric')&&target.pa>=3)?'trap_electric':ids[0];
+  const pt=bestFreeTileAI(u,target,3,true);
+  if(pt&&canUseAbility(u,id,pt.x,pt.y)){
+    await executeAbility(u,id,pt.x,pt.y,true);await aiWait(u);return true;
+  }
+  return false;
+}
+async function aiTryMobilityAbility(u,target){
+  if(u.championId==='piplus'&&u.loadout.includes('impulse')&&u.pa>=2&&skillUseAllowed(u,'impulse')){
+    let best=null,bestDist=md(u,target);
+    for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+      if(!impulseDestinationValid(u,x,y))continue;
+      const d=md({x,y},target);if(d<bestDist){bestDist=d;best={x,y}}
+    }
+    if(best){await executeImpulse(u,best.x,best.y);await aiWait(u);return true}
+  }
+  if(u.championId==='korgan'&&u.loadout.includes('hunterstep')&&u.pa>=1&&skillUseAllowed(u,'hunterstep')){
+    let best=null,bestDist=md(u,target);
+    for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+      if(!canUseAbility(u,'hunterstep',x,y))continue;
+      const d=md({x,y},target);if(d<bestDist){bestDist=d;best={x,y}}
+    }
+    if(best){await executeAbility(u,'hunterstep',best.x,best.y,true);await aiWait(u);return true}
+  }
+  return false;
+}
 async function aiTurn(){
   if(!B||B.ended||cur().controller!=='ai'||B.busy)return;
-  const u=cur();let t=chooseEnemyTarget(u);if(!t){checkBattleEnd();return}await sleep(350);
-  if(shouldAIExitMonolith(u,t)){leaveMonolith(u,'La IA necesita recuperar movilidad.');B.notice=`🤖 ${u.name} sale de Monolito para volver a presionar.`;renderBattle();await sleep(280);B.notice=''}
-  for(let cycle=0;cycle<8&&u.alive;cycle++){
+  const u=cur();let target=chooseEnemyTarget(u);if(!target){checkBattleEnd();return}
+  await aiWait(u,330,220);
+
+  if(shouldAIExitMonolith(u,target)){
+    leaveMonolith(u,'La IA necesita recuperar movilidad.');
+    u.ownActions.pillarCreated=true;
+    B.notice=`🤖 ${u.name} sale de Monolito para recuperar movilidad.`;renderBattle();await aiWait(u,250,150);B.notice='';
+  }
+
+  const maxCycles=isExpertAI(u)?12:9;
+  for(let cycle=0;cycle<maxCycles&&u.alive&&!B.ended;cycle++){
     if(checkBattleEnd())return;
-    t=chooseEnemyTarget(u);if(!t)break;
+    target=chooseEnemyTarget(u);if(!target)break;
 
-    if(u.championId==='piplus'&&u.loadout.includes('pulse')&&u.pa>=3){const ally=chooseHealTarget(u,'pulse');if(ally){await executeAbility(u,'pulse',ally.x,ally.y,true);await sleep(180);continue}}
-    if(u.championId==='onod'&&u.loadout.includes('sap')&&u.pa>=3){const ally=chooseHealTarget(u,'sap');if(ally){await executeAbility(u,'sap',ally.x,ally.y,true);await sleep(180);continue}}
-    if(u.championId==='coloso'&&u.loadout.includes('stonearmor')&&u.pa>=2){const ally=chooseStoneArmorTarget(u);if(ally&&ally.hp/ally.maxHp<.75){await executeAbility(u,'stonearmor',ally.x,ally.y,true);await sleep(180);continue}}
-
-    if(u.championId==='piplus'&&!getMarkedTarget(u)&&u.loadout.includes('marker')&&canUseAbility(u,'marker',t.x,t.y)){await executeAbility(u,'marker',t.x,t.y,true);await sleep(180);continue}
-    if(u.championId==='onod'&&u.loadout.includes('germinate')&&ownedSprouts(u).length>=2&&ownedSprouts(u).every(s=>md(s,t)>4)){const s=[...ownedSprouts(u)].sort((a,b)=>md(b,t)-md(a,t))[0];destroyPillar(s);log(`🌱 IA: ${u.name} retira ${s.name} para reubicarlo.`);renderBattle();await sleep(140);continue}
-    if(u.championId==='onod'&&u.loadout.includes('germinate')&&ownedSprouts(u).length<2&&u.pa>=2){const pt=bestFreeTile(u,t,3,true);if(pt&&canUseAbility(u,'germinate',pt.x,pt.y)){await executeAbility(u,'germinate',pt.x,pt.y,true);await sleep(180);continue}}
-    if(u.championId==='korgan'&&activeTraps(u).length<2&&u.pa>=2){const trapId=u.loadout.includes('trap_spikes')?'trap_spikes':u.loadout.includes('trap_snare')?'trap_snare':u.loadout.includes('trap_bomb')?'trap_bomb':null;const pt=trapId?bestFreeTile(u,t,3,true):null;if(pt&&canUseAbility(u,trapId,pt.x,pt.y)){await executeAbility(u,trapId,pt.x,pt.y,true);await sleep(180);continue}}
-    if(u.championId==='houngan'&&!getLinkedTarget(u)&&u.loadout.includes('needle')&&canUseAbility(u,'needle',t.x,t.y)){await executeAbility(u,'needle',t.x,t.y,true);await sleep(180);continue}
-    if(u.championId==='houngan'&&getLinkedTarget(u)&&u.loadout.includes('curse')){const linked=getLinkedTarget(u);if(linked&&linked.status.curseDamage===0&&canUseAbility(u,'curse',linked.x,linked.y)){await executeAbility(u,'curse',linked.x,linked.y,true);await sleep(180);continue}}
-    if(u.championId==='houngan'&&getLinkedTarget(u)&&u.loadout.includes('doll')&&!ownedDoll(u)&&u.pa>=3){const linked=getLinkedTarget(u),pt=bestFreeTile(u,linked||t,3,false);if(pt&&canUseAbility(u,'doll',pt.x,pt.y)){await executeAbility(u,'doll',pt.x,pt.y,true);await sleep(180);continue}}
-
-    if(u.championId==='coloso'&&u.monolith&&!u.monolithPillarGainUsed&&ownedPillars(u).length&&u.pa<3&&u.loadout.includes('rock')){const p=ownedPillars(u)[0],name=p.name;destroyPillar(p);u.pa+=1;u.monolithPillarGainUsed=true;feedback(u,'+1 PA','pa');log(`⚡ ${u.name} consume ${name} y obtiene +1 PA.`);renderBattle();await sleep(180);continue}
-    if(u.championId==='coloso'&&u.loadout.includes('absorb')&&u.hp/u.maxHp<.55&&u.pa>=3){const p=ownedPillars(u).find(p=>inRange(u,p,3)&&clearLOS(u,p));if(p){await executeAbility(u,'absorb',p.x,p.y,true);await sleep(180);continue}}
+    if(await aiTryOwnActions(u,target))continue;
+    if(await aiTrySupport(u,target))continue;
+    if(await aiTryTrap(u,target))continue;
 
     const attack=bestAttackPlay(u);
-    if(attack){await executeAbility(u,attack.id,attack.target.x,attack.target.y,true);await sleep(220);if(checkBattleEnd())return;continue}
+    if(attack){
+      await executeAbility(u,attack.id,attack.target.x,attack.target.y,true,attack.extra||{});
+      await aiWait(u,210,130);if(checkBattleEnd())return;continue;
+    }
 
-    const hostile=B.pillars.filter(p=>p.alive&&p.side!==u.side).sort((a,b)=>a.hp-b.hp);let objectPlay=null;
-    for(const p of hostile){const ids=offensiveIds(u).filter(id=>u.pa>=ability(u.championId,id).cost&&canUseAbility(u,id,p.x,p.y)).sort((a,b)=>(ability(u.championId,b).damage||0)-(ability(u.championId,a).damage||0));if(ids.length){objectPlay={p,id:ids[0]};break}}
-    if(objectPlay){await executeAbility(u,objectPlay.id,objectPlay.p.x,objectPlay.p.y,true);await sleep(200);continue}
+    if(await aiTryMobilityAbility(u,target))continue;
 
-    if(u.championId==='coloso'&&u.loadout.includes('fusion')&&!u.monolith&&!u.exitedMonolithThisTurn&&u.pa>=4){const p=ownedPillars(u).find(p=>adj8(u,p));if(p){await executeAbility(u,'fusion',p.x,p.y,true);await sleep(200);continue}}
-    if(u.championId==='coloso'&&u.loadout.includes('pillar')&&u.pa>=2&&ownedPillars(u).length<(u.monolith?3:2)){const pt=bestPillarTile(u,t);if(pt&&md(u,t)>1){await executeAbility(u,'pillar',pt.x,pt.y,true);await sleep(180);continue}}
-    if(u.championId==='arfeli'&&u.loadout.includes('shield')&&u.pa>=2&&shieldTotal(u)<8&&u.hp/u.maxHp<.8&&canUseAbility(u,'shield',u.x,u.y)){await executeAbility(u,'shield',u.x,u.y,true);await sleep(180);continue}
+    const hostile=B.pillars.filter(p=>p.alive&&p.side!==u.side).sort((a,b)=>a.hp-b.hp);
+    let objectPlay=null;
+    for(const p of hostile){
+      const ids=offensiveIds(u).filter(id=>{
+        const a=ability(u.championId,id);
+        return a&&u.pa>=a.cost&&!['collapse','magnetism','vines','grenade','spores','awakening','hook'].includes(id)&&canUseAbility(u,id,p.x,p.y);
+      }).sort((a,b)=>(ability(u.championId,b).damage||0)-(ability(u.championId,a).damage||0));
+      if(ids.length){objectPlay={p,id:ids[0]};break}
+    }
+    if(objectPlay){
+      await executeAbility(u,objectPlay.id,objectPlay.p.x,objectPlay.p.y,true);await aiWait(u);continue;
+    }
 
-    const mv=bestMoveForAI(u,t);if(mv&&mv.cost>0&&u.pm>0){await moveUnit(u,mv.x,mv.y);await sleep(190);if(checkBattleEnd())return;continue}break;
+    const mv=bestMoveForAI(u,target);
+    if(mv&&mv.cost>0&&u.pm>0){
+      await moveUnit(u,mv.x,mv.y);await aiWait(u);if(checkBattleEnd())return;continue;
+    }
+    break;
   }
-  if(!B.ended)setTimeout(nextTurn,350);
+  if(!B.ended)setTimeout(nextTurn,isExpertAI(u)?220:350);
 }
+
 showStart();

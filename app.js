@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const SIZE=12, VERSION='0.6.20-v02';
+const SIZE=12, VERSION='0.6.21-v02';
 
 
 
@@ -197,6 +197,161 @@ const BOT_LOADOUTS={
   korgan:['trap_spikes','trap_electric','grenade','shot'],
   houngan:['needle','transfer','ritual','curse']
 };
+
+const FIXED_OBS=new Set(['5,4','6,4','5,7','6,7']);
+const PLAYER_DEPLOY=['0,3','1,3','0,4','2,5','1,6','2,6'];
+const ENEMY_DEPLOY=['11,3','10,3','11,4','9,5','10,6','9,6'];
+
+let setup={
+  mode:'1v1',championId:'arfeli',allyId:'coloso',enemyId:'random',enemy2Id:'random',aiDifficulty:'normal',
+  loadout:['sword','daggers','bow','shield']
+};
+let B=null,timerId=null;
+
+const PROFILE_KEY='arena-tactica-profile-v030';
+function loadProfile(){
+  const base={name:'Competidor',played:0,wins:0,losses:0,favorite:'arfeli'};
+  try{
+    const raw=localStorage.getItem(PROFILE_KEY);
+    const saved=raw?JSON.parse(raw):{};
+    return {...base,...saved};
+  }catch(e){return base}
+}
+function saveProfile(profile){
+  try{localStorage.setItem(PROFILE_KEY,JSON.stringify(profile))}catch(e){}
+}
+let profile=loadProfile();
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const key=(x,y)=>`${x},${y}`;
+const ISO_TILE_W=80, ISO_TILE_H=40;
+const ISO_WORLD_W=SIZE*ISO_TILE_W, ISO_WORLD_H=SIZE*ISO_TILE_H;
+function isoViewCoords(x,y){
+  const r=((B?.camera?.rotation||0)%4+4)%4;
+  if(r===1)return {x:SIZE-1-y,y:x};
+  if(r===2)return {x:SIZE-1-x,y:SIZE-1-y};
+  if(r===3)return {x:y,y:SIZE-1-x};
+  return {x,y};
+}
+function isoCenter(x,y){
+  const v=isoViewCoords(x,y);
+  return {
+    x:(v.x-v.y+SIZE)*(ISO_TILE_W/2),
+    y:(v.x+v.y+1)*(ISO_TILE_H/2)
+  };
+}
+function isoTilePoints(x,y){
+  const c=isoCenter(x,y),hw=ISO_TILE_W/2,hh=ISO_TILE_H/2;
+  return `${c.x},${c.y-hh} ${c.x+hw},${c.y} ${c.x},${c.y+hh} ${c.x-hw},${c.y}`;
+}
+function isoTileMarkup(x,y,classes=[]){
+  const tone=(x+y)%2?'iso-tone-b':'iso-tone-a';
+  return `<polygon class="${[...classes,tone,'iso-tile'].join(' ')}" data-x="${x}" data-y="${y}" points="${isoTilePoints(x,y)}"></polygon>`;
+}
+function isoEntityStyle(x,y,boost=0){
+  const c=isoCenter(x,y),v=isoViewCoords(x,y),left=c.x/ISO_WORLD_W*100,top=c.y/ISO_WORLD_H*100;
+  const depth=100+(v.x+v.y)*20+v.x+boost;
+  return `left:${left.toFixed(4)}%;top:${top.toFixed(4)}%;z-index:${depth}`;
+}
+function isoEntityMarkup(z,current,view){
+  return `<div class="iso-entity iso-combat-entity" style="${isoEntityStyle(z.x,z.y,8)}">${renderEntity(z,current,view)}</div>`;
+}
+function isoObstacleMarkup(x,y){
+  return `<div class="iso-entity iso-fixed-obstacle" style="${isoEntityStyle(x,y,2)}" aria-hidden="true"><span>🪨</span></div>`;
+}
+function isoTrapMarkup(trap,x,y){
+  return `<div class="iso-entity iso-trap" style="${isoEntityStyle(x,y,4)}" aria-hidden="true"><span>${trap.icon}</span></div>`;
+}
+function isoBoardMarkup(tiles,pieces){
+  return `<div class="battle-grid iso-grid" id="grid"><svg class="iso-floor" viewBox="0 0 ${ISO_WORLD_W} ${ISO_WORLD_H}" preserveAspectRatio="xMidYMid meet" aria-label="Arena táctica isométrica">${tiles}</svg><div class="iso-entities">${pieces}</div></div>`;
+}
+function battleCameraState(){
+  if(!B)return {x:0,y:0,rotation:0};
+  if(!B.camera)B.camera={x:0,y:0,rotation:0};
+  if(!Number.isInteger(B.camera.rotation))B.camera.rotation=0;
+  B.camera.rotation=((B.camera.rotation%4)+4)%4;
+  return B.camera;
+}
+function clampBattleCamera(grid,x,y){
+  const w=Math.max(1,grid?.offsetWidth||1),h=Math.max(1,grid?.offsetHeight||1);
+  const limitX=Math.max(90,w*.46),limitY=Math.max(70,h*.46);
+  return {x:Math.max(-limitX,Math.min(limitX,x)),y:Math.max(-limitY,Math.min(limitY,y))};
+}
+function applyBattleCamera(grid=$('#grid')){
+  if(!grid||!B)return;
+  const c=battleCameraState(),next=clampBattleCamera(grid,c.x||0,c.y||0);
+  B.camera={...c,...next};
+  grid.style.setProperty('--camera-x',`${next.x}px`);
+  grid.style.setProperty('--camera-y',`${next.y}px`);
+}
+function centerBattleCameraOn(entity){
+  const grid=$('#grid');if(!grid||!B||!entity)return;
+  const current=battleCameraState(),rect=grid.getBoundingClientRect();
+  const baseLeft=rect.left-current.x,baseTop=rect.top-current.y;
+  const c=isoCenter(entity.x,entity.y);
+  const localX=(c.x/ISO_WORLD_W)*grid.offsetWidth,localY=(c.y/ISO_WORLD_H)*grid.offsetHeight;
+  const vv=window.visualViewport;
+  const targetX=(vv?.offsetLeft||0)+(vv?.width||window.innerWidth)/2;
+  const targetY=(vv?.offsetTop||0)+(vv?.height||window.innerHeight)*.52;
+  B.camera={...current,...clampBattleCamera(grid,targetX-(baseLeft+localX),targetY-(baseTop+localY))};
+  applyBattleCamera(grid);
+}
+function bindBattleCamera(grid=$('#grid')){
+  if(!grid||!B)return;
+  applyBattleCamera(grid);
+  let pointer=null,startX=0,startY=0,baseX=0,baseY=0,moved=false,suppressClick=false,raf=0,next=null;
+  const paint=()=>{raf=0;if(!next)return;B.camera={...battleCameraState(),...next};applyBattleCamera(grid)};
+  grid.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse'&&e.button!==0)return;
+    pointer=e.pointerId;startX=e.clientX;startY=e.clientY;
+    const c=battleCameraState();baseX=c.x;baseY=c.y;moved=false;next=null;
+    try{grid.setPointerCapture(pointer)}catch{}
+  });
+  grid.addEventListener('pointermove',e=>{
+    if(pointer!==e.pointerId)return;
+    const dx=e.clientX-startX,dy=e.clientY-startY;
+    if(!moved&&Math.hypot(dx,dy)<7)return;
+    moved=true;e.preventDefault();
+    next=clampBattleCamera(grid,baseX+dx,baseY+dy);
+    if(!raf)raf=requestAnimationFrame(paint);
+  });
+  const finish=e=>{
+    if(pointer!==e.pointerId)return;
+    if(raf){cancelAnimationFrame(raf);raf=0;if(next){B.camera={...battleCameraState(),...next};applyBattleCamera(grid)}}
+    if(moved){suppressClick=true;e.preventDefault()}
+    try{grid.releasePointerCapture(pointer)}catch{}
+    pointer=null;
+  };
+  grid.addEventListener('pointerup',finish);
+  grid.addEventListener('pointercancel',finish);
+  grid.addEventListener('click',e=>{
+    if(!suppressClick)return;
+    suppressClick=false;e.preventDefault();e.stopImmediatePropagation();
+  },true);
+}
+function rotateBattleCamera(step){
+  if(!B||B.ended)return;
+  const focus=getEntity(B.selectedUnitId)||cur();
+  const c=battleCameraState();
+  B.camera={x:0,y:0,rotation:((c.rotation||0)+step+4)%4};
+  renderBattle();
+  requestAnimationFrame(()=>{
+    const target=focus?.alive===false?(cur()||focus):focus;
+    if(target)centerBattleCameraOn(target);
+  });
+}
+const inside=(x,y)=>x>=0&&y>=0&&x<SIZE&&y<SIZE;
+const md=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
+const adj8=(a,b)=>Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y))===1;
+const adjCardinal=(a,b)=>md(a,b)===1;
+const champ=id=>CHAMPIONS[id];
+const ability=(champId,id)=>champ(champId).abilities.find(a=>a.id===id);
+const randomChampionExcluding=(excluded=[])=>{
+  const blocked=new Set(excluded.filter(Boolean));
+  const ids=Object.keys(CHAMPIONS).filter(x=>!blocked.has(x));
+  return ids[Math.floor(Math.random()*ids.length)]||Object.keys(CHAMPIONS)[0];
+};
+const randomOpponent=id=>randomChampionExcluding([id]);
 
 function makeUnit(championId,side,id,controller='ai',customLoadout=null,aiDifficulty='normal'){
   const c=champ(championId);

@@ -1,7 +1,7 @@
 (()=>{'use strict';
 
 /*
-  Liga de los Mundos v0.6.26
+  Liga de los Mundos v0.6.27
   IA táctica única EXPERTA — 🟡 EN PRUEBA
 
   Principios:
@@ -29,11 +29,11 @@ const AI_LOADOUT_POOLS={
     {w:2,set:['sword','daggers','spear','hammer']}
   ],
   coloso:[
-    {w:4,set:['pillar','rock','stonearmor','quake']},
-    {w:3,set:['pillar','rock','fusion','quake']},
-    {w:3,set:['pillar','absorb','fusion','quake']},
-    {w:2,set:['pillar','stonearmor','absorb','quake']},
-    {w:2,set:['pillar','rock','stonearmor','fusion']}
+    {w:4,set:['rock','stonearmor','quake','collapse']},
+    {w:4,set:['rock','absorb','quake','magnetism']},
+    {w:3,set:['stonearmor','absorb','quake','collapse']},
+    {w:3,set:['rock','stonearmor','collapse','magnetism']},
+    {w:2,set:['rock','absorb','collapse','magnetism']}
   ],
   piplus:[
     {w:4,set:['marker','precise','vector','pulse']},
@@ -343,7 +343,6 @@ function aiFollowUpBonus(u,id,target){
   if(u.championId==='piplus'&&id==='marker'&&u.loadout.includes('vector')&&left>=3)return 5;
   if(u.championId==='houngan'&&id==='needle'&&u.loadout.includes('doll')&&!ownedDoll(u)&&left>=3)return 10;
   if(u.championId==='onod'&&id==='germinate'&&u.loadout.includes('awakening')&&left>=4)return 5;
-  if(u.championId==='coloso'&&id==='pillar'&&u.loadout.includes('quake')&&left>=3)return 5;
   if(u.championId==='arfeli'){
     const bonus=globalThis.LDMArfeli0626?.previewBonus?.(u,id)||0;
     const repeated=Array.isArray(u.arfeliMasteryChain)&&u.arfeliMasteryChain.includes(id);
@@ -416,8 +415,6 @@ function aiScoreSetup(u,id,x,y,focus){
       // Pilar entre Coloso y objetivo / cerca del combate.
       if(md(u,focus)>=3&&d<=2)s+=3;
     }
-    if(u.loadout.includes('quake'))s+=3;
-    if(u.loadout.includes('fusion')&&adj8(u,pos))s+=3;
     return s;
   }
 
@@ -475,7 +472,7 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   }
 
   else if(id==='stonearmor'){
-    score=aiShieldScore(u,target,15);
+    score=aiShieldScore(u,target,10);
     if(target?.type==='pillar'&&target.ownerId===u.id)score+=3;
   }
 
@@ -490,7 +487,7 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   }
 
   else if(id==='absorb'){
-    const available=Math.max(0,Math.min(20,target?.hp||0));
+    const available=15;
     const effective=Math.min(aiMissingHp(u),available);
     score=aiHealScore(u,available)-6; // costo táctico de consumir Pilar
     if(effective<6)score-=10;
@@ -601,14 +598,24 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   }
 
   else if(id==='quake'){
-    const origin=quakeOriginForTarget(u,target)||u;
-    const projected=origin.type==='pillar';
-    const dmg=projected?8:skillDamage(u,a);
+    const origin=globalThis.LDMColoso0627?.quakeOrigin?.(u,target)||u;
+    const projected=origin?.type==='pillar';
+    const dmg=projected?8:10;
     score=aiDamageScore(target,dmg);
     const pushPath=aiForcedPath(origin,target,1,true);
     const finalPos=pushPath[pushPath.length-1]||target;
-    const replicaCount=ownedPillars(u).filter(p=>p.id!==origin.id&&adjCardinal(p,finalPos)).length;
-    score+=replicaCount*8;
+    const replicaCount=ownedPillars(u).filter(p=>p.id!==origin?.id&&adjCardinal(p,finalPos)).length;
+    score+=replicaCount*6;
+  }
+
+  else if(id==='collapse'){
+    const plan=globalThis.LDMColoso0627?.bestCollapsePlan?.(u,target);
+    score=plan?plan.value:-30;
+  }
+
+  else if(id==='magnetism'){
+    const plan=globalThis.LDMColoso0627?.bestMagnetismTarget?.(u,target);
+    score=plan?plan.value:-30;
   }
 
   else if(id==='hook'){

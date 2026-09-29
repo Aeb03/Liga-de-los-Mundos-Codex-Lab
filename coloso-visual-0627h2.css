@@ -1,0 +1,43 @@
+/* Liga de los Mundos v0.6.27h2 — Monolito, vista activa única */
+
+@media (orientation:landscape){
+  .iso-combat-entity .unit-piece.tactical-monolith-piece{
+    width:clamp(50px,5.5vw,64px)!important;
+    height:clamp(68px,7.3vw,80px)!important;
+  }
+
+  .monolith-direct-host{
+    position:relative!important;
+    display:block!important;
+    width:clamp(53px,5.8vw,65px)!important;
+    height:clamp(61px,6.7vw,74px)!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+    overflow:visible!important;
+  }
+
+  .monolith-direct-host .monolith-active-view{
+    display:block!important;
+    position:relative!important;
+    inset:auto!important;
+    width:100%!important;
+    height:100%!important;
+    max-width:none!important;
+    max-height:none!important;
+    object-fit:contain!important;
+    object-position:center bottom!important;
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:none!important;
+    user-select:none!important;
+    -webkit-user-drag:none!important;
+    filter:drop-shadow(0 2px 2px #0007)!important;
+  }
+}
+
+@media (orientation:landscape) and (max-height:430px){
+  .monolith-direct-host{
+    width:55px!important;
+    height:63px!important;
+  }
+}

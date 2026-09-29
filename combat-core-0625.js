@@ -238,13 +238,19 @@ function tileFromEvent(e){
 }
 
 function ensureSelectedAoEPreview(){
-  const cfg=selectedAoEConfig();
   const s=aoeState();
+
+  // Algunas habilidades complejas (por ejemplo Colapso) inician el preview
+  // manualmente después de una primera selección. Si el preview activo sigue
+  // perteneciendo a la acción seleccionada, no debe borrarse por no tener
+  // metadata aoePreview declarativa.
+  if(s?.active&&s.abilityId===B?.selectedAction)return true;
+
+  const cfg=selectedAoEConfig();
   if(!cfg){
     if(s?.active)clearAoEPreview();
     return false;
   }
-  if(s?.active&&s.abilityId===cfg.abilityId)return true;
 
   const u=cur();
   return startAoEPreview({

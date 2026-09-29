@@ -1,7 +1,7 @@
 (()=>{'use strict';
 
 /*
-  Liga de los Mundos v0.6.24
+  Liga de los Mundos v0.6.26
   IA táctica única EXPERTA — 🟡 EN PRUEBA
 
   Principios:
@@ -344,7 +344,12 @@ function aiFollowUpBonus(u,id,target){
   if(u.championId==='houngan'&&id==='needle'&&u.loadout.includes('doll')&&!ownedDoll(u)&&left>=3)return 10;
   if(u.championId==='onod'&&id==='germinate'&&u.loadout.includes('awakening')&&left>=4)return 5;
   if(u.championId==='coloso'&&id==='pillar'&&u.loadout.includes('quake')&&left>=3)return 5;
-  if(u.championId==='arfeli'&&id==='daggers'&&left>=2&&u.loadout.includes('sword'))return 3;
+  if(u.championId==='arfeli'){
+    const bonus=globalThis.LDMArfeli0626?.previewBonus?.(u,id)||0;
+    const repeated=Array.isArray(u.arfeliMasteryChain)&&u.arfeliMasteryChain.includes(id);
+    if(repeated&&u.arfeliMasteryChain.length>0)return -3;
+    if(bonus>0)return Math.min(10,bonus*3);
+  }
   return 0;
 }
 
@@ -465,7 +470,8 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   }
 
   else if(id==='shield'){
-    score=aiShieldScore(u,u,20);
+    const mastery=globalThis.LDMArfeli0626?.previewBonus?.(u,id)||0;
+    score=aiShieldScore(u,u,(a.shield||15)+mastery);
   }
 
   else if(id==='stonearmor'){
@@ -579,12 +585,19 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   }
 
   else if(id==='daggers'){
-    const dmg=skillDamage(u,a);
-    score=aiDamageScore(target,dmg)+aiStatusValue(target,'wound');
+    const mastery=globalThis.LDMArfeli0626?.previewBonus?.(u,id)||0;
+    const dmg=(a.damage||10)+mastery;
+    score=aiDamageScore(target,dmg)+aiStatusValue(target,'wound')+2;
   }
 
   else if(id==='hammer'){
-    score=aiDamageScore(target,skillDamage(u,a))+aiStatusValue(target,'pa');
+    const mastery=globalThis.LDMArfeli0626?.previewBonus?.(u,id)||0;
+    const dmg=(a.damage||13)+mastery;
+    score=aiDamageScore(target,dmg)+(target?.kind==='unit'?aiStatusValue(target,'pm'):0);
+    const landing=globalThis.LDMArfeli0626?.landing?.(u,target);
+    if(landing&&focus){
+      score+=(aiPositionScore(u,landing,focus)-aiPositionScore(u,u,focus))*.7;
+    }
   }
 
   else if(id==='quake'){
@@ -629,7 +642,13 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   }
 
   else if(target&&target.side!==u.side){
-    score=aiDamageScore(target,skillDamage(u,a));
+    const mastery=u.championId==='arfeli'
+      ?(globalThis.LDMArfeli0626?.previewBonus?.(u,id)||0)
+      :0;
+    const dmg=u.championId==='arfeli'
+      ?(a.damage||0)+mastery
+      :skillDamage(u,a);
+    score=aiDamageScore(target,dmg);
   }
 
   score+=aiFollowUpBonus(u,id,target);
@@ -795,7 +814,12 @@ function aiCollectObjectAttackCandidates(u,focus){
       if(!a||u.pa<a.cost||!skillUseAllowed(u,id))continue;
       if(['pulse','sap','shield','stonearmor','pillar','germinate','doll','transfer','reflected','awakening','trap_spikes','trap_snare','trap_bomb','impulse','hunterstep'].includes(id))continue;
       if(!canUseAbility(u,id,obj.x,obj.y))continue;
-      const dmg=id==='shot'?12:id==='hook'?6:id==='curse'?9:(a.damage||0);
+      const mastery=u.championId==='arfeli'
+        ?(globalThis.LDMArfeli0626?.previewBonus?.(u,id)||0)
+        :0;
+      const dmg=u.championId==='arfeli'
+        ?(a.damage||0)+mastery
+        :id==='shot'?12:id==='hook'?6:id==='curse'?9:(a.damage||0);
       const score=aiDamageScore(obj,dmg)+threat-(focus?3:0);
       if(score>8)out.push({kind:'ability',id,x:obj.x,y:obj.y,score,label:`${a.name} → ${obj.name}`});
     }

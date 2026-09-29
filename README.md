@@ -1,40 +1,60 @@
-# Liga de los Mundos — v0.6.25h2-v02
+# Liga de los Mundos — v0.6.26-v02 — Rework Arfeli
 
-🧪 EXPERIMENTAL LOCAL — Preview global de áreas táctil
+🧪 EXPERIMENTAL LOCAL — NO PUSH
 
-Base: v0.6.25h1-v02.
+Base validada localmente:
+- IA única Experta.
+- Escudo global: expira al inicio del próximo turno del generador.
+- Herida global.
+- Veneno global.
+- Preview AoE táctil global.
+- Quemadura continúa pendiente de validación.
 
-Objetivo:
-dejar una única mecánica global para habilidades de área, reutilizable por todos los campeones presentes y futuros.
+## Arfeli — ficha vigente de prueba
+PV 100 · PA 6 · PM 3 · Iniciativa 5.
 
-Interacción:
-1. Seleccionar una habilidad de área.
-2. El alcance permitido continúa mostrándose con el sistema normal amarillo.
-3. Tocar o arrastrar sobre una casilla válida desplaza en tiempo real el área afectada.
-4. El área afectada se muestra en magenta, claramente separada del amarillo de alcance.
-5. Al soltar el dedo, el área queda fijada pero la habilidad NO se ejecuta.
-6. Se puede volver a arrastrar para cambiar la posición.
-7. Un segundo toque sobre el centro fijado ejecuta la habilidad directamente.
-8. No existe cartel ni botón de Confirmar.
+### Pasiva — Maestría con Armas
+Al encadenar habilidades distintas en el mismo turno:
+- primera habilidad: +0;
+- segunda distinta: +1;
+- tercera distinta: +2;
+- y así sucesivamente.
+La bonificación aumenta daño o Escudo según la habilidad.
+Moverse no rompe la cadena.
+Repetir una habilidad ya usada ese turno reinicia la cadena y esa habilidad recibe +0.
+La cadena se reinicia al finalizar el turno.
 
-Arquitectura:
-- Una habilidad se conecta al motor declarativamente con `aoePreview:{pattern:'...'}`.
-- Patrones globales disponibles: center, cross1, adjacent8, centerPlus8.
-- Se pueden registrar patrones futuros con `LDMCombatCore.aoe.registerPattern(...)`.
-- El sistema respeta `canUseAbility`, alcance, LOS y demás reglas válidas de la habilidad.
-- Mientras se apunta un AoE, el arrastre del tablero queda reservado al selector para evitar mover la cámara accidentalmente.
+### Habilidades
+1. Corte con Espada — 2 PA · alcance 1 · 10 daño · máximo 2/turno.
+2. Dagas Danzantes — 3 PA · alcance 1 · 10 daño + Herida 2 · máximo 1/turno.
+3. Disparo con Arco — 3 PA · alcance 4 · 8 daño · requiere LOS.
+4. Arte de la Lanza — 3 PA · alcance 2 · 10 daño + atracción 1 · requiere LOS.
+5. Portación de Escudo — 3 PA · propio · 15 Escudo · máximo 1/turno.
+6. Golpe de Martillo — 4 PA · alcance 3 · sin LOS · exige entidad enemiga.
+   Arfeli salta a una casilla cardinal libre adyacente al objetivo ignorando obstáculos.
+   Inflige 13 daño y, si el objetivo es un combatiente, -1 PM en su próximo turno.
+   Una entidad inmóvil recibe daño pero no la penalización de PM.
 
-Prueba de esta etapa:
-- `Esporas Tóxicas` de Onod está conectada a `cross1` sólo como caso vivo de validación.
-- Su daño, coste, alcance y efecto NO fueron modificados.
+Todos los valores mostrados por Colección de Campeones, selección de habilidades,
+drawer de Habilidades y tooltip largo salen de la misma definición efectiva de Arfeli.
 
-No modifica:
-- balance de campeones;
-- IA;
-- estados;
-- escudos;
-- audio;
-- online;
-- gráficos generales.
+## IA
+La IA Experta usa la misma ficha y valora:
+- bonificación actual de Maestría;
+- Herida 2 de Dagas;
+- Escudo 15 + Maestría;
+- Martillo como daño + reposicionamiento + -1 PM.
 
-No hacer push. Validar localmente antes de continuar.
+## Prueba manual antes de avanzar a Coloso
+- Ver los 6 textos y la Pasiva en Campeones / Habilidades.
+- Confirmar PM inicial 3.
+- Corte: 10 y máximo 2.
+- Dagas: 10 + Herida 2 y máximo 1.
+- Arco: 8, alcance 4, LOS.
+- Lanza: 10, alcance 2, atrae 1.
+- Escudo: 15 y duración global ya validada.
+- Martillo: objetivo enemigo real, alcance 3, sin LOS, salto y -1 PM.
+- Maestría: +0 / +1 / +2; movimiento no corta; repetir reinicia.
+- Arfeli IA actúa correctamente en 1v1 y 2v2.
+
+No hacer git push. Cuando Arfeli quede validada se crea checkpoint LOCAL y recién después se trabaja Coloso.

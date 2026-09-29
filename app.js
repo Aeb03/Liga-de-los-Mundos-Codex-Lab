@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const SIZE=12, VERSION='0.6.19-v02';
+const SIZE=12, VERSION='0.6.24-v02';
 
 
 
@@ -221,7 +221,7 @@ const PLAYER_DEPLOY=['0,3','1,3','0,4','2,5','1,6','2,6'];
 const ENEMY_DEPLOY=['11,3','10,3','11,4','9,5','10,6','9,6'];
 
 let setup={
-  mode:'1v1',championId:'arfeli',allyId:'coloso',enemyId:'random',enemy2Id:'random',aiDifficulty:'normal',
+  mode:'1v1',championId:'arfeli',allyId:'coloso',enemyId:'random',enemy2Id:'random',
   loadout:['sword','daggers','bow','shield']
 };
 let B=null,timerId=null;
@@ -657,7 +657,7 @@ function showChampionSelect(){
     <span class="champ-icon">${c.icon}</span><b>${c.name}</b><small>${c.role}</small>
   </button>`).join('');
   const duelPicker=setup.mode==='1v1'?`<label class="rival-picker">Rival IA <select id="rivalSelect">${championOptions(setup.enemyId,[setup.championId],true)}</select></label>`:'';
-  const difficultyPicker=`<label class="rival-picker ai-difficulty-picker"><span>🧠 Dificultad IA</span><select id="aiDifficultySelect"><option value="normal" ${setup.aiDifficulty==='normal'?'selected':''}>NORMAL</option><option value="expert" ${setup.aiDifficulty==='expert'?'selected':''}>EXPERTO</option></select></label>`;
+  const difficultyPicker=`<div class="rival-picker ai-difficulty-picker"><span>🧠 IA de combate</span><b>EXPERTA</b></div>`;
   const teamPickers=setup.mode==='2v2'?`<div class="team-setup">
       <label class="rival-picker"><span>🤖 Aliado IA</span><select id="allySelect">${championOptions(setup.allyId,[setup.championId],false)}</select></label>
       <label class="rival-picker"><span>🔴 Rival IA 1</span><select id="rivalSelect">${championOptions(setup.enemyId,[],true)}</select></label>
@@ -684,7 +684,6 @@ function showChampionSelect(){
   $('#allySelect')?.addEventListener('change',e=>{setup.allyId=e.target.value;showChampionSelect()});
   $('#rivalSelect')?.addEventListener('change',e=>{setup.enemyId=e.target.value;if(setup.mode==='2v2'&&setup.enemy2Id===setup.enemyId&&setup.enemyId!=='random')setup.enemy2Id='random';showChampionSelect()});
   $('#rival2Select')?.addEventListener('change',e=>{setup.enemy2Id=e.target.value});
-  $('#aiDifficultySelect')?.addEventListener('change',e=>{setup.aiDifficulty=e.target.value==='expert'?'expert':'normal'});
   $('#back').onclick=showModeSelect;
   $('#continue').onclick=showLoadout;
 }
@@ -725,11 +724,11 @@ function startBattle(){
     const allyId=setup.allyId===setup.championId?randomChampionExcluding([setup.championId]):setup.allyId;
     const [enemy1Id,enemy2Id]=resolveEnemyPair();
     units.push(makeUnit(allyId,'player','ally','ai'));
-    units.push(makeUnit(enemy1Id,'enemy','enemy1','ai',null,setup.aiDifficulty));
-    units.push(makeUnit(enemy2Id,'enemy','enemy2','ai',null,setup.aiDifficulty));
+    units.push(makeUnit(enemy1Id,'enemy','enemy1','ai'));
+    units.push(makeUnit(enemy2Id,'enemy','enemy2','ai'));
   }else{
     const enemyId=setup.enemyId==='random'?randomOpponent(setup.championId):setup.enemyId;
-    units.push(makeUnit(enemyId,'enemy','enemy1','ai',null,setup.aiDifficulty));
+    units.push(makeUnit(enemyId,'enemy','enemy1','ai'));
   }
   B={
     mode:setup.mode,round:1,turn:0,timer:30,selectedAction:null,selectedUnitId:'player',pendingImpulseTargetId:null,

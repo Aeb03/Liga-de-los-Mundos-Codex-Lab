@@ -1,16 +1,28 @@
-# Liga de los Mundos — v0.6.19-v02
+# Liga de los Mundos — v0.6.24-v02
 
-Estado: EXPERIMENTAL
+Estado: 🟡 LISTA PARA PROBAR
 
-Primera capa del nuevo motor global de estados.
+Base exacta: ZIP maestro v0.6.19-v02 descargado el 28-09-2026.
+
+Objetivo de esta versión: dejar UNA sola IA de combate.
 
 Cambios incluidos:
-- Herida: máximo 3; daño por cada casilla recorrida, incluido desplazamiento forzado.
-- Veneno: máximo 3; daño al utilizar una habilidad.
-- Quemadura: máximo 4; daño al inicio y al final del turno; reducción posterior.
-- Reducción de Herida, Veneno y Quemadura a la mitad (redondeo hacia abajo) al final del turno.
+- Eliminada la elección NORMAL / EXPERTO.
+- Todas las unidades controladas por IA usan el perfil EXPERTO.
+- Misma IA en 1v1 y 2v2.
+- El aliado IA de 2v2 y los rivales IA usan el mismo motor táctico.
+- Se conserva la aleatoriedad ponderada de loadouts, usando únicamente el criterio experto de coherencia interna.
+- Se elimina la rama de decisión NORMAL del motor táctico activo.
+- La pantalla de selección muestra “IA de combate — EXPERTA” como dato fijo, sin selector.
+- Se actualizan los cache-busters de app.js y ai-tactical.js.
+- Nuevo cache PWA 0624 para evitar que Chrome/Service Worker siga sirviendo la IA anterior.
 
-Este paquete NO contiene todavía el rediseño completo de los seis campeones.
-No modifica módulos online.
+No modifica habilidades, balance, estados globales, online, audio, arena ni assets gráficos.
 
-Archivo a reemplazar: app.js
+Archivos del paquete:
+- app.js
+- ai-tactical.js
+- index.html
+- sw.js
+- pwa-0624.js
+- README.md

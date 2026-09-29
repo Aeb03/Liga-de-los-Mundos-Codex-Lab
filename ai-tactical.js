@@ -1,8 +1,8 @@
 (()=>{'use strict';
 
 /*
-  Liga de los Mundos v0.6.17
-  IA táctica general — 🟡 EN PRUEBA
+  Liga de los Mundos v0.6.24
+  IA táctica única EXPERTA — 🟡 EN PRUEBA
 
   Principios:
   - misma IA para aliado y rival;
@@ -74,29 +74,26 @@ function weightedChoice(items){
   }
   return items[items.length-1];
 }
-function chooseAILoadout(championId,difficulty='normal'){
+function chooseAILoadout(championId){
   const pool=AI_LOADOUT_POOLS[championId];
   if(!pool?.length)return [...(BOT_LOADOUTS[championId]||[])];
-  if(difficulty==='expert'){
-    // Mejor coherencia interna, sin consultar rival ni información de combate.
-    const ranked=[...pool].sort((a,b)=>b.w-a.w);
-    const best=ranked[0].w;
-    const coherent=ranked.filter(x=>x.w>=best-1).map(x=>({...x,w:x.w*x.w}));
-    return [...weightedChoice(coherent).set];
-  }
-  return [...weightedChoice(pool).set];
+  // Único perfil IA: EXPERTA. Prioriza loadouts de mayor coherencia interna
+  // sin consultar rival, equipo rival ni información oculta de combate.
+  const ranked=[...pool].sort((a,b)=>b.w-a.w);
+  const best=ranked[0].w;
+  const coherent=ranked.filter(x=>x.w>=best-1).map(x=>({...x,w:x.w*x.w}));
+  return [...weightedChoice(coherent).set];
 }
 
 const _aiBaseMakeUnit=makeUnit;
-makeUnit=function(championId,side,id,controller='ai',customLoadout=null,aiDifficulty='normal'){
-  const difficulty=aiDifficulty==='expert'?'expert':'normal';
-  const lockedLoadout=(controller==='ai'&&!customLoadout)?chooseAILoadout(championId,difficulty):customLoadout;
+makeUnit=function(championId,side,id,controller='ai',customLoadout=null){
+  const lockedLoadout=(controller==='ai'&&!customLoadout)?chooseAILoadout(championId):customLoadout;
   const u=_aiBaseMakeUnit(championId,side,id,controller,lockedLoadout);
   u.aiFocusTargetId=null;
   u.aiMode='offense';
   u.aiRevealedAbilities=[];
   u.aiLastPlanLabel='';
-  u.aiDifficulty=difficulty;
+  u.aiDifficulty='expert';
   return u;
 };
 
@@ -649,7 +646,7 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
 }
 
 function aiCollectAbilityCandidates(u,focus,limit=null){
-  if(limit==null)limit=u.aiDifficulty==='expert'?30:18;
+  if(limit==null)limit=30;
   const out=[];
   for(const id of u.loadout){
     const a=ability(u.championId,id);
@@ -736,13 +733,11 @@ function aiCollectMovePlans(u,focus){
     const positionGain=aiPositionScore(u,pos,focus)-currentPosScore;
     const woundCost=aiWoundTravelCost(u,cost);
 
-    const expert=u.aiDifficulty==='expert';
-    let score=afterAction+positionGain*(expert?2.15:1)-cost*(expert?.45:.8)-woundCost*1.45;
+    let score=afterAction+positionGain*2.15-cost*.45-woundCost*1.45;
 
-    // Normal evita movimiento innecesario. Experto permite reposicionarse incluso si ya puede atacar:
-    // la casilla final forma parte del plan y puede justificar gastar PM.
-    if(!expert&&currentAction>=afterAction-4)score-=7;
-    if(expert&&currentAction>=2&&afterAction>=currentAction-4&&positionGain>1)score+=4+positionGain*.8;
+    // IA EXPERTA: puede reposicionarse incluso si ya puede atacar cuando la casilla final
+    // mejora de forma concreta el plan del turno.
+    if(currentAction>=2&&afterAction>=currentAction-4&&positionGain>1)score+=4+positionGain*.8;
 
     // Si actualmente no hay ninguna acción útil, acercarse puede ser un objetivo concreto.
     if(currentAction<2&&focus){
@@ -754,7 +749,7 @@ function aiCollectMovePlans(u,focus){
   }
 
   plans.sort((a,b)=>b.score-a.score);
-  return plans.slice(0,u.aiDifficulty==='expert'?18:10);
+  return plans.slice(0,18);
 }
 
 // ─────────────────────────────────────────────
@@ -861,14 +856,13 @@ function aiExpertRankPlans(u,candidates){
 
 function aiPickNearBest(candidates,u=null){
   if(!candidates.length)return null;
-  if(u?.aiDifficulty==='expert')candidates=aiExpertRankPlans(u,candidates);
+  candidates=aiExpertRankPlans(u,candidates);
   candidates.sort((a,b)=>b.score-a.score);
   const best=candidates[0].score;
 
-  // Sólo opciones realmente cercanas al mejor.
-  const expert=u?.aiDifficulty==='expert';
-  const band=expert?Math.max(2,Math.abs(best)*.035):Math.max(5,Math.abs(best)*.08);
-  const near=candidates.filter(c=>c.score>=best-band).slice(0,expert?3:4);
+  // Único perfil EXPERTO: banda estrecha y elección entre las 3 mejores opciones cercanas.
+  const band=Math.max(2,Math.abs(best)*.035);
+  const near=candidates.filter(c=>c.score>=best-band).slice(0,3);
   if(near.length===1)return near[0];
 
   // Ponderar fuertemente hacia las mejores sin volver determinista el resultado.

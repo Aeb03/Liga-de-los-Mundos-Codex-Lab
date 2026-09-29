@@ -1,28 +1,40 @@
-# Liga de los Mundos — v0.6.24-v02
+# Liga de los Mundos — v0.6.25h2-v02
 
-Estado: 🟡 LISTA PARA PROBAR
+🧪 EXPERIMENTAL LOCAL — Preview global de áreas táctil
 
-Base exacta: ZIP maestro v0.6.19-v02 descargado el 28-09-2026.
+Base: v0.6.25h1-v02.
 
-Objetivo de esta versión: dejar UNA sola IA de combate.
+Objetivo:
+dejar una única mecánica global para habilidades de área, reutilizable por todos los campeones presentes y futuros.
 
-Cambios incluidos:
-- Eliminada la elección NORMAL / EXPERTO.
-- Todas las unidades controladas por IA usan el perfil EXPERTO.
-- Misma IA en 1v1 y 2v2.
-- El aliado IA de 2v2 y los rivales IA usan el mismo motor táctico.
-- Se conserva la aleatoriedad ponderada de loadouts, usando únicamente el criterio experto de coherencia interna.
-- Se elimina la rama de decisión NORMAL del motor táctico activo.
-- La pantalla de selección muestra “IA de combate — EXPERTA” como dato fijo, sin selector.
-- Se actualizan los cache-busters de app.js y ai-tactical.js.
-- Nuevo cache PWA 0624 para evitar que Chrome/Service Worker siga sirviendo la IA anterior.
+Interacción:
+1. Seleccionar una habilidad de área.
+2. El alcance permitido continúa mostrándose con el sistema normal amarillo.
+3. Tocar o arrastrar sobre una casilla válida desplaza en tiempo real el área afectada.
+4. El área afectada se muestra en magenta, claramente separada del amarillo de alcance.
+5. Al soltar el dedo, el área queda fijada pero la habilidad NO se ejecuta.
+6. Se puede volver a arrastrar para cambiar la posición.
+7. Un segundo toque sobre el centro fijado ejecuta la habilidad directamente.
+8. No existe cartel ni botón de Confirmar.
 
-No modifica habilidades, balance, estados globales, online, audio, arena ni assets gráficos.
+Arquitectura:
+- Una habilidad se conecta al motor declarativamente con `aoePreview:{pattern:'...'}`.
+- Patrones globales disponibles: center, cross1, adjacent8, centerPlus8.
+- Se pueden registrar patrones futuros con `LDMCombatCore.aoe.registerPattern(...)`.
+- El sistema respeta `canUseAbility`, alcance, LOS y demás reglas válidas de la habilidad.
+- Mientras se apunta un AoE, el arrastre del tablero queda reservado al selector para evitar mover la cámara accidentalmente.
 
-Archivos del paquete:
-- app.js
-- ai-tactical.js
-- index.html
-- sw.js
-- pwa-0624.js
-- README.md
+Prueba de esta etapa:
+- `Esporas Tóxicas` de Onod está conectada a `cross1` sólo como caso vivo de validación.
+- Su daño, coste, alcance y efecto NO fueron modificados.
+
+No modifica:
+- balance de campeones;
+- IA;
+- estados;
+- escudos;
+- audio;
+- online;
+- gráficos generales.
+
+No hacer push. Validar localmente antes de continuar.

@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const SIZE=12, VERSION='0.6.24-v02';
+const SIZE=12, VERSION='0.6.25h2-v02';
 
 
 
@@ -175,7 +175,7 @@ const CHAMPIONS={
       {id:'thorn',icon:'☠️',name:'Espina Venenosa',cost:2,range:4,damage:7,text:'7 de daño y aplica Veneno 1.'},
       {id:'vines',icon:'🌿',name:'Enredaderas',cost:3,range:3,damage:6,text:'6 de daño y el objetivo pierde 2 PM en su próximo turno.'},
       {id:'sap',icon:'💚',name:'Savia Vital',cost:3,range:3,maxUsesPerTurn:1,text:'Cura 10 PV; cura 14 si el objetivo está junto a un Brote propio.'},
-      {id:'spores',icon:'🌬️',name:'Esporas Tóxicas',cost:4,range:3,damage:6,text:'Área: casilla objetivo y sus 4 cardinales. Enemigos reciben 6 de daño + Veneno 1.'},
+      {id:'spores',icon:'🌬️',name:'Esporas Tóxicas',cost:4,range:3,damage:6,aoePreview:{pattern:'cross1'},text:'Área: casilla objetivo y sus 4 cardinales. Enemigos reciben 6 de daño + Veneno 1.'},
       {id:'awakening',icon:'🌳',name:'Despertar del Bosque',cost:4,range:3,text:'Consume un Brote. Enemigos adyacentes reciben 10 de daño y son empujados 1.'}
     ]
   },
@@ -413,12 +413,64 @@ function triggerPoisonOnAbility(u){
   if(!u?.alive||!u.status?.poison)return 0;
   const n=u.status.poison;applyDamage(u,n,false);log(`☠️ Veneno ${n}: ${u.name} recibe ${n} daño por utilizar una habilidad.`);return n;
 }
-function shieldTotal(e){return (e?.shieldStacks||[]).reduce((n,s)=>n+s.amount,0)}
-function addShield(e,amount,label='Escudo'){if(!e||!e.alive)return;e.shieldStacks.push({amount,turns:2,label});feedback(e,`+${amount} 🛡️`,'shield')}
+function shieldTotal(e){return (e?.shieldStacks||[]).reduce((n,s)=>n+(s?.amount||0),0)}
+function shieldSourceId(target){
+  const active=cur();
+  return active?.id||target?.ownerId||target?.id||null;
+}
+function addShield(e,amount,label='Escudo',sourceOwnerId=null){
+  if(!e||!e.alive)return;
+  e.shieldStacks=e.shieldStacks||[];
+  e.shieldStacks.push({
+    amount:Math.max(0,Number(amount)||0),
+    turns:1,
+    label,
+    sourceOwnerId:sourceOwnerId||shieldSourceId(e)
+  });
+  feedback(e,`+${amount} 🛡️`,'shield');
+}
 function ageShieldStacks(e){
   if(!e?.shieldStacks)return;
-  e.shieldStacks.forEach(s=>s.turns--);
-  e.shieldStacks=e.shieldStacks.filter(s=>s.turns>0&&s.amount>0);
+  // La duración ya NO se descuenta al final del turno.
+  // El Escudo expira al inicio del próximo turno de quien lo generó.
+  e.shieldStacks=e.shieldStacks.filter(s=>(s?.amount||0)>0);
+}
+function expireShieldsFromSource(sourceOwnerId){
+  if(!B||!sourceOwnerId)return 0;
+  let expired=0;
+  const entities=[...(B.units||[]),...(B.pillars||[])];
+  for(const entity of entities){
+    if(!Array.isArray(entity?.shieldStacks)||!entity.shieldStacks.length)continue;
+    const keep=[];
+    for(const stack of entity.shieldStacks){
+      if(stack?.sourceOwnerId===sourceOwnerId){
+        expired+=Math.max(0,stack.amount||0);
+      }else if((stack?.amount||0)>0){
+        keep.push(stack);
+      }
+    }
+    entity.shieldStacks=keep;
+  }
+  return expired;
+}
+function expireOrphanedShields(){
+  if(!B?.units)return 0;
+  const aliveIds=new Set(B.units.filter(u=>u?.alive).map(u=>u.id));
+  let expired=0;
+  const entities=[...(B.units||[]),...(B.pillars||[])];
+  for(const entity of entities){
+    if(!Array.isArray(entity?.shieldStacks)||!entity.shieldStacks.length)continue;
+    const keep=[];
+    for(const stack of entity.shieldStacks){
+      if(stack?.sourceOwnerId&&!aliveIds.has(stack.sourceOwnerId)){
+        expired+=Math.max(0,stack.amount||0);
+      }else if((stack?.amount||0)>0){
+        keep.push(stack);
+      }
+    }
+    entity.shieldStacks=keep;
+  }
+  return expired;
 }
 function ownedPillars(u){return B?.pillars.filter(p=>p.alive&&p.type==='pillar'&&p.ownerId===u.id)||[]}
 function ownedSprouts(u){return B?.pillars.filter(p=>p.alive&&p.type==='sprout'&&p.ownerId===u.id)||[]}
@@ -813,6 +865,14 @@ function beginTurn(){
   clearInterval(timerId);
   let u=cur();
   if(!u?.alive){if(checkBattleEnd())return;return nextTurn()}
+
+  // Regla global de Escudo:
+  // todo Escudo generado por este campeón expira al COMENZAR su próximo turno.
+  const expiredShield=expireShieldsFromSource(u.id);
+  const orphanedShield=expireOrphanedShields();
+  if(expiredShield>0)log(`🛡️ Expiran ${expiredShield} puntos de Escudo generados por ${u.name}.`);
+  if(orphanedShield>0)log(`🛡️ Expiran ${orphanedShield} puntos de Escudo cuyo generador ya no está en combate.`);
+
   const paPenalty=Math.max(0,u.status.paPenaltyNext||0);
   u.pa=Math.max(0,u.maxPa-paPenalty);
   u.status.paPenaltyNext=0;

@@ -137,63 +137,31 @@ Object.assign(CHAMPIONS.houngan.abilities.find(a=>a.id==='ritual'),{
 // ESTADOS GLOBALES
 // ─────────────────────────────────────────────
 
-const MAX_WOUND=3,MAX_POISON=6,MAX_BURN=8;
+const MAX_WOUND=3,MAX_POISON=3,MAX_BURN=4;
 
 function addWoundStatus(target,n=1){
-  if(!target?.status||target.kind!=='unit')return 0;
-  const before=target.status.wound||0;
-  target.status.wound=Math.min(MAX_WOUND,before+n);
-  return target.status.wound-before;
+  return addStatus(target,'wound',n);
 }
 function addPoisonStatus(target,n=1){
-  if(!target?.status||target.kind!=='unit')return 0;
-  const before=target.status.poison||0;
-  target.status.poison=Math.min(MAX_POISON,before+n);
-  return target.status.poison-before;
+  return addStatus(target,'poison',n);
 }
 function addBurnStatus(target,n=1){
-  if(!target?.status||target.kind!=='unit')return 0;
-  const before=target.status.burn||0;
-  target.status.burn=Math.min(MAX_BURN,before+n);
-  return target.status.burn-before;
+  return addStatus(target,'burn',n);
 }
 async function woundTravelStep(target){
   if(target?.kind!=='unit'||!target.alive)return;
-  const n=Math.min(MAX_WOUND,Math.max(0,target.status?.wound||0));
-  target.status.wound=n;
-  if(n<=0)return;
-  applyDamage(target,n,false);
-  log(`🩸 Herida ${n}: ${target.name} recibe ${n} daño por recorrer 1 casilla.`);
+  const dealt=applyWoundStep(target);
+  if(dealt<=0)return;
   renderBattle();
   await sleep(120);
 }
 
 // ─────────────────────────────────────────────
-// ESCUDOS — 1 TURNO
+// ESCUDOS
 // ─────────────────────────────────────────────
-
-addShield=function(e,amount,label='Escudo'){
-  if(!e||!e.alive)return;
-  e.shieldStacks.push({
-    amount,
-    turns:1,
-    label,
-    appliedTurnId:cur()?.id||null
-  });
-  feedback(e,`+${amount} 🛡️`,'shield');
-};
-
-ageShieldStacks=function(e,turnOwnerId=cur()?.id){
-  if(!e?.shieldStacks)return;
-  for(const s of e.shieldStacks){
-    if(s.appliedTurnId&&s.appliedTurnId===turnOwnerId){
-      s.appliedTurnId=null;
-      continue;
-    }
-    s.turns--;
-  }
-  e.shieldStacks=e.shieldStacks.filter(s=>s.turns>0&&s.amount>0);
-};
+// La duración global de Escudo se resuelve en combat-core-0625.js.
+// Esta capa de balance conserva las llamadas addShield(...) existentes, pero no
+// vuelve a definir ni a envejecer pilas de escudo por su cuenta.
 
 // ─────────────────────────────────────────────
 // UNIDADES / INICIO-FIN DE TURNO
@@ -214,50 +182,27 @@ beginTurn=function(){
   if(u?.alive){
     u.sproutRemovedThisTurn=false;
     u.trapRemovedThisTurn=false;
-    u.status.wound=Math.min(MAX_WOUND,Math.max(0,u.status.wound||0));
-    u.status.poison=Math.min(MAX_POISON,Math.max(0,u.status.poison||0));
-    u.status.burn=Math.min(MAX_BURN,Math.max(0,u.status.burn||0));
-    if(u.status.burn>0){
-      const n=u.status.burn;
-      applyDamage(u,n,false);
-      log(`🔥 Quemadura ${n}: ${u.name} recibe ${n} daño al inicio de su turno.`);
-    }
   }
+  // El motor base v0.6.19 ya resuelve una sola vez: límites de estados,
+  // Quemadura al inicio, PA/PM y reinicios de turno.
   return _beginTurn();
 };
 
+const _balanceBaseEndTurnEffects=endTurnEffects;
 endTurnEffects=function(u){
-  if(!u)return;
-
-  if(u.alive&&u.status.burn>0){
-    const n=Math.min(MAX_BURN,u.status.burn);
-    applyDamage(u,n,false);
-    log(`🔥 Quemadura ${n}: ${u.name} recibe ${n} daño al final de su turno.`);
-  }
-
-  const oldWound=Math.min(MAX_WOUND,Math.max(0,u.status.wound||0));
-  const oldPoison=Math.min(MAX_POISON,Math.max(0,u.status.poison||0));
-  const oldBurn=Math.min(MAX_BURN,Math.max(0,u.status.burn||0));
-
-  u.status.wound=Math.floor(oldWound/2);
-  u.status.poison=Math.floor(oldPoison/2);
-  u.status.burn=Math.floor(oldBurn/2);
-
-  if(oldWound!==u.status.wound)log(`🩸 ${u.name}: Herida ${oldWound} → ${u.status.wound}.`);
-  if(oldPoison!==u.status.poison)log(`☠️ ${u.name}: Veneno ${oldPoison} → ${u.status.poison}.`);
-  if(oldBurn!==u.status.burn)log(`🔥 ${u.name}: Quemadura ${oldBurn} → ${u.status.burn}.`);
-
-  ageShieldStacks(u,u.id);
-  ownedPillars(u).forEach(p=>ageShieldStacks(p,u.id));
+  // El motor base resuelve una sola vez Quemadura final + reducción a la mitad.
+  // combat-core-0625.js neutraliza el envejecimiento antiguo de escudos.
+  return _balanceBaseEndTurnEffects(u);
 };
 
 spendPAAfterAction=function(u){
-  if(!u?.alive)return;
-  u.status.poison=Math.min(MAX_POISON,Math.max(0,u.status.poison||0));
-  if(u.status.poison>0){
-    const n=u.status.poison;
+  // Veneno se dispara al USAR la habilidad (al pagar PA), no al finalizarla.
+  // Aquí sólo se mantiene la resolución de Maldición heredada.
+  if(u?.alive&&u.status?.curseDamage>0){
+    const n=u.status.curseDamage;
+    u.status.curseDamage=0;
     applyDamage(u,n,false);
-    log(`☠️ Veneno ${n}: ${u.name} recibe ${n} daño por utilizar una habilidad.`);
+    log(`☠️ Maldición: ${u.name} recibe ${n} daño por gastar PA.`);
   }
 };
 
@@ -680,8 +625,17 @@ async function beginBalancedAction(u,id,x,y){
   if(target)faceTarget(u,target);
   registerSkillUse(u,id);
   u.pa-=a.cost;
+  triggerPoisonOnAbility(u);
   renderBattle();
   await sleep(150);
+  if(!u.alive){
+    B.notice='';
+    B.selectedAction=null;
+    B.busy=false;
+    renderBattle();
+    checkBattleEnd();
+    return {aborted:true};
+  }
   return {a,target,objectTarget:isCombatObject(target)};
 }
 
@@ -712,6 +666,7 @@ executeAbility=async function(u,id,x,y,fromAI=false){
 
   const ctx=await beginBalancedAction(u,id,x,y);
   if(!ctx)return false;
+  if(ctx.aborted)return true;
   const {a,target,objectTarget}=ctx;
 
   if(id==='daggers'){
@@ -897,7 +852,12 @@ executeImpulse=async function(u,target,x,y){
   B.notice=`${u.icon} ${u.name} — ${a.icon} ${a.name}`;
   registerSkillUse(u,'impulse');
   u.pa-=a.cost;
+  triggerPoisonOnAbility(u);
   renderBattle();await sleep(140);
+  if(!u.alive){
+    B.notice='';B.selectedAction=null;B.pendingImpulseTargetId=null;B.busy=false;
+    renderBattle();checkBattleEnd();return true;
+  }
 
   await dashUnit(target,x,y);
   log(`💨 Impulso: ${target.name} se desplaza sin gastar PM. Herida se resolvió por cada casilla recorrida.`);

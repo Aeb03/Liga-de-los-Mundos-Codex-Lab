@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const SIZE=12, VERSION='0.6.35-v02';
+const SIZE=12, VERSION='0.6.36-v02';
 
 
 
@@ -1507,9 +1507,10 @@ function renderBattle(){
     :`<div class="fighter-panel ${view.side==='player'?'fighter-player':'fighter-enemy'}"><div class="fighter-avatar">${view.icon}</div><div class="fighter-main"><div class="fighter-name"><b>${view.name}</b><small>${teamLabel(view)} · ${champ(view.championId).title}</small></div><div class="fighter-vitals"><span>❤️ <b>${view.hp}/${view.maxHp}</b></span><span>🛡️ <b>${shieldTotal(view)}</b></span><span>PA <b>${view.pa}/${view.maxPa}</b></span><span>PM <b>${view.pm}/${view.maxPm}</b></span></div><div class="fighter-states chips">${statusChips(view)}</div></div></div>`;
   let controls='';
   if(B.onlinePreview){
-    const oa=getUnit('onlineA'),ob=getUnit('onlineB');
+    const onlineUnits=B.units.filter(z=>z?.onlineTeam);
     const skillNames=z=>(z?.loadout||[]).map(id=>ability(z.championId,id)?.name||id).join(' · ');
-    controls=`<div class="online-preview-lock"><b>🌐 CONEXIÓN ONLINE LISTA</b><span>Sala ${B.onlineRoomCode||'—'} · Equipo ${B.onlineLocalTeam||'—'}</span><small><strong>A · ${oa?.name||'—'}:</strong> ${skillNames(oa)}</small><small><strong>B · ${ob?.name||'—'}:</strong> ${skillNames(ob)}</small><p>Los dos jugadores llegaron a la misma preparación de Arena. Las acciones todavía están bloqueadas en esta prueba.</p><button class="secondary" id="onlinePreviewRoom" type="button">Volver a la sala</button></div>`;
+    const rows=onlineUnits.map(z=>`<small><strong>${z.side==='player'?'TU EQUIPO':'RIVAL'} · ${z.name}:</strong> ${skillNames(z)}</small>`).join('');
+    controls=`<div class="online-preview-lock"><b>🌐 DESPLIEGUE SINCRONIZADO</b><span>Sala ${B.onlineRoomCode||'—'} · Equipo ${B.onlineLocalTeam||'—'}</span>${rows}<p>Ronda 1 preparada. Ambos clientes comparten las mismas casillas reales; cada jugador ve su propio equipo en azul y su lado abajo. Movimiento y Fin de turno siguen bloqueados hasta el próximo bloque.</p><button class="secondary" id="onlineLeaveBattle" type="button">Abandonar partida</button></div>`;
   }else if(phase){
     controls=phaseHuman
       ?`<div class="doll-phase-card"><b>🪆 Movimiento del Muñeco</b><span>${phase.pm}/${phase.maxPm} PM</span><p>Tocá una casilla resaltada para moverlo. Podés dividir sus 3 PM.</p><button class="end-turn" id="finishDoll">Finalizar movimiento</button></div>`
@@ -1536,12 +1537,12 @@ function renderBattle(){
   }else controls=`<div class="ai">🤖 ${u.side==='player'?'Tu aliado IA':'El rival IA'} está jugando…</div>`;
   const selectedAbility=!phase&&u.controller==='human'&&B.selectedAction&&!['move','consumePillar','removeSprout'].includes(B.selectedAction)?ability(u.championId,B.selectedAction):null;
   const logText=B.log.slice(-8).join('<br>')||'Comienza el combate.';
-  const headTitle=B.onlinePreview?`ONLINE · ${B.onlineRoomCode||'SALA'}`:(phase&&doll?`🪆 Muñeco · ${u.name}`:`Ronda ${B.round}`);
+  const headTitle=B.onlinePreview?`ONLINE · RONDA ${B.round}`:(phase&&doll?`🪆 Muñeco · ${u.name}`:`Ronda ${B.round}`);
   const activeTurnLabel=phase&&doll?`${doll.icon} ${doll.name}`:`${u.side==='player'?'🔵':'🔴'} ${u.icon} ${u.name}`;
   app.innerHTML=`<section class="screen battle-screen">
     <div class="round-hud-panel hud-module ${hudClass('round')}">
       <div class="round-hud-tools">${hudControls('round')}</div>
-      <div class="round-summary"><b>${headTitle}</b><span class="round-active">${activeTurnLabel}</span>${B.onlinePreview?`<span class="combat-timer">🔗 <b>PREPARADO</b></span>`:(phase?`<span class="combat-timer">👣 <b>${phase.pm} PM</b></span>`:`<span class="combat-timer ${B.timer<=10?'danger-time':''}">⏱️ <b id="timer">${B.timer}s</b></span>`)}<button class="reset-hud" id="resetHud" type="button" title="Restablecer HUD">↺</button></div>
+      <div class="round-summary"><b>${headTitle}</b><span class="round-active">${activeTurnLabel}</span>${B.onlinePreview?`<span class="combat-timer">🔗 <b>SINCRONIZADO</b></span>`:(phase?`<span class="combat-timer">👣 <b>${phase.pm} PM</b></span>`:`<span class="combat-timer ${B.timer<=10?'danger-time':''}">⏱️ <b id="timer">${B.timer}s</b></span>`)}<button class="reset-hud" id="resetHud" type="button" title="Restablecer HUD">↺</button></div>
       <div class="turn-order">${order}</div>
     </div>
     <div class="camera-hud-panel hud-module" aria-label="Controles de cámara">
@@ -1599,7 +1600,7 @@ function renderBattle(){
     $('#removeSprout')?.addEventListener('click',selectRemoveSprout);
   }else $('#finishDoll')?.addEventListener('click',()=>{if(!B.busy)finishDollPhase()});
   $('#toggleLog')?.addEventListener('click',()=>{B.logOpen=!B.logOpen;renderBattle()});
-  $('#onlinePreviewRoom')?.addEventListener('click',()=>window.LigaOnline?.returnToRoom?.());
+  $('#onlineLeaveBattle')?.addEventListener('click',()=>window.LigaOnline?.leave?.());
 }
 
 async function executeImpulse(u,target,x,y){
@@ -1828,7 +1829,8 @@ async function aiTurn(){
 }
 
 
-// ONLINE v0.6.35 — puente aislado entre el lobby Supabase y el motor validado.
+// ONLINE v0.6.36 — despliegue sincronizado como capa aislada sobre el motor validado.
+// Estructura preparada para separar equipo / controlador / unidad. El MVP sigue siendo 1v1.
 function onlineRosterSnapshot(){
   return Object.values(CHAMPIONS).map(c=>({
     id:c.id,name:c.name,title:c.title,role:c.role,icon:c.icon,
@@ -1837,41 +1839,149 @@ function onlineRosterSnapshot(){
     abilities:(c.abilities||[]).map(a=>({id:a.id,name:a.name,icon:a.icon,cost:a.cost,text:a.text||''}))
   }));
 }
-function startOnlineBattlePreview(cfg={}){
+function cleanOnlineLoadout(championId,list){
+  const valid=new Set((CHAMPIONS[championId]?.abilities||[]).map(a=>a.id));
+  return Array.isArray(list)?list.filter(id=>valid.has(id)).slice(0,4):[];
+}
+function normalizeOnlineParticipants(cfg={}){
+  return (Array.isArray(cfg.participants)?cfg.participants:[]).map((p,i)=>({
+    team:String(p?.team||''),slotNumber:Number(p?.slotNumber)||i+1,controller:String(p?.controller||'PLAYER'),
+    playerId:p?.playerId||null,championId:p?.championId,loadout:cleanOnlineLoadout(p?.championId,p?.loadout),
+    deploymentReady:!!p?.deploymentReady,x:Number.isInteger(p?.x)?p.x:null,y:Number.isInteger(p?.y)?p.y:null
+  })).filter(p=>p.team&&CHAMPIONS[p.championId]&&p.loadout.length===4);
+}
+function onlineUnitId(p){return `online-${p.team}-${p.slotNumber}`}
+function onlineDeploymentPool(team){return team==='B'?ENEMY_DEPLOY:PLAYER_DEPLOY}
+function onlineLocalUnit(){
+  if(!B?.onlineMode)return null;
+  return B.units.find(u=>u.onlineControllerId&&u.onlineControllerId===B.onlineLocalPlayerId)
+    ||B.units.find(u=>u.onlineTeam===B.onlineLocalTeam&&u.controller==='human')
+    ||B.units.find(u=>u.onlineTeam===B.onlineLocalTeam)
+    ||null;
+}
+function buildOnlineUnits(cfg={}){
+  const localTeam=cfg.localTeam==='B'?'B':'A',localPlayerId=cfg.localPlayerId||null;
+  return normalizeOnlineParticipants(cfg).map(p=>{
+    const sameTeam=p.team===localTeam,isLocal=p.playerId&&p.playerId===localPlayerId;
+    const controller=p.controller==='AI'?'ai':(isLocal?'human':'remote');
+    const u=makeUnit(p.championId,sameTeam?'player':'enemy',onlineUnitId(p),controller,p.loadout);
+    u.onlineTeam=p.team;u.onlineSlotNumber=p.slotNumber;u.onlineControllerType=p.controller;u.onlineControllerId=p.playerId;
+    // Facing canónico: A mira hacia B y B hacia A. La cámara transforma sólo la vista.
+    u.facing=p.team==='B'?'izquierda':'derecha';
+    if(p.deploymentReady&&Number.isInteger(p.x)&&Number.isInteger(p.y)){u.x=p.x;u.y=p.y}
+    return u;
+  });
+}
+function startOnlineDeployment(cfg={}){
   clearInterval(timerId);
-  const A=cfg.A||{},C=cfg.B||{};
-  if(!CHAMPIONS[A.championId]||!CHAMPIONS[C.championId])return false;
-  const cleanLoadout=(championId,list)=>{
-    const valid=new Set((CHAMPIONS[championId]?.abilities||[]).map(a=>a.id));
-    return Array.isArray(list)?list.filter(id=>valid.has(id)).slice(0,4):[];
-  };
-  const aLoad=cleanLoadout(A.championId,A.loadout),bLoad=cleanLoadout(C.championId,C.loadout);
-  if(aLoad.length!==4||bLoad.length!==4)return false;
+  const participants=normalizeOnlineParticipants(cfg);
+  if(participants.length<2)return false;
   const localTeam=cfg.localTeam==='B'?'B':'A';
-  const ua=makeUnit(A.championId,'player','onlineA',localTeam==='A'?'human':'remote',aLoad);
-  const ub=makeUnit(C.championId,'enemy','onlineB',localTeam==='B'?'human':'remote',bLoad);
-  ua.onlineTeam='A';ub.onlineTeam='B';
-  ua.x=1;ua.y=5;ua.facing='derecha';
-  ub.x=10;ub.y=5;ub.facing='izquierda';
-  const ordered=[ua,ub].sort((x,y)=>y.ini-x.ini||(x.onlineTeam==='A'?-1:1));
+  const units=buildOnlineUnits({...cfg,participants});
+  if(!units.length)return false;
   B={
-    mode:'online1v1',onlinePreview:true,onlineRoomCode:String(cfg.roomCode||''),onlineLocalTeam:localTeam,
-    round:1,turn:0,timer:30,selectedAction:null,selectedUnitId:localTeam==='A'?ua.id:ub.id,pendingImpulseTargetId:null,
+    mode:'online1v1',onlineMode:true,onlinePhase:'deployment',onlinePreview:false,
+    onlineRoomCode:String(cfg.roomCode||''),onlineLocalTeam:localTeam,onlineLocalPlayerId:cfg.localPlayerId||null,
+    onlineDeploymentConfirmed:false,onlineOpponentDeploymentReady:false,onlineDeploySending:false,onlineDeploySyncSig:'',
+    round:1,turn:0,timer:30,selectedAction:null,selectedUnitId:null,pendingImpulseTargetId:null,
     skillsOpen:false,logOpen:false,busy:false,pendingTimeout:false,notice:'',
     hudCollapsed:{player:true,enemy:true},hudBottomCollapsed:false,
-    deployment:false,deployPos:null,camera:{x:0,y:0,rotation:0},pillars:[],traps:[],dollPhase:null,
+    deployment:true,deployPos:null,camera:{x:0,y:0,rotation:localTeam==='B'?2:0},pillars:[],traps:[],dollPhase:null,
     nextPillarId:1,nextObjectId:1,nextTrapId:1,nextQuakeId:1,fxSeq:0,noticeSeq:0,
-    log:[`🌐 Sala ${String(cfg.roomCode||'—')} preparada: Equipo A vs Equipo B.`],
-    units:[ua,ub],order:ordered.map(u=>u.id),ended:false,resultRecorded:false
+    log:[`🌐 Sala ${String(cfg.roomCode||'—')} · despliegue online iniciado.`],
+    units,order:units.map(u=>u.id),ended:false,resultRecorded:false
   };
-  B.turn=Math.max(0,B.order.indexOf(ordered[0].id));
+  const local=onlineLocalUnit();if(!local)return false;
+  B.selectedUnitId=local.id;
+  syncOnlineDeployment({...cfg,participants});
+  return true;
+}
+function renderOnlineDeployment(){
+  if(!B?.onlineMode||B.onlinePhase!=='deployment')return;
+  const p=onlineLocalUnit();if(!p)return;
+  const pool=onlineDeploymentPool(p.onlineTeam),confirmed=!!B.onlineDeploymentConfirmed;
+  let tiles='',pieces='';
+  for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+    const k=key(x,y),valid=pool.includes(k)&&!isFixedObstacle(x,y),chosen=B.deployPos===k;
+    const cl=['tile'];
+    if(isFixedObstacle(x,y))cl.push('obstacle');
+    if(valid&&!confirmed)cl.push('deploy');
+    if(chosen)cl.push('deploy-chosen');
+    tiles+=isoTileMarkup(x,y,cl);
+    if(isFixedObstacle(x,y))pieces+=isoObstacleMarkup(x,y);
+    // Durante el despliegue sólo se revela la miniatura propia. La rival aparece cuando ambos confirman.
+    if(chosen){const preview={...p,x,y};pieces+=isoEntityMarkup(preview,p,preview)}
+  }
+  const ownState=confirmed?'✅ POSICIÓN CONFIRMADA':(B.deployPos?'Posición elegida · falta confirmar':'Elegí una casilla azul');
+  const rivalState=B.onlineOpponentDeploymentReady?'✅ Rival confirmado':'⏳ Rival desplegando';
+  app.innerHTML=`<section class="screen deployment-screen iso-deployment-screen online-deployment-screen">
+    <div class="topbar"><b>🌐 Despliegue online · Sala ${B.onlineRoomCode||'—'}</b><span>Tu equipo ${B.onlineLocalTeam} · tu lado siempre abajo</span></div>
+    <div class="card"><b>Elegí la posición de ${p.name}</b><p class="small">Sólo podés colocar tu propia miniatura. La posición rival permanece oculta hasta que ambos confirmen.</p><p class="small iso-help">${ownState}<br>${rivalState}</p></div>
+    ${isoBoardMarkup(tiles,pieces)}
+    <div class="deployment-actions"><button id="confirmOnlineDeploy" ${!B.deployPos||confirmed||B.onlineDeploySending?'disabled':''}>${confirmed?'CONFIRMADO':(B.onlineDeploySending?'ENVIANDO…':'CONFIRMAR POSICIÓN')}</button><button class="secondary" id="leaveOnlineDeploy">Abandonar partida</button></div>
+  </section>`;
+  $('#grid').onclick=e=>{
+    if(confirmed||B.onlineDeploySending)return;
+    const t=e.target.closest('.tile');if(!t)return;
+    const k=key(+t.dataset.x,+t.dataset.y);
+    if(!pool.includes(k)||isFixedObstacle(+t.dataset.x,+t.dataset.y))return;
+    B.deployPos=k;renderOnlineDeployment();
+  };
+  $('#confirmOnlineDeploy')?.addEventListener('click',async()=>{
+    if(!B.deployPos||B.onlineDeploymentConfirmed||B.onlineDeploySending)return;
+    const [x,y]=B.deployPos.split(',').map(Number);
+    B.onlineDeploySending=true;renderOnlineDeployment();
+    const ok=await window.LigaOnline?.confirmDeployment?.({x,y});
+    if(!ok&&B?.onlinePhase==='deployment'){B.onlineDeploySending=false;renderOnlineDeployment()}
+  });
+  $('#leaveOnlineDeploy')?.addEventListener('click',()=>window.LigaOnline?.leave?.());
+}
+function syncOnlineDeployment(cfg={}){
+  if(!B?.onlineMode||B.onlinePhase!=='deployment')return false;
+  const participants=normalizeOnlineParticipants(cfg);
+  if(!participants.length)return false;
+  const sig=participants.map(p=>`${p.team}:${p.slotNumber}:${p.deploymentReady?1:0}:${p.x??'-'}:${p.y??'-'}`).sort().join('|');
+  const local=participants.find(p=>p.playerId&&p.playerId===B.onlineLocalPlayerId)||participants.find(p=>p.team===B.onlineLocalTeam);
+  const rivals=participants.filter(p=>p.team!==B.onlineLocalTeam);
+  for(const p of participants){
+    const u=getUnit(onlineUnitId(p));if(!u)continue;
+    if(p.deploymentReady&&Number.isInteger(p.x)&&Number.isInteger(p.y)){u.x=p.x;u.y=p.y}
+  }
+  B.onlineDeploymentConfirmed=!!local?.deploymentReady;
+  B.onlineOpponentDeploymentReady=rivals.length>0&&rivals.every(p=>p.deploymentReady);
+  B.onlineDeploySending=false;
+  if(local?.deploymentReady&&Number.isInteger(local.x)&&Number.isInteger(local.y))B.deployPos=key(local.x,local.y);
+  if(sig!==B.onlineDeploySyncSig){B.onlineDeploySyncSig=sig;renderOnlineDeployment()}
+  return true;
+}
+function startOnlineRoundReady(cfg={}){
+  const participants=normalizeOnlineParticipants(cfg);
+  if(participants.length<2||participants.some(p=>!p.deploymentReady||!Number.isInteger(p.x)||!Number.isInteger(p.y)))return false;
+  if(!B?.onlineMode||B.onlineRoomCode!==String(cfg.roomCode||'')){
+    if(!startOnlineDeployment(cfg))return false;
+  }
+  for(const p of participants){const u=getUnit(onlineUnitId(p));if(u){u.x=p.x;u.y=p.y}}
+  B.onlinePhase='round-ready';B.onlinePreview=true;B.deployment=false;B.deployPos=null;B.onlineDeploymentConfirmed=true;B.onlineOpponentDeploymentReady=true;
+  B.round=1;B.timer=30;B.selectedAction=null;
+  B.order=[...B.units].sort((a,b)=>b.ini-a.ini||String(a.onlineTeam).localeCompare(String(b.onlineTeam))||a.onlineSlotNumber-b.onlineSlotNumber).map(u=>u.id);
+  B.turn=0;
+  const local=onlineLocalUnit();if(local)B.selectedUnitId=local.id;
+  B.log.push(`✅ Despliegue sincronizado. Ronda 1 preparada. ${cur()?.name||'—'} tiene la iniciativa.`);
   renderBattle();
   return true;
+}
+function onlineDeploymentError(message='Error al sincronizar el despliegue.'){
+  if(!B?.onlineMode||B.onlinePhase!=='deployment')return;
+  B.onlineDeploySending=false;B.notice=String(message||'Error al sincronizar el despliegue.');
+  renderOnlineDeployment();
 }
 window.LigaOnlineGame={
   roster:onlineRosterSnapshot,
   defaultSelection:()=>({championId:setup.championId,loadout:[...setup.loadout]}),
-  startPreview:startOnlineBattlePreview,
+  startDeployment:startOnlineDeployment,
+  syncDeployment:syncOnlineDeployment,
+  startRoundReady:startOnlineRoundReady,
+  deploymentError:onlineDeploymentError,
   version:()=>VERSION
 };
 

@@ -2,23 +2,25 @@
 const CFG=()=>window.LIGA_ONLINE_CONFIG||{};
 const PROTOCOL_VERSION=Number(CFG().protocolVersion)||1;
 const PLAYER_KEY='liga-online-player-id-v1';
-let session=null,socket=null,heartbeat=null,syncTimer=null,refreshing=false,ref=0;
+let session=null,socket=null,heartbeat=null,syncTimer=null,refreshing=false,ref=0,serverClockOffsetMs=0;
 const app=()=>document.getElementById('app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const playerId=()=>{let id=localStorage.getItem(PLAYER_KEY);if(!id){id=(crypto.randomUUID?.()||`p-${Date.now()}-${Math.random().toString(36).slice(2)}`);localStorage.setItem(PLAYER_KEY,id)}return id};
 const readyConfig=()=>{const c=CFG();return /^https:\/\//.test(c.supabaseUrl||'')&&!String(c.supabaseUrl).includes('PEGAR_')&&c.publishableKey&&!String(c.publishableKey).includes('PEGAR_')};
 const base=()=>String(CFG().supabaseUrl||'').replace(/\/$/,'');
 const headers=(extra={})=>({'apikey':CFG().publishableKey,'Authorization':`Bearer ${CFG().publishableKey}`,'Content-Type':'application/json',...extra});
-async function api(path,opt={}){const r=await fetch(base()+path,{...opt,headers:headers(opt.headers||{})});if(!r.ok){let m='';try{m=await r.text()}catch(_){}throw new Error(`${r.status} ${m||r.statusText}`)}if(r.status===204)return null;const t=await r.text();return t?JSON.parse(t):null}
+function captureServerClock(r){const raw=r?.headers?.get?.('date');const ms=raw?Date.parse(raw):NaN;if(Number.isFinite(ms))serverClockOffsetMs=ms-Date.now()}
+const serverNowIso=()=>new Date(Date.now()+serverClockOffsetMs).toISOString();
+async function api(path,opt={}){const r=await fetch(base()+path,{...opt,headers:headers(opt.headers||{})});captureServerClock(r);if(!r.ok){let m='';try{m=await r.text()}catch(_){}throw new Error(`${r.status} ${m||r.statusText}`)}if(r.status===204)return null;const t=await r.text();return t?JSON.parse(t):null}
 function errorText(e){const raw=String(e?.message||e||'Error desconocido');try{const i=raw.indexOf('{');if(i>=0){const j=JSON.parse(raw.slice(i));const parts=[j.code,j.message,j.details,j.hint].filter(Boolean);if(parts.length)return parts.join(' · ')}}catch(_){}return raw.replace(/sb_publishable_[A-Za-z0-9_-]+/g,'sb_publishable_[oculta]')}
 const code=()=>{const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>a[Math.floor(Math.random()*a.length)]).join('')};
 const roster=()=>window.LigaOnlineGame?.roster?.()||[];
 const champion=id=>roster().find(c=>c.id===id)||null;
 const validLoadout=(championId,list)=>{const c=champion(championId);if(!c)return[];const ids=new Set(c.abilities.map(a=>a.id));return Array.isArray(list)?list.filter(x=>ids.has(x)).slice(0,4):[]};
-function shell(body){app().innerHTML=`<section class="screen online-screen"><div class="topbar"><b>🌐 1v1 ONLINE · DESPLIEGUE</b><span>Protocolo ${PROTOCOL_VERSION}</span></div>${body}</section>`}
+function shell(body){app().innerHTML=`<section class="screen online-screen"><div class="topbar"><b>🌐 1v1 ONLINE · AUTORIDAD DE TURNO</b><span>Protocolo ${PROTOCOL_VERSION}</span></div>${body}</section>`}
 function home(msg=''){
   cleanupRealtime();session=null;
-  shell(`<div class="online-card"><small>PRUEBA ONLINE v0.6.36</small><h2>1 PLAYER vs 1 PLAYER</h2><p>Sincroniza campeón + 4 habilidades y continúa con el despliegue simultáneo. Cada jugador coloca únicamente su propia miniatura.</p>${msg?`<div class="online-message">${esc(msg)}</div>`:''}<div class="online-actions"><button id="onlineCreate">CREAR PARTIDA</button><div class="online-join"><input id="onlineCode" maxlength="6" autocomplete="off" placeholder="CÓDIGO"><button id="onlineJoin">UNIRSE</button></div></div><div class="online-status ${readyConfig()?'ok':'warn'}">${readyConfig()?'Supabase configurado · listo para probar':'Falta configurar Project URL + Publishable key'}</div></div><div class="actions"><button class="secondary" id="onlineBack">Volver</button></div>`);
+  shell(`<div class="online-card"><small>PRUEBA ONLINE v0.6.37</small><h2>1 PLAYER vs 1 PLAYER</h2><p>Sincroniza selección y despliegue, y luego establece una única autoridad de turno compartida entre ambos clientes.</p>${msg?`<div class="online-message">${esc(msg)}</div>`:''}<div class="online-actions"><button id="onlineCreate">CREAR PARTIDA</button><div class="online-join"><input id="onlineCode" maxlength="6" autocomplete="off" placeholder="CÓDIGO"><button id="onlineJoin">UNIRSE</button></div></div><div class="online-status ${readyConfig()?'ok':'warn'}">${readyConfig()?'Supabase configurado · listo para probar':'Falta configurar Project URL + Publishable key'}</div></div><div class="actions"><button class="secondary" id="onlineBack">Volver</button></div>`);
   document.getElementById('onlineCreate').onclick=createMatch;
   document.getElementById('onlineJoin').onclick=()=>joinMatch(document.getElementById('onlineCode').value);
   document.getElementById('onlineCode').oninput=e=>e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
@@ -52,7 +54,7 @@ function waiting(){
   document.getElementById('onlineLeave').onclick=leave;
 }
 function schemaProblem(){
-  shell(`<div class="online-card"><small>SALA ${esc(session?.roomCode||'')}</small><h2>Falta actualizar Supabase</h2><div class="online-message">Esta versión necesita las columnas de despliegue en online_slots. Ejecutá <b>supabase-online-v0636.sql</b> una sola vez en el SQL Editor.</div></div><div class="actions"><button class="secondary" id="onlineLeave">Abandonar sala</button></div>`);
+  shell(`<div class="online-card"><small>SALA ${esc(session?.roomCode||'')}</small><h2>Falta actualizar Supabase</h2><div class="online-message">Esta versión necesita las columnas de despliegue de v0.6.36 y las columnas de autoridad de turno de v0.6.37. Ejecutá <b>supabase-online-v0637.sql</b> una sola vez en el SQL Editor si todavía falta la migración nueva.</div></div><div class="actions"><button class="secondary" id="onlineLeave">Abandonar sala</button></div>`);
   document.getElementById('onlineLeave').onclick=leave;
 }
 function prep(){
@@ -92,7 +94,7 @@ function launchDeployment(a,b){
   if(!session)return;
   const participants=[participant(a),participant(b)].filter(Boolean);
   if(participants.some(p=>!p.championId||p.loadout.length!==4))return;
-  if(session.phase==='round-ready')return;
+  if(session.phase==='round-ready'||session.phase==='turn-authority')return;
   if(session.phase!=='deployment'){
     session.phase='deployment';
     if(session.team==='A')api(`/rest/v1/online_matches?id=eq.${encodeURIComponent(session.matchId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'deployment',updated_at:new Date().toISOString()})}).catch(()=>{});
@@ -107,13 +109,61 @@ function syncDeployment(a,b){
   window.LigaOnlineGame?.syncDeployment?.({roomCode:session.roomCode,localTeam:session.team,localPlayerId:playerId(),participants});
   if(participants.length===2&&participants.every(p=>p.deploymentReady))launchRoundReady(participants);
 }
-function launchRoundReady(participants){
-  if(!session||session.phase==='round-ready')return;
-  session.phase='round-ready';
-  if(session.team==='A')api(`/rest/v1/online_matches?id=eq.${encodeURIComponent(session.matchId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'round1_ready',updated_at:new Date().toISOString()})}).catch(()=>{});
-  window.LigaOnlineGame?.startRoundReady?.({roomCode:session.roomCode,localTeam:session.team,localPlayerId:playerId(),participants});
+function turnOrder(participants){
+  return [...participants].sort((a,b)=>(champion(b.championId)?.ini||0)-(champion(a.championId)?.ini||0)||String(a.team).localeCompare(String(b.team))||a.slotNumber-b.slotNumber);
 }
-async function refresh(){if(!session||refreshing)return;refreshing=true;try{const slots=await api(`/rest/v1/online_slots?match_id=eq.${encodeURIComponent(session.matchId)}&controller=eq.PLAYER&select=team,slot_number,controller,player_id,ready,champion_id,loadout,deploy_x,deploy_y,deployment_ready`);session.slots=slots||[];session.schemaError=false;if(session.phase==='deployment'){const a=session.slots.find(s=>s.team==='A'),b=session.slots.find(s=>s.team==='B');if(!a||!b){session.phase='room';return renderRoom()}if(!slotReady(a)||!slotReady(b)){session.phase='room';return renderRoom()}syncDeployment(a,b);return}if(session.phase==='round-ready'){return}renderRoom()}catch(e){console.warn('Online refresh',e);session.schemaError=/champion_id|loadout|deploy_|deployment_ready|column|schema cache/i.test(e.message);if(session.phase==='deployment'&&session.schemaError)return schemaProblem();renderRoom()}finally{refreshing=false}}
+async function initializeTurnAuthority(participants){
+  if(!session||session.team!=='A'||session.initializingAuthority)return;
+  const first=turnOrder(participants)[0];if(!first)return;
+  session.initializingAuthority=true;
+  try{
+    await api(`/rest/v1/online_matches?id=eq.${encodeURIComponent(session.matchId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'turn_authority',round_number:1,turn_index:0,turn_seq:1,active_team:first.team,active_slot:first.slotNumber,turn_started_at:serverNowIso(),updated_at:serverNowIso()})});
+  }catch(e){console.error('Online authority init',e);session.schemaError=/round_number|turn_index|turn_seq|active_team|active_slot|turn_started_at|column|schema cache/i.test(e.message);if(session.schemaError)schemaProblem()}
+  finally{session.initializingAuthority=false}
+}
+function syncTurnAuthority(match,participants){
+  if(!session||!match||match.status!=='turn_authority')return false;
+  const activeTeam=String(match.active_team||''),activeSlot=Number(match.active_slot);
+  if(!activeTeam||!Number.isInteger(activeSlot)||activeSlot<1)return false;
+  session.phase='turn-authority';
+  window.LigaOnlineGame?.syncTurnAuthority?.({roomCode:session.roomCode,localTeam:session.team,localPlayerId:playerId(),participants,roundNumber:Number(match.round_number)||1,turnIndex:Number(match.turn_index)||0,turnSeq:Number(match.turn_seq)||1,activeTeam,activeSlot,turnStartedAt:match.turn_started_at||null,clockOffsetMs:serverClockOffsetMs});
+  return true;
+}
+function launchRoundReady(participants){
+  if(!session||session.phase==='round-ready'||session.phase==='turn-authority')return;
+  session.phase='round-ready';
+  window.LigaOnlineGame?.startRoundReady?.({roomCode:session.roomCode,localTeam:session.team,localPlayerId:playerId(),participants});
+  if(session.team==='A')initializeTurnAuthority(participants);
+}
+async function refresh(){
+  if(!session||refreshing)return;refreshing=true;
+  try{
+    const [slots,matches]=await Promise.all([
+      api(`/rest/v1/online_slots?match_id=eq.${encodeURIComponent(session.matchId)}&controller=eq.PLAYER&select=team,slot_number,controller,player_id,ready,champion_id,loadout,deploy_x,deploy_y,deployment_ready`),
+      api(`/rest/v1/online_matches?id=eq.${encodeURIComponent(session.matchId)}&select=status,round_number,turn_index,turn_seq,active_team,active_slot,turn_started_at&limit=1`)
+    ]);
+    session.slots=slots||[];session.schemaError=false;
+    const match=matches?.[0]||null;
+    const a=session.slots.find(s=>s.team==='A'),b=session.slots.find(s=>s.team==='B');
+    if(session.phase==='deployment'){
+      if(!a||!b){session.phase='room';return renderRoom()}
+      if(!slotReady(a)||!slotReady(b)){session.phase='room';return renderRoom()}
+      syncDeployment(a,b);return;
+    }
+    if(session.phase==='round-ready'||session.phase==='turn-authority'){
+      const participants=[participant(a),participant(b)].filter(Boolean);
+      if(match?.status==='turn_authority'){syncTurnAuthority(match,participants);return}
+      if(session.phase==='round-ready'&&session.team==='A'&&!session.initializingAuthority)initializeTurnAuthority(participants);
+      return;
+    }
+    renderRoom();
+  }catch(e){
+    console.warn('Online refresh',e);
+    session.schemaError=/champion_id|loadout|deploy_|deployment_ready|round_number|turn_index|turn_seq|active_team|active_slot|turn_started_at|column|schema cache/i.test(e.message);
+    if(session.schemaError)return schemaProblem();
+    renderRoom();
+  }finally{refreshing=false}
+}
 function returnToRoom(){if(!session)return home();session.phase='room';renderRoom()}
 function cleanupRealtime(){if(heartbeat){clearInterval(heartbeat);heartbeat=null}if(syncTimer){clearInterval(syncTimer);syncTimer=null}if(socket){try{socket.close()}catch(_){}socket=null}}
 function subscribe(){
@@ -132,7 +182,7 @@ function subscribe(){
   socket.onclose=()=>{if(session)setTimeout(()=>{if(session)subscribe()},1500)};
   socket.onerror=e=>console.warn('Realtime',e);
 }
-async function leave(){const s=session;session=null;cleanupRealtime();clearInterval(window.timerId);if(s&&readyConfig()){try{await api(`/rest/v1/online_slots?match_id=eq.${encodeURIComponent(s.matchId)}&player_id=eq.${encodeURIComponent(playerId())}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});const left=await api(`/rest/v1/online_slots?match_id=eq.${encodeURIComponent(s.matchId)}&controller=eq.PLAYER&select=id&limit=1`);if(!left?.length)await api(`/rest/v1/online_matches?id=eq.${encodeURIComponent(s.matchId)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});else await api(`/rest/v1/online_matches?id=eq.${encodeURIComponent(s.matchId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'waiting',updated_at:new Date().toISOString()})})}catch(e){console.warn('Online leave',e)}}home('Saliste de la sala.')}
+async function leave(){const s=session;session=null;cleanupRealtime();window.LigaOnlineGame?.stopOnline?.();if(s&&readyConfig()){try{await api(`/rest/v1/online_slots?match_id=eq.${encodeURIComponent(s.matchId)}&player_id=eq.${encodeURIComponent(playerId())}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});const left=await api(`/rest/v1/online_slots?match_id=eq.${encodeURIComponent(s.matchId)}&controller=eq.PLAYER&select=id&limit=1`);if(!left?.length)await api(`/rest/v1/online_matches?id=eq.${encodeURIComponent(s.matchId)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});else await api(`/rest/v1/online_matches?id=eq.${encodeURIComponent(s.matchId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'waiting',updated_at:new Date().toISOString()})})}catch(e){console.warn('Online leave',e)}}home('Saliste de la sala.')}
 addEventListener('pagehide',cleanupRealtime);
 window.LigaOnline={show:home,leave,playerId,returnToRoom,confirmDeployment};
 })();

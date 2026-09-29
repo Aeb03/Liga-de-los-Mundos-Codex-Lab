@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const SIZE=12, VERSION='0.6.36-v02';
+const SIZE=12, VERSION='0.6.37-v02';
 
 
 
@@ -1510,7 +1510,12 @@ function renderBattle(){
     const onlineUnits=B.units.filter(z=>z?.onlineTeam);
     const skillNames=z=>(z?.loadout||[]).map(id=>ability(z.championId,id)?.name||id).join(' · ');
     const rows=onlineUnits.map(z=>`<small><strong>${z.side==='player'?'TU EQUIPO':'RIVAL'} · ${z.name}:</strong> ${skillNames(z)}</small>`).join('');
-    controls=`<div class="online-preview-lock"><b>🌐 DESPLIEGUE SINCRONIZADO</b><span>Sala ${B.onlineRoomCode||'—'} · Equipo ${B.onlineLocalTeam||'—'}</span>${rows}<p>Ronda 1 preparada. Ambos clientes comparten las mismas casillas reales; cada jugador ve su propio equipo en azul y su lado abajo. Movimiento y Fin de turno siguen bloqueados hasta el próximo bloque.</p><button class="secondary" id="onlineLeaveBattle" type="button">Abandonar partida</button></div>`;
+    if(B.onlinePhase==='turn-authority'){
+      const active=cur(),mine=!!B.onlineLocalHasAuthority;
+      controls=`<div class="online-preview-lock"><b>${mine?'🟢 TU TURNO · AUTORIDAD ACTIVA':'👁️ TURNO RIVAL · MODO OBSERVADOR'}</b><span>Sala ${B.onlineRoomCode||'—'} · Ronda ${B.round} · Secuencia ${B.onlineTurnSeq||1}</span>${rows}<p><strong>Activo:</strong> ${active?.icon||''} ${active?.name||'—'} · Equipo ${active?.onlineTeam||'—'} · Slot ${active?.onlineSlotNumber||'—'}.</p><p>La autoridad, el orden, la ronda y el temporizador se comparten entre ambos clientes. Movimiento, Habilidades y Fin de turno siguen bloqueados intencionalmente en este bloque.</p><button class="secondary" id="onlineLeaveBattle" type="button">Abandonar partida</button></div>`;
+    }else{
+      controls=`<div class="online-preview-lock"><b>🌐 DESPLIEGUE SINCRONIZADO</b><span>Sala ${B.onlineRoomCode||'—'} · Equipo ${B.onlineLocalTeam||'—'}</span>${rows}<p>Ronda 1 preparada. Esperando la autoridad de turno compartida.</p><button class="secondary" id="onlineLeaveBattle" type="button">Abandonar partida</button></div>`;
+    }
   }else if(phase){
     controls=phaseHuman
       ?`<div class="doll-phase-card"><b>🪆 Movimiento del Muñeco</b><span>${phase.pm}/${phase.maxPm} PM</span><p>Tocá una casilla resaltada para moverlo. Podés dividir sus 3 PM.</p><button class="end-turn" id="finishDoll">Finalizar movimiento</button></div>`
@@ -1542,7 +1547,7 @@ function renderBattle(){
   app.innerHTML=`<section class="screen battle-screen">
     <div class="round-hud-panel hud-module ${hudClass('round')}">
       <div class="round-hud-tools">${hudControls('round')}</div>
-      <div class="round-summary"><b>${headTitle}</b><span class="round-active">${activeTurnLabel}</span>${B.onlinePreview?`<span class="combat-timer">🔗 <b>SINCRONIZADO</b></span>`:(phase?`<span class="combat-timer">👣 <b>${phase.pm} PM</b></span>`:`<span class="combat-timer ${B.timer<=10?'danger-time':''}">⏱️ <b id="timer">${B.timer}s</b></span>`)}<button class="reset-hud" id="resetHud" type="button" title="Restablecer HUD">↺</button></div>
+      <div class="round-summary"><b>${headTitle}</b><span class="round-active">${activeTurnLabel}</span>${B.onlinePreview?(B.onlinePhase==='turn-authority'?`<span class="combat-timer ${B.timer<=10?'danger-time':''}">🔗 ⏱️ <b id="timer">${B.timer}s</b></span>`:`<span class="combat-timer">🔗 <b>SINCRONIZANDO</b></span>`):(phase?`<span class="combat-timer">👣 <b>${phase.pm} PM</b></span>`:`<span class="combat-timer ${B.timer<=10?'danger-time':''}">⏱️ <b id="timer">${B.timer}s</b></span>`)}<button class="reset-hud" id="resetHud" type="button" title="Restablecer HUD">↺</button></div>
       <div class="turn-order">${order}</div>
     </div>
     <div class="camera-hud-panel hud-module" aria-label="Controles de cámara">
@@ -1829,7 +1834,7 @@ async function aiTurn(){
 }
 
 
-// ONLINE v0.6.36 — despliegue sincronizado como capa aislada sobre el motor validado.
+// ONLINE v0.6.37 — despliegue validado + autoridad de turno sincronizada como capa aislada.
 // Estructura preparada para separar equipo / controlador / unidad. El MVP sigue siendo 1v1.
 function onlineRosterSnapshot(){
   return Object.values(CHAMPIONS).map(c=>({
@@ -1975,6 +1980,47 @@ function onlineDeploymentError(message='Error al sincronizar el despliegue.'){
   B.onlineDeploySending=false;B.notice=String(message||'Error al sincronizar el despliegue.');
   renderOnlineDeployment();
 }
+function updateOnlineAuthorityClock(){
+  if(!B?.onlineMode||B.onlinePhase!=='turn-authority')return;
+  const started=Date.parse(B.onlineTurnStartedAt||'');
+  if(!Number.isFinite(started)){B.timer=30;return}
+  const now=Date.now()+(Number(B.onlineClockOffsetMs)||0);
+  const elapsed=Math.max(0,Math.floor((now-started)/1000));
+  B.timer=Math.max(0,30-elapsed);
+  const t=$('#timer');if(t){t.textContent=B.timer+'s';t.closest('.combat-timer')?.classList.toggle('danger-time',B.timer<=10)}
+}
+function startOnlineAuthorityClock(){
+  clearInterval(timerId);updateOnlineAuthorityClock();
+  timerId=setInterval(()=>{if(!B?.onlineMode||B.onlinePhase!=='turn-authority')return clearInterval(timerId);updateOnlineAuthorityClock()},250);
+}
+function stopOnlineSession(){
+  if(!B?.onlineMode)return;
+  clearInterval(timerId);timerId=null;B=null;
+}
+function syncOnlineTurnAuthority(cfg={}){
+  if(!B?.onlineMode)return false;
+  const participants=normalizeOnlineParticipants(cfg);
+  if(participants.length<2)return false;
+  const activeTeam=String(cfg.activeTeam||''),activeSlot=Number(cfg.activeSlot);
+  const activeId=onlineUnitId({team:activeTeam,slotNumber:activeSlot});
+  const idx=B.order.indexOf(activeId);if(idx<0)return false;
+  const round=Math.max(1,Number(cfg.roundNumber)||1),seq=Math.max(1,Number(cfg.turnSeq)||1);
+  const started=String(cfg.turnStartedAt||'');
+  const sig=`${round}:${seq}:${activeTeam}:${activeSlot}:${started}`;
+  const changed=sig!==B.onlineTurnSyncSig;
+  B.onlinePhase='turn-authority';B.onlinePreview=true;B.deployment=false;
+  B.round=round;B.turn=idx;B.onlineTurnSeq=seq;B.onlineTurnStartedAt=started;B.onlineClockOffsetMs=Number(cfg.clockOffsetMs)||0;
+  const active=cur();
+  B.onlineLocalHasAuthority=!!(active&&active.onlineControllerType!=='AI'&&active.onlineControllerId&&active.onlineControllerId===B.onlineLocalPlayerId);
+  B.selectedAction=null;B.skillsOpen=false;B.busy=false;B.selectedUnitId=active?.id||B.selectedUnitId;
+  updateOnlineAuthorityClock();
+  if(changed){
+    B.onlineTurnSyncSig=sig;
+    B.log.push(`🔗 Autoridad sincronizada: ${active?.name||'—'} · Equipo ${active?.onlineTeam||'—'} · Ronda ${B.round}.`);
+    renderBattle();startOnlineAuthorityClock();
+  }
+  return true;
+}
 window.LigaOnlineGame={
   roster:onlineRosterSnapshot,
   defaultSelection:()=>({championId:setup.championId,loadout:[...setup.loadout]}),
@@ -1982,6 +2028,8 @@ window.LigaOnlineGame={
   syncDeployment:syncOnlineDeployment,
   startRoundReady:startOnlineRoundReady,
   deploymentError:onlineDeploymentError,
+  syncTurnAuthority:syncOnlineTurnAuthority,
+  stopOnline:stopOnlineSession,
   version:()=>VERSION
 };
 

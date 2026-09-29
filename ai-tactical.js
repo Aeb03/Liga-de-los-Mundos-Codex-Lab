@@ -1,7 +1,7 @@
 (()=>{'use strict';
 
 /*
-  Liga de los Mundos v0.6.29
+  Liga de los Mundos v0.6.30
   IA táctica única EXPERTA — 🟡 EN PRUEBA
 
   Principios:
@@ -50,11 +50,11 @@ const AI_LOADOUT_POOLS={
     {w:2,set:['thorn','sap','spores','reabsorption']}
   ],
   korgan:[
-    {w:4,set:['trap_spikes','trap_snare','hook','shot']},
-    {w:3,set:['trap_spikes','trap_bomb','hook','shot']},
-    {w:3,set:['trap_snare','trap_bomb','hunterstep','shot']},
-    {w:2,set:['trap_spikes','hook','hunterstep','trap_bomb']},
-    {w:2,set:['trap_snare','hook','shot','hunterstep']}
+    {w:4,set:['trap_spikes','trap_mine','hook','shot']},
+    {w:4,set:['trap_spikes','grenade','hook','shot']},
+    {w:3,set:['trap_mine','grenade','hunterstep','shot']},
+    {w:3,set:['trap_spikes','hook','hunterstep','grenade']},
+    {w:2,set:['trap_mine','hook','shot','hunterstep']}
   ],
   houngan:[
     {w:4,set:['needle','doll','curse','ritual']},
@@ -377,24 +377,32 @@ function aiScoreAreaDamage(u,id,x,y){
     return hits?s+(hits-1)*5:-22;
   }
 
-  if(id==='trap_bomb'){
+  if(id==='grenade'){
+    const cells=globalThis.LDMKorgan0630?.grenadeCells?.(x,y)||[];
     let s=0,hits=0;
-    const center=entityAt(x,y);
-    if(center?.alive&&center.side!==u.side){
-      hits++;s+=aiDamageScore(center,12);
-    }
-    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
-      const z=entityAt(x+dx,y+dy);
-      if(z?.alive&&z.side!==u.side){
-        hits++;
-        s+=aiDamageScore(z,8);
-        if(z.kind==='unit'){
-          const path=aiForcedPath({x,y},z,1,true);
-          s+=aiKnownTrapPathBonus(u,path);
-        }
+
+    for(const z of allEntities()){
+      const c=cells.find(c=>c.x===z.x&&c.y===z.y);
+      if(!c)continue;
+
+      if(z.side===u.side){
+        // La implementación no daña aliados, pero una celda ocupada por aliado
+        // reduce la eficiencia del área.
+        s-=2;
+        continue;
       }
-      if(z?.alive&&z.side===u.side)s-=10;
+
+      hits++;
+      const dmg=c.zone==='center'?10:6;
+      s+=aiDamageScore(z,dmg);
+
+      if(c.zone==='arm'&&z.kind==='unit'){
+        const path=aiForcedPath({x,y},z,1,true);
+        s+=aiKnownTrapPathBonus(u,path);
+        s+=aiForcedPositionValue(u,z,path[path.length-1]||z);
+      }
     }
+
     return hits?s+(hits-1)*4:-22;
   }
 
@@ -441,18 +449,8 @@ function aiScoreSetup(u,id,x,y,focus){
     return s;
   }
 
-  if(id==='trap_spikes'||id==='trap_snare'){
-    if(!focus)return -8;
-    const d=md(pos,focus);
-    let s=3;
-    if(d===1)s+=10;
-    else if(d===2)s+=7;
-    else if(d===3)s+=3;
-    if(id==='trap_spikes')s+=Math.min(5,(focus.pm||0));
-    if(id==='trap_snare')s+=(focus.pa||0)>=4?4:1;
-    if(u.loadout.includes('hook'))s+=3;
-    if(u.loadout.includes('trap_bomb'))s+=2;
-    return s;
+  if(id==='trap_spikes'||id==='trap_mine'){
+    return globalThis.LDMKorgan0630?.trapPlacementScore?.(u,id,x,y,focus)??-20;
   }
 
   if(id==='doll'){
@@ -473,7 +471,7 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   const target=entityAt(x,y);
   let score=0;
 
-  if(id==='vines'||id==='spores'||id==='trap_bomb'||id==='awakening'){
+  if(id==='vines'||id==='spores'||id==='grenade'||id==='awakening'){
     score=aiScoreAreaDamage(u,id,x,y);
   }
 
@@ -511,7 +509,7 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
     if(u.pm===0)score-=2;
   }
 
-  else if(id==='pillar'||id==='trap_spikes'||id==='trap_snare'||id==='doll'){
+  else if(id==='pillar'||id==='trap_spikes'||id==='trap_mine'||id==='doll'){
     score=aiScoreSetup(u,id,x,y,focus);
   }
 
@@ -639,11 +637,12 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
 
   else if(id==='hook'){
     score=aiDamageScore(target,6);
-    const path=aiForcedPath(u,target,2,false);
+    const dist=globalThis.LDMKorgan0630?.bestHookDistance?.(u,target)||1;
+    const path=aiForcedPath(u,target,dist,false);
     score+=aiKnownTrapPathBonus(u,path);
     score+=aiForcedPositionValue(u,target,path[path.length-1]||target);
     const end=path[path.length-1]||target;
-    if(md(end,u)===1&&aiRangeIdentity(u)==='ranged'&&!aiKnownTrapPathBonus(u,path))score-=5;
+    if(md(end,u)===1&&aiRangeIdentity(u)==='ranged'&&!aiKnownTrapPathBonus(u,path))score-=4;
   }
 
   else if(id==='shot'){
@@ -899,10 +898,11 @@ function aiExpertFutureValue(u,plan,focus){
   }
   // Preparación y negación: premiar planes que sostienen la identidad táctica.
   if(plan.kind==='ability'){
-    if(['pillar','germinate','trap_spikes','trap_snare','trap_bomb','doll','needle'].includes(plan.id))value+=5;
+    if(['pillar','germinate','trap_spikes','trap_mine','doll','needle'].includes(plan.id))value+=5;
     if(plan.kind==='piplusMark')value+=5;
     if(plan.kind==='onodGerminate')value+=4;
     if(plan.kind==='onodWither')value+=2;
+    if(plan.kind==='korganDisarm')value+=2;
     if(['fusion','awakening','rupture','ritual','hook','quake'].includes(plan.id))value+=2.5;
   }
   // Conservar recursos cuando la acción no genera una ventaja clara.
@@ -1001,6 +1001,23 @@ function aiCollectOnodOwnCandidates(u,focus){
   return out;
 }
 
+function aiCollectKorganOwnCandidates(u,focus){
+  if(u.championId!=='korgan')return [];
+  const api=globalThis.LDMKorgan0630;
+  if(!api?.disarmAvailable?.(u))return [];
+
+  const best=api.disarmCandidates?.(u,focus)?.[0];
+  if(!best||best.score<3)return [];
+
+  return [{
+    kind:'korganDisarm',
+    x:best.trap.x,y:best.trap.y,
+    targetId:best.trap.id,
+    score:best.score,
+    label:'Desarmar Trampa'
+  }];
+}
+
 function aiGeneratePlans(u){
   aiUpdateHouganMode(u);
   const focus=aiSelectFocus(u);
@@ -1009,10 +1026,11 @@ function aiGeneratePlans(u){
   const impulse=aiCollectImpulseCandidates(u,focus);
   const mark=aiCollectPiplusMarkCandidates(u,focus);
   const onodOwn=aiCollectOnodOwnCandidates(u,focus);
+  const korganOwn=aiCollectKorganOwnCandidates(u,focus);
   const objects=aiCollectObjectAttackCandidates(u,focus);
   const moves=aiCollectMovePlans(u,focus);
 
-  const all=[...direct,...impulse,...mark,...onodOwn,...objects,...moves];
+  const all=[...direct,...impulse,...mark,...onodOwn,...korganOwn,...objects,...moves];
 
   // No ejecutar acciones de valor nulo sólo por gastar PA/PM.
   return all.filter(p=>p.score>=2).sort((a,b)=>b.score-a.score);
@@ -1041,6 +1059,10 @@ async function aiExecutePlanStep(u,plan){
       plan.kind==='onodGerminate'?'onodGerminate':'onodWither',
       plan.x,plan.y
     );
+  }
+
+  if(plan.kind==='korganDisarm'){
+    return !!globalThis.LDMKorgan0630?.executeDisarm?.(u,plan.x,plan.y);
   }
 
   if(plan.kind==='move'){

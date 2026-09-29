@@ -1,0 +1,28 @@
+/* Liga de los Mundos v0.6.30h1 — trampas propias Korgan */
+
+.iso-trap.korgan-friendly-trap{
+  display:grid!important;
+  place-items:center!important;
+  opacity:.52!important;
+  visibility:visible!important;
+}
+
+.iso-trap.korgan-friendly-trap .tactical-trap-host{
+  display:grid!important;
+  place-items:center!important;
+  width:100%!important;
+  height:100%!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+
+.iso-trap.korgan-friendly-trap .tactical-single-art{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  object-fit:contain!important;
+  object-position:center center!important;
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:none!important;
+}

@@ -39,8 +39,8 @@ const KORGAN_DEF={
     },
     {
       id:'shot',icon:'🏹',name:'Disparo de Caza',
-      cost:3,range:5,damage:12,
-      text:'12 de daño. Alcance 5, sólo en la misma fila o columna que Korgan. Requiere línea de visión.'
+      cost:3,range:5,damage:10,
+      text:'10 de daño. Alcance 5, sólo en la misma fila o columna que Korgan. Requiere línea de visión.'
     },
     {
       id:'hook',icon:'🪝',name:'Gancho',
@@ -511,8 +511,8 @@ executeAbility=async function(u,id,x,y,fromAI=false){
   }
 
   else if(id==='shot'){
-    applyDamage(target,12,false);
-    log(`🏹 Disparo de Caza: ${target.name} recibe 12 daño.`);
+    applyDamage(target,10,false);
+    log(`🏹 Disparo de Caza: ${target.name} recibe 10 daño.`);
   }
 
   else if(id==='hook'){

@@ -1,91 +1,60 @@
-# Liga de los Mundos — v0.6.32-v02 — Hougan Bloque 2
+# Liga de los Mundos — v0.6.34-v02 — Auditoría SFX habilidades
 
-🧪 EXPERIMENTAL LOCAL — NO PUSH
+🟡 LISTA PARA PROBAR — NO COMMIT / NO PUSH hasta validación.
 
-Base:
-- Hougan Bloque 1 v0.6.31h1 validado.
-- Vínculo aliado/enemigo.
-- Muñeco 16/20 PV, 3 PM y cuatro vistas.
-- Movimiento del Muñeco después del turno de Hougan validado.
-- Aguja, Transferencia, Ritual y Maldición validados.
+## Objetivo
+Restaurar las rutas de los SFX específicos aprobados que se perdieron durante los reworks. No se inventan sonidos para habilidades nuevas y no se cambian mecánicas.
 
-## Definición final — 6 habilidades
-1. Aguja Vudú.
-2. Transferencia.
-3. Ritual del Dolor.
-4. Maldición.
-5. Transferencia de Dolor.
-6. Danza Vudú.
+## SFX específicos activos
 
-Muñeco Vudú continúa como acción propia de 2 PA y NO ocupa slot.
+### Arfeli
+- Corte con Espada -> `corte_espada.mp3`
+- Dagas Danzantes -> `dagas_danzantes.mp3`
+- Disparo con Arco -> `disparo_arco.mp3`
+- Golpe de Martillo -> `golpe_martillo.mp3`
+- `impulso.mp3` se conserva en assets por ser aprobado históricamente, pero la habilidad Impulso de Arfeli ya no existe y NO se enruta.
 
-## Transferencia de Dolor — 3 PA
-Requiere:
-- Vínculo actual;
-- Muñeco correspondiente activo.
+### Coloso
+- Crear Pilar -> `creacion_pilar.mp3` (acción propia, ruteada en su ejecutor real)
+- Fusión de Pilar / Monolito -> `fusion_pilar.mp3` (acción propia)
+- Lanzar Roca -> `lanzar_roca.mp3`
+- Golpe Sísmico -> `golpe_sismico.mp3`
+- Absorción Rocosa -> `absorcion_rocosa.mp3`
 
-Mientras la relación siga siendo válida:
-- todo daño dirigido a Hougan se divide 50/50;
-- si el daño es impar, Hougan recibe la parte mayor;
-- cada mitad pasa por el Escudo de su receptor;
-- la parte del Muñeco activa su efecto usando únicamente PV REALES perdidos;
-- si el Muñeco no soporta toda su mitad, el excedente NO regresa a Hougan.
+### Piplus
+- Marcar Objetivo -> `marca.mp3` (acción propia)
+- Disparo Preciso -> `flecha_precision.mp3`
+- Ruptura de Marca -> `ruptura_marca.mp3`
+- Impulso -> `impulso.mp3` (también cubre el ejecutor interno actual)
 
-Termina si:
-- cambia o desaparece el Vínculo;
-- el Muñeco deja de corresponder;
-- el Muñeco es destruido.
+### Onod
+- Germinar -> `germinar.mp3` (acción propia)
+- Espina Venenosa -> `espina_venenosa.mp3`
+- Enredaderas -> `enredaderas.mp3`
+- Savia Vital -> `savia_vital.mp3`
+- Esporas Tóxicas -> `esporas_toxicas.mp3`
 
-## Danza Vudú — 3 PA
-Requiere:
-- Vínculo actual;
-- Muñeco correspondiente activo.
+### Korgan
+- Trampa de Pinchos -> `trampa_pinchos.mp3` al ACTIVARSE, no al colocarla.
+- Mina Eléctrica -> `trampa_electrica.mp3` al ACTIVARSE, no al colocarla.
+- Granada -> `granada.mp3`
+- Disparo de Caza -> `disparo_caza.mp3`
+- Gancho -> `gancho.mp3`
 
-No mueve inmediatamente.
+### Hougan
+- Aguja Vudú -> `vinculo.mp3`
+- Muñeco Vudú -> `efigie.mp3` (acción propia)
+- Ritual del Dolor -> `ritual_dolor.mp3`
+- Transferencia -> `transferencia.mp3`
+- `dolor_reflejado.mp3` se conserva como asset histórico; Dolor Reflejado ya no existe y NO se reasigna.
 
-Durante la fase de 3 PM del Muñeco DESPUÉS del turno de Hougan:
-- cada casilla recorrida por el Muñeco hace que el Vinculado intente copiar exactamente esa dirección;
-- si el Muñeco cambia de dirección, el Vinculado copia ese cambio;
-- el movimiento copiado no gasta PM;
-- aplica Herida por cada casilla efectivamente recorrida;
-- activa trampas normalmente;
-- si una casilla del Vinculado está bloqueada, sólo falla ESE paso;
-- no hay daño de colisión;
-- la Danza sigue con los pasos posteriores.
+## Habilidades nuevas sin SFX específico
+No se reutilizan sonidos específicos de otras habilidades para Lanza de Arfeli, Colapso/Magnetismo/Reciclaje, Vectorial/Interferencia/Fijación, Reabsorción, Paso del Cazador, Maldición, Transferencia de Dolor o Danza Vudú. Los efectos genéricos existentes (escudo, curación, etc.) permanecen donde correspondan.
 
-La Danza termina al finalizar esa fase de movimiento o si Vínculo/Muñeco dejan de coincidir.
+## Duplicación de curación
+Savia Vital y Transferencia tienen SFX propio. Durante su ejecución se suprime temporalmente el `curacion.mp3` genérico para no superponer ambos sonidos.
 
-## IA EXPERTA — Hougan completo
-- Loadouts ponderados con 4 de sus 6 habilidades.
-- Todos incluyen Aguja para poder construir Vínculo.
-- Puede elegir Vínculo enemigo o aliado según modo ofensivo/apoyo.
-- Crea/reemplaza el Muñeco mediante su acción propia.
-- Valora Transferencia según curación real y efecto del Muñeco.
-- Valora Ritual 14/20.
-- Valora Maldición.
-- Activa Transferencia de Dolor según riesgo, vida y tipo de Muñeco.
-- Activa Danza sólo cuando existe una ruta con valor táctico.
-- Durante la fase IA del Muñeco, una Danza activa evalúa rutas completas, cambios de dirección, Herida y únicamente trampas PROPIAS conocidas.
-- Nunca consulta trampas rivales ocultas.
-
-## Prueba sugerida
-1. Confirmar que en Habilidades aparecen las 6 habilidades.
-2. Transferencia de Dolor con daño par: ejemplo 10 -> 5 Hougan / 5 Muñeco antes de escudos.
-3. Daño impar: ejemplo 9 -> 5 Hougan / 4 Muñeco.
-4. Probar Escudo en Hougan y/o Muñeco: el efecto del Muñeco usa sólo PV reales.
-5. Dejar al Muñeco con poca vida y enviarle más daño del que soporta: el excedente no vuelve a Hougan.
-6. Cambiar Vínculo después de activar Transferencia de Dolor: debe terminar.
-7. Destruir Muñeco: debe terminar.
-8. Activar Danza y terminar turno.
-9. Mover Muñeco 3 casillas rectas: Vinculado intenta copiar las 3.
-10. Hacer un recorrido con cambio de dirección: debe copiar paso a paso.
-11. Bloquear una de las casillas del Vinculado: ese paso falla, los posteriores siguen intentando.
-12. Vinculado con Herida: daño por cada paso realmente copiado.
-13. Hacer que el Vinculado copie un paso sobre una trampa: debe activarse.
-14. Confirmar que Danza termina al cerrar la fase del Muñeco.
-15. Probar IA Hougan en 1v1.
-16. Probar IA Hougan como aliado y rival en 2v2.
-
-Si este bloque queda bien, Hougan completo queda validado y pasamos a la revisión integrada de los 6 campeones.
-
-NO HACER PUSH.
+## Importante
+- No se cambió daño, PA, PM, alcance, IA ni reglas.
+- No se modificaron los MP3.
+- `audio-compat-0633.js` deja de cargarse: intentaba envolver funciones internas de los módulos que no eran globales. Las acciones propias ahora reproducen audio desde su ejecutor real.

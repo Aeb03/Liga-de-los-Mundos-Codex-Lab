@@ -139,6 +139,7 @@ function executeOnodOwnAction(action,x,y){
     u.onodGerminateUses=(u.onodGerminateUses||0)+1;
     const s=createSprout(u,x,y);
     B.selectedAction=null;
+    try{window.LigaAudio?.play?.('onod.germinar',{dedupe:`ability:${u.id}:germinate`,dedupeMs:120})}catch(_){}
     log(`🌱 Germinar: ${u.name} crea ${s.name} con 12 PV.`);
     spendPAAfterAction(u);
     renderBattle();

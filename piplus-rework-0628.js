@@ -87,6 +87,7 @@ function executeMarkTarget(u,target){
   u.piplusMarkUsedThisTurn=true;
   B.selectedAction=null;
   B.skillsOpen=false;
+  try{window.LigaAudio?.play?.('piplus.marca',{dedupe:`ability:${u.id}:marker`,dedupeMs:120})}catch(_){}
   log(`🎯 Marcar Objetivo: ${target.name} queda Marcado.`);
   feedback(target,'🎯 MARCADO','status');
   renderBattle();
@@ -141,6 +142,7 @@ async function executePiplusImpulse(u,x,y){
   B.noticeSeq++;
   B.notice=`${u.icon} ${u.name} — ${a.icon} ${a.name}`;
   registerSkillUse(u,'impulse');
+  try{window.LigaAudio?.play?.('piplus.impulso',{dedupe:`ability:${u.id}:impulse`,dedupeMs:120})}catch(_){}
   u.pa-=a.cost;
   triggerPoisonOnAbility(u);
   renderBattle();

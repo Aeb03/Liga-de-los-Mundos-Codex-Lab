@@ -130,6 +130,7 @@ function executeColosoOwnAction(action,x,y){
     u.colosoPillarCreatedThisTurn=true;
     closeCreateWindow(u);
     B.selectedAction=null;
+    try{window.LigaAudio?.play?.('coloso.creacion_pilar',{dedupe:`ability:${u.id}:pillar`,dedupeMs:120})}catch(_){}
     log(`🗿 ${u.name} crea ${p.name} con 15 PV.`);
     renderBattle();
     return true;
@@ -145,6 +146,7 @@ function executeColosoOwnAction(action,x,y){
     u.monolith=true;
     u.pm=0;
     B.selectedAction=null;
+    try{window.LigaAudio?.play?.('coloso.fusion_pilar',{dedupe:`ability:${u.id}:fusion`,dedupeMs:120})}catch(_){}
     log(`🗿 ${u.name} consume ${name} y entra en Monolito.`);
     renderBattle();
     return true;

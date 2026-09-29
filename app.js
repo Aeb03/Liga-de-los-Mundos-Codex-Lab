@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const SIZE=12, VERSION='0.6.32-v02';
+const SIZE=12, VERSION='0.6.34-v02';
 
 
 
@@ -187,7 +187,7 @@ const CHAMPIONS={
       {id:'trap_spikes',icon:'🪤',name:'Trampa de Pinchos',cost:2,range:3,text:'Coloca una trampa. El primer enemigo que entra recibe 10 de daño.'},
       {id:'trap_snare',icon:'🧷',name:'Cepo',cost:3,range:3,text:'Al activarse: 6 de daño y -2 PM en el próximo turno.'},
       {id:'trap_bomb',icon:'💣',name:'Carga Explosiva',cost:3,range:3,text:'Al activarse: 8 de daño al objetivo y 4 a las 4 casillas cardinales adyacentes.'},
-      {id:'shot',icon:'🏹',name:'Disparo de Caza',cost:3,range:4,damage:11,text:'11 de daño a distancia. Requiere línea de visión.'},
+      {id:'shot',icon:'🏹',name:'Disparo de Caza',cost:3,range:4,damage:10,text:'10 de daño a distancia. Requiere línea de visión.'},
       {id:'hook',icon:'🪝',name:'Gancho',cost:3,range:3,damage:7,text:'7 de daño y atrae 1 casilla.'},
       {id:'hunterstep',icon:'🏃',name:'Paso del Cazador',cost:2,range:2,maxUsesPerTurn:1,text:'Se desplaza hasta 2 casillas en línea sin gastar PM. Máximo 1 uso por turno.'}
     ]
@@ -1344,7 +1344,7 @@ async function executeAbility(u,id,x,y,fromAI=false){
     const trapType=id==='trap_spikes'?'spikes':id==='trap_snare'?'snare':'bomb',icon=id==='trap_spikes'?'🪤':id==='trap_snare'?'🧷':'💣';
     B.traps.push({id:`trap${B.nextTrapId++}`,trapType,icon,x,y,ownerId:u.id,side:u.side,active:true});log(`${icon} ${u.name} coloca ${a.name}.`);
   }else if(id==='shot'){
-    applyDamage(target,11,false);log(`🏹 Disparo de Caza: 11 daño a ${target.name}.`);
+    applyDamage(target,10,false);log(`🏹 Disparo de Caza: 10 daño a ${target.name}.`);
   }else if(id==='hook'){
     applyDamage(target,7,false);log(`🪝 Gancho: 7 daño a ${target.name}.`);if(!objectTarget&&target.alive)await forcedMove(target,u,1,false,'Gancho');
 
@@ -1523,7 +1523,6 @@ function renderBattle(){
     </div>
     <div class="skill-drawer ${B.skillsOpen?'open':'closed'}">${skillButtons}</div>
     ${special}
-    ${B.selectedAction?infoPanel(B.selectedAction):''}
     ${B.selectedAction&&!['move','consumePillar','removeSprout'].includes(B.selectedAction)?`<div class="range-legend"><span><i class="swatch range"></i>Rango</span><span><i class="swatch valid"></i>Objetivo válido</span><span><i class="swatch blocked"></i>LOS bloqueada</span></div>`:''}
     <p class="combat-help">${B.selectedAction?'Tocá una casilla u objetivo resaltado.':'Tocá un combatiente o invocación para inspeccionarlo, o elegí una acción.'}</p>`;
   }else controls=`<div class="ai">🤖 ${u.side==='player'?'Tu aliado IA':'El rival IA'} está jugando…</div>`;
@@ -1543,7 +1542,6 @@ function renderBattle(){
       <button class="camera-hud-btn" id="rotateCameraRight" type="button" title="Girar vista 90° a la derecha" aria-label="Girar vista 90 grados a la derecha">↷</button>
     </div>
     ${B.notice?`<div class="enemy-action-banner">${B.notice}</div>`:''}
-    ${selectedAbility?`<div class="selected-skill-banner">${selectedAbility.icon} <b>${selectedAbility.name}</b><span>${selectedAbility.cost} PA · ${selectedAbility.id==='quake'&&u.monolith?'Coloso + red de Pilares':`Alcance ${effectiveRange(u,selectedAbility)}`}</span></div>`:''}
     <div class="battle-layout">
       <div class="battle-board">${isoBoardMarkup(tiles,pieces)}</div>
       <div class="battle-sidebar">

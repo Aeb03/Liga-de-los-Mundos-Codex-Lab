@@ -1,7 +1,7 @@
 (()=>{'use strict';
 
 window.LIGA_AUDIO_CONFIG={
-  version:'0.6.0',
+  version:'0.6.34',
 
   channels:{
     MASTER:1.00,
@@ -26,26 +26,37 @@ window.LIGA_AUDIO_CONFIG={
     'arfeli.dagas_danzantes':1.00,
     'arfeli.disparo_arco':1.00,
     'arfeli.golpe_martillo':1.00,
+    'arfeli.corte_espada':1.00,
+    'arfeli.impulso':1.00,
 
     'coloso.absorcion_rocosa':1.00,
     'coloso.creacion_pilar':1.00,
     'coloso.golpe_sismico':1.00,
+    'coloso.fusion_pilar':1.00,
+    'coloso.lanzar_roca':1.00,
 
     'piplus.ruptura_marca':1.00,
     'piplus.marca':1.00,
     'piplus.impulso':1.00,
+    'piplus.flecha_precision':1.00,
 
     'onod.enredaderas':1.00,
     'onod.germinar':1.00,
     'onod.esporas_toxicas':1.00,
+    'onod.espina_venenosa':1.00,
+    'onod.savia_vital':1.00,
 
     'korgan.trampa_pinchos':1.00,
     'korgan.trampa_electrica':1.00,
     'korgan.gancho':1.00,
+    'korgan.granada':1.00,
+    'korgan.disparo_caza':1.00,
 
     'houngan.efigie':1.00,
     'houngan.vinculo':1.00,
-    'houngan.dolor_reflejado':1.00
+    'houngan.dolor_reflejado':1.00,
+    'houngan.ritual_dolor':1.00,
+    'houngan.transferencia':1.00
   }
 };
 

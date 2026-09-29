@@ -153,6 +153,7 @@ function executeDollAction(u,x,y){
   if(!d)return false;
 
   const target=getEntity(d.linkedTargetId);
+  try{window.LigaAudio?.play?.('houngan.efigie',{dedupe:`ability:${u.id}:doll`,dedupeMs:120})}catch(_){}
   log(`🪆 ${u.name} crea un Muñeco Vudú ${d.linkMode==='ally'?'aliado':'enemigo'} de ${d.maxHp} PV asociado a ${target?.name||'su Vínculo'}.`);
   spendPAAfterAction(u);
   renderBattle();

@@ -873,7 +873,7 @@ function aiCollectObjectAttackCandidates(u,focus){
         :0;
       const dmg=u.championId==='arfeli'
         ?(a.damage||0)+mastery
-        :id==='shot'?12:id==='hook'?6:id==='curse'?8:(a.damage||0);
+        :id==='shot'?10:id==='hook'?6:id==='curse'?8:(a.damage||0);
       const score=aiDamageScore(obj,dmg)+threat-(focus?3:0);
       if(score>8)out.push({kind:'ability',id,x:obj.x,y:obj.y,score,label:`${a.name} → ${obj.name}`});
     }

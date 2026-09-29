@@ -7,7 +7,7 @@ const CHAMPION_ART={
   piplus:{name:'Piplus',avatar:'./assets/champions/piplus/piplus-avatar.png',select:'./assets/champions/piplus/piplus-select.png'},
   onod:{name:'Onod',avatar:'./assets/champions/onod/onod-avatar.png',select:'./assets/champions/onod/onod-select.png'},
   korgan:{name:'Korgan',avatar:'./assets/champions/korgan/korgan-avatar.png',select:'./assets/champions/korgan/korgan-select.png'},
-  houngan:{name:'Houngan',avatar:'./assets/champions/houngan/houngan-avatar.png',select:'./assets/champions/houngan/houngan-select.png'}
+  houngan:{name:'Hougan',avatar:'./assets/champions/houngan/houngan-avatar.png',select:'./assets/champions/houngan/houngan-select.png'}
 };
 
 const CHAMPION_COMBAT_VIEWS={

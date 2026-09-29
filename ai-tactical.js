@@ -1,7 +1,7 @@
 (()=>{'use strict';
 
 /*
-  Liga de los Mundos v0.6.31
+  Liga de los Mundos v0.6.32
   IA táctica única EXPERTA — 🟡 EN PRUEBA
 
   Principios:
@@ -57,7 +57,11 @@ const AI_LOADOUT_POOLS={
     {w:2,set:['trap_mine','hook','shot','hunterstep']}
   ],
   houngan:[
-    {w:5,set:['needle','transfer','ritual','curse']}
+    {w:4,set:['needle','transfer','paintransfer','ritual']},
+    {w:4,set:['needle','curse','ritual','dance']},
+    {w:3,set:['needle','transfer','paintransfer','dance']},
+    {w:3,set:['needle','curse','paintransfer','dance']},
+    {w:2,set:['needle','transfer','curse','ritual']}
   ]
 };
 
@@ -509,13 +513,35 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   }
 
   else if(id==='transfer'){
-    const healValue=aiHealScore(u,8);
+    const actual=Math.min(8,aiMissingHp(u));
+    if(actual<=0)return -1e9;
+    const healValue=aiHealScore(u,actual);
     const doll=target;
     let extra=0;
     const linked=getEntity(doll?.linkedTargetId);
-    if(doll?.linkMode==='enemy'&&linked?.alive)extra=aiDamageScore(linked,4)*.55;
-    if(doll?.linkMode==='ally'&&linked?.alive)extra=aiHealScore(linked,4)*.55;
+    const echo=Math.ceil(actual/2);
+    if(doll?.linkMode==='enemy'&&linked?.alive)extra=aiDamageScore(linked,echo)*.55;
+    if(doll?.linkMode==='ally'&&linked?.alive)extra=aiHealScore(linked,echo)*.55;
     score=healValue+extra;
+  }
+
+  else if(id==='paintransfer'){
+    const api=globalThis.LDMHougan0632;
+    if(!api?.painTransferAvailable?.(u))return -1e9;
+    const d=api.matchingDoll?.(u),linked=getLinkedTarget(u);
+    const exposure=enemyUnits(u,true).reduce((n,e)=>n+(md(u,e)<=3?1:0),0);
+    score=5+exposure*3+(1-u.hp/u.maxHp)*12;
+    if(d?.linkMode==='enemy'&&linked?.alive)score+=5;
+    if(d?.linkMode==='ally'&&linked?.alive&&linked.hp<linked.maxHp)score+=3;
+    if(d&&d.hp/d.maxHp<.25)score-=5;
+  }
+
+  else if(id==='dance'){
+    const api=globalThis.LDMHougan0632;
+    if(!api?.danceAvailable?.(u))return -1e9;
+    const potential=api.dancePotential?.(u)??-20;
+    score=potential+4;
+    if(potential<1)score-=8;
   }
 
   else if(id==='reflected'){
@@ -840,7 +866,7 @@ function aiCollectObjectAttackCandidates(u,focus){
     for(const id of u.loadout){
       const a=ability(u.championId,id);
       if(!a||u.pa<a.cost||!skillUseAllowed(u,id))continue;
-      if(['pulse','sap','shield','stonearmor','pillar','germinate','doll','transfer','reflected','awakening','trap_spikes','trap_snare','trap_bomb','impulse','hunterstep'].includes(id))continue;
+      if(['pulse','sap','shield','stonearmor','pillar','germinate','doll','transfer','reflected','paintransfer','dance','awakening','trap_spikes','trap_snare','trap_bomb','impulse','hunterstep'].includes(id))continue;
       if(!canUseAbility(u,id,obj.x,obj.y))continue;
       const mastery=u.championId==='arfeli'
         ?(globalThis.LDMArfeli0626?.previewBonus?.(u,id)||0)
@@ -898,7 +924,8 @@ function aiExpertFutureValue(u,plan,focus){
     if(plan.kind==='onodGerminate')value+=4;
     if(plan.kind==='onodWither')value+=2;
     if(plan.kind==='korganDisarm')value+=2;
-    if(['fusion','awakening','rupture','ritual','hook','quake'].includes(plan.id))value+=2.5;
+    if(plan.kind==='houganDoll')value+=5;
+    if(['fusion','awakening','rupture','ritual','hook','quake','paintransfer','dance'].includes(plan.id))value+=2.5;
   }
   // Conservar recursos cuando la acción no genera una ventaja clara.
   const a=plan.id?ability(u.championId,plan.id):null;
@@ -1013,6 +1040,23 @@ function aiCollectKorganOwnCandidates(u,focus){
   }];
 }
 
+function aiCollectHouganOwnCandidates(u,focus){
+  if(u.championId!=='houngan')return [];
+  const base=globalThis.LDMHougan0631;
+  const adv=globalThis.LDMHougan0632;
+  if(!base?.dollActionAvailable?.(u)||!adv)return [];
+
+  const best=adv.bestDollPlacementTiles?.(u,focus)?.[0];
+  if(!best||best.score<3)return [];
+
+  return [{
+    kind:'houganDoll',
+    x:best.x,y:best.y,
+    score:best.score,
+    label:'Muñeco Vudú'
+  }];
+}
+
 function aiGeneratePlans(u){
   aiUpdateHouganMode(u);
   const focus=aiSelectFocus(u);
@@ -1022,10 +1066,11 @@ function aiGeneratePlans(u){
   const mark=aiCollectPiplusMarkCandidates(u,focus);
   const onodOwn=aiCollectOnodOwnCandidates(u,focus);
   const korganOwn=aiCollectKorganOwnCandidates(u,focus);
+  const houganOwn=aiCollectHouganOwnCandidates(u,focus);
   const objects=aiCollectObjectAttackCandidates(u,focus);
   const moves=aiCollectMovePlans(u,focus);
 
-  const all=[...direct,...impulse,...mark,...onodOwn,...korganOwn,...objects,...moves];
+  const all=[...direct,...impulse,...mark,...onodOwn,...korganOwn,...houganOwn,...objects,...moves];
 
   // No ejecutar acciones de valor nulo sólo por gastar PA/PM.
   return all.filter(p=>p.score>=2).sort((a,b)=>b.score-a.score);
@@ -1060,6 +1105,10 @@ async function aiExecutePlanStep(u,plan){
     return !!globalThis.LDMKorgan0630?.executeDisarm?.(u,plan.x,plan.y);
   }
 
+  if(plan.kind==='houganDoll'){
+    return !!globalThis.LDMHougan0631?.executeDollAction?.(u,plan.x,plan.y);
+  }
+
   if(plan.kind==='move'){
     const before={x:u.x,y:u.y};
     await moveUnit(u,plan.x,plan.y);
@@ -1068,6 +1117,81 @@ async function aiExecutePlanStep(u,plan){
 
   return false;
 }
+
+// ─────────────────────────────────────────────
+// HOUGAN — MOVIMIENTO EXPERTO DEL MUÑECO / DANZA
+// ─────────────────────────────────────────────
+
+const _tacticalBaseBestDollMove=bestDollMove;
+
+function aiDanceCopiedPath(owner,doll,path){
+  const state=owner?.houganDance;
+  const linked=state?getEntity(state.targetId):null;
+  if(!state||!linked?.alive||path.length<2)return {steps:0,x:linked?.x,y:linked?.y,trapHits:0};
+
+  let lx=linked.x,ly=linked.y,steps=0,trapHits=0;
+  for(let i=1;i<path.length;i++){
+    const dx=path[i][0]-path[i-1][0],dy=path[i][1]-path[i-1][1];
+    const nx=lx+dx,ny=ly+dy;
+
+    const occupied=allEntities().some(z=>
+      z.alive&&z.id!==linked.id&&z.id!==doll.id&&z.x===nx&&z.y===ny
+    );
+    if(!inside(nx,ny)||isFixedObstacle(nx,ny)||occupied)continue;
+
+    lx=nx;ly=ny;steps++;
+    if(linked.side!==owner.side&&(B?.traps||[]).some(t=>t.active&&t.side===owner.side&&t.x===lx&&t.y===ly)){
+      trapHits++;
+    }
+  }
+  return {steps,x:lx,y:ly,trapHits};
+}
+
+bestDollMove=function(doll,owner){
+  if(
+    owner?.championId!=='houngan'||
+    !globalThis.LDMHougan0632?.danceStateValid?.(owner)
+  ){
+    return _tacticalBaseBestDollMove(doll,owner);
+  }
+
+  const phase=B?.dollPhase;
+  const linked=getEntity(owner.houganDance.targetId);
+  if(!phase||!doll?.alive||!linked?.alive)return _tacticalBaseBestDollMove(doll,owner);
+
+  const reach=objectMovementMap(doll,phase.pm);
+  const focus=linked.side===owner.side?aiSelectFocus(owner):linked;
+  let best=null,bestScore=-1e9;
+
+  for(const [k,cost] of reach){
+    const [x,y]=k.split(',').map(Number);
+    const path=objectGridPath(doll,{x,y});
+    if(path.length<2)continue;
+
+    const sim=aiDanceCopiedPath(owner,doll,path);
+    let score=sim.steps*3-cost*.2;
+
+    if(linked.side!==owner.side){
+      score+=sim.trapHits*15;
+      score+=(linked.status?.wound||0)*sim.steps*1.4;
+      score+=(md(linked,owner)-md({x:sim.x,y:sim.y},owner))*1.15;
+    }else if(focus?.alive){
+      const before=md(linked,focus),after=md({x:sim.x,y:sim.y},focus);
+      if(linked.hp/linked.maxHp<.55)score+=(after-before)*2.3;
+      else score+=(before-after)*1.2;
+    }
+
+    // El Muñeco conserva utilidad cerca de su asociado.
+    score-=md({x,y},{x:sim.x,y:sim.y})*.35;
+
+    if(score>bestScore){
+      bestScore=score;
+      best={x,y,cost};
+    }
+  }
+
+  return best||_tacticalBaseBestDollMove(doll,owner);
+};
 
 // ─────────────────────────────────────────────
 // IA TÁCTICA ÚNICA — ALIADOS Y ENEMIGOS

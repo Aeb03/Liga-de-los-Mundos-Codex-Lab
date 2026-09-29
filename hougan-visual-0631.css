@@ -1,0 +1,40 @@
+/* Liga de los Mundos v0.6.31 — Muñecos Vudú */
+
+@media (orientation:landscape){
+  .hougan-doll-host{
+    display:grid!important;
+    place-items:center!important;
+    width:clamp(31px,3.5vw,40px)!important;
+    height:clamp(40px,4.5vw,50px)!important;
+    visibility:visible!important;
+    opacity:1!important;
+  }
+
+  .hougan-doll-host .hougan-doll-active-view{
+    display:block!important;
+    width:100%!important;
+    height:100%!important;
+    object-fit:contain!important;
+    object-position:center bottom!important;
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:none!important;
+    transform-origin:center bottom!important;
+  }
+
+  /* El set 01 llena más el lienzo: normalización visual histórica. */
+  .hougan-doll-host.hougan-doll-ally .hougan-doll-active-view{
+    transform:scale(.80)!important;
+  }
+
+  .hougan-doll-host.hougan-doll-enemy .hougan-doll-active-view{
+    transform:scale(1)!important;
+  }
+
+  @media(max-height:430px){
+    .hougan-doll-host{
+      width:33px!important;
+      height:42px!important;
+    }
+  }
+}

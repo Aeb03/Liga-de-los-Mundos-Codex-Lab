@@ -1,28 +1,27 @@
-# Liga de los Mundos — v0.6.30h1-v02 — Hotfix Korgan
+# Liga de los Mundos — v0.6.31h1-v02 — Hotfix Hougan Bloque 1
 
 🧪 EXPERIMENTAL LOCAL — NO PUSH
 
-Corrige los tres puntos detectados en la prueba de Korgan.
+Corrección puntual del Bloque 1 de Hougan.
 
-## 1. Alcance amarillo
-Disparo de Caza:
-- ahora marca en amarillo todas las casillas de la misma fila/columna hasta alcance 5;
-- las casillas bloqueadas por LOS conservan el estado visual de bloqueado;
-- el borde de objetivo sólo aparece sobre un enemigo realmente válido.
+## Corregido
+El Muñeco Vudú vuelve a tener su fase de movimiento normal DESPUÉS del turno de Hougan:
 
-Gancho:
-- ahora marca en amarillo todo el alcance Manhattan 3;
-- el borde de objetivo sólo aparece sobre combatientes enemigos válidos.
+- 3 PM;
+- movimiento ortogonal;
+- puede dividir sus 3 PM;
+- aparece el botón `Finalizar movimiento`;
+- si consume sus PM, la fase termina;
+- funciona tanto si el Muñeco está ACTIVO como si está INACTIVO por cambio de Vínculo.
 
-## 2. Trampas propias visibles
-Se agrega un hook visual tardío DESPUÉS de tactical-assets.
-- Rival: la trampa sigue totalmente invisible.
-- Equipo propio: Pinchos y Mina se muestran con su imagen táctica real y semitransparente.
-- Se fuerza visibilidad del PNG para evitar que otra capa visual lo oculte.
+La versión anterior anulaba esta fase por una interpretación incorrecta del diseño.
 
-## 3. No apilar trampas
-Korgan ya no puede colocar una segunda trampa propia activa en una casilla que ya contiene una de sus trampas.
-La validación también la usa la IA, evitando que ésta apile sus propias trampas.
+## Danza Vudú
+Danza Vudú NO reemplazará el movimiento normal del Muñeco.
 
-No cambia balance ni daño de Korgan.
+En el Bloque 2, Danza se montará sobre esta misma fase:
+- el Muñeco seguirá moviéndose con sus 3 PM después del turno de Hougan;
+- si Danza está activa y el Muñeco corresponde al Vínculo actual, cada paso del Muñeco hará que el Vinculado intente copiar esa misma dirección.
+
+No cambia ninguna otra regla del Bloque 1.
 No hacer commit ni push todavía.

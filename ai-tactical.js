@@ -1,7 +1,7 @@
 (()=>{'use strict';
 
 /*
-  Liga de los Mundos v0.6.30
+  Liga de los Mundos v0.6.31
   IA táctica única EXPERTA — 🟡 EN PRUEBA
 
   Principios:
@@ -57,11 +57,7 @@ const AI_LOADOUT_POOLS={
     {w:2,set:['trap_mine','hook','shot','hunterstep']}
   ],
   houngan:[
-    {w:4,set:['needle','doll','curse','ritual']},
-    {w:3,set:['needle','doll','transfer','ritual']},
-    {w:3,set:['needle','doll','reflected','curse']},
-    {w:2,set:['needle','doll','transfer','reflected']},
-    {w:2,set:['needle','curse','transfer','ritual']}
+    {w:5,set:['needle','transfer','ritual','curse']}
   ]
 };
 
@@ -339,7 +335,6 @@ function aiFollowUpBonus(u,id,target){
   const left=u.pa-ability(u.championId,id).cost;
   if(left<=0)return 0;
 
-  if(u.championId==='houngan'&&id==='needle'&&u.loadout.includes('doll')&&!ownedDoll(u)&&left>=3)return 10;
   if(u.championId==='arfeli'){
     const bonus=globalThis.LDMArfeli0626?.previewBonus?.(u,id)||0;
     const repeated=Array.isArray(u.arfeliMasteryChain)&&u.arfeliMasteryChain.includes(id);
@@ -533,12 +528,12 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
 
   else if(id==='needle'){
     if(target.side===u.side){
-      score=aiHealScore(target,7);
+      score=aiHealScore(target,6);
       const current=getLinkedTarget(u);
       if(current?.alive&&current.id!==target.id)score-=8; // no romper estructura por poco
       if(u.aiMode==='support')score+=6;
     }else{
-      score=aiDamageScore(target,7)+5;
+      score=aiDamageScore(target,6)+5;
       const current=getLinkedTarget(u);
       if(current?.alive&&current.id!==target.id)score-=7;
       if(u.aiMode==='offense')score+=5;
@@ -546,7 +541,7 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   }
 
   else if(id==='curse'){
-    score=aiDamageScore(target,9)+aiStatusValue(target,'poison');
+    score=aiDamageScore(target,8)+aiStatusValue(target,'poison');
   }
 
   else if(id==='ritual'){
@@ -852,7 +847,7 @@ function aiCollectObjectAttackCandidates(u,focus){
         :0;
       const dmg=u.championId==='arfeli'
         ?(a.damage||0)+mastery
-        :id==='shot'?12:id==='hook'?6:id==='curse'?9:(a.damage||0);
+        :id==='shot'?12:id==='hook'?6:id==='curse'?8:(a.damage||0);
       const score=aiDamageScore(obj,dmg)+threat-(focus?3:0);
       if(score>8)out.push({kind:'ability',id,x:obj.x,y:obj.y,score,label:`${a.name} → ${obj.name}`});
     }

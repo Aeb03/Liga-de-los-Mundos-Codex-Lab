@@ -1,19 +1,16 @@
-# Liga de los Mundos — v0.6.21-v02 — Hotfix de arranque
+# Liga de los Mundos — v0.6.19-v02
 
-🧪 EXPERIMENTAL.
+Estado: EXPERIMENTAL
 
-Corrige un fallo introducido al preparar el Bloque 2A: se había omitido accidentalmente
-el bloque base de infraestructura situado entre BOT_LOADOUTS y makeUnit.
+Primera capa del nuevo motor global de estados.
 
-Se restauran:
-- FIXED_OBS y zonas de despliegue.
-- setup, B y timerId.
-- perfil local y guardado.
-- helpers base (sleep, key, geometría isométrica, cámara).
-- helpers champ/ability/randomChampionExcluding.
+Cambios incluidos:
+- Herida: máximo 3; daño por cada casilla recorrida, incluido desplazamiento forzado.
+- Veneno: máximo 3; daño al utilizar una habilidad.
+- Quemadura: máximo 4; daño al inicio y al final del turno; reducción posterior.
+- Reducción de Herida, Veneno y Quemadura a la mitad (redondeo hacia abajo) al final del turno.
 
-Validación:
-- node --check app.js: OK
-- smoke test de arranque: OK; showStart vuelve a renderizar.
+Este paquete NO contiene todavía el rediseño completo de los seis campeones.
+No modifica módulos online.
 
-No cambia las nuevas fichas ni las mecánicas 2A–2D.
+Archivo a reemplazar: app.js

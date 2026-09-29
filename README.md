@@ -1,56 +1,69 @@
-# Liga de los Mundos — v0.6.28-v02 — Rework Piplus
+# Liga de los Mundos — v0.6.29-v02 — Rework Onod
 
 🧪 EXPERIMENTAL LOCAL — NO PUSH
 
-Base local ya validada:
+Base local validada:
 - Motor global: Escudo, Herida, Veneno y preview AoE táctil.
 - Arfeli validada.
-- Coloso validado, incluido Monolito/Colapso/Magnetismo.
+- Coloso validado.
+- Piplus validado.
 - IA única Experta.
 
-## Piplus
-PV 90 · PA 6 · PM 3 · Iniciativa 6.
+## Onod
+PV 95 · PA 6 · PM 3 · Iniciativa 4.
 
-### Pasiva — Sistema de Marca
-Piplus mantiene un único enemigo Marcado.
+### Pasiva — Simbiosis
+- Si Onod cura PV reales a un objetivo, TODOS los Brotes propios ortogonalmente adyacentes al objetivo curado recuperan 4 PV, hasta 12.
+- Si un enemigo recibe daño REAL de Veneno mientras está ortogonalmente adyacente a Brotes propios, TODOS esos Brotes recuperan PV iguales al daño real de Veneno.
+- El daño absorbido completamente por Escudo no cuenta como daño real para Simbiosis.
 
-Acción propia:
-- Marcar Objetivo — 0 PA · alcance 4 · requiere LOS · máximo 1/turno · sin daño.
-- Marcar otro enemigo reemplaza la Marca anterior.
-- Ruptura de Marca consume la Marca e impide volver a Marcar durante el resto del turno.
+### Acciones propias
+- Germinar — 1 PA · alcance 3 + LOS · crea Brote de 12 PV.
+  Máximo 2 usos/turno. Máximo 3 Brotes activos.
+- Marchitar — 0 PA · máximo 1/turno.
+  Retira cualquier Brote propio sin beneficio.
+
+Los Brotes ocupan casilla pero no bloquean línea de visión.
 
 ### 6 habilidades
-1. Flecha de Precisión — 3 PA · alcance 4 · 8 daño / 10 si está Marcado.
-2. Vector — 3 PA · alcance 3 · 6 daño + empuje 1 / empuje 2 si está Marcado.
-3. Impulso — 2 PA · máximo 1/turno.
-   Piplus se mueve 1–2 casillas en línea sin gastar PM.
-   Puede atravesar obstáculos; el destino debe ser libre/válido.
-   Si parte adyacente a un enemigo y se mueve directamente alejándose, primero empuja al enemigo 1 y luego se mueve.
-4. Interferencia — 2 PA · alcance 4 · sólo Marcado · -1 PM próximo turno.
-   Cada rival máximo 1 Interferencia por turno de Piplus.
-5. Ruptura de Marca — 4 PA · alcance 4 · sólo Marcado · 14 daño.
-   Consume Marca y bloquea Marcar Objetivo el resto del turno.
-6. Fijación de Objetivo — 2 PA · alcance 4 · sólo Marcado.
-   La próxima habilidad ofensiva contra ese objetivo durante el turno ignora LOS.
-   Después se consume; la Marca permanece. Expira al final del turno si no se usa.
+1. Espina Venenosa — 2 PA · alcance 4 · 6 daño + Veneno 1 · máximo 2/turno.
+2. Enredaderas — 3 PA · alcance 3.
+   Cruz de 5 casillas: centro 6, cardinales 4; combatientes alcanzados -1 PM próximo turno.
+   Usa preview global móvil.
+3. Savia Vital — 3 PA · alcance 3 · cura 8 / 12 si el objetivo está cardinal a Brote propio · máximo 2/turno.
+4. Esporas Tóxicas — 4 PA.
+   Elegí CUALQUIER Brote propio, sin distancia desde Onod.
+   El Brote no se consume. Los 8 espacios alrededor reciben preview; enemigos: 8 daño + Veneno 1.
+5. Despertar del Bosque — 4 PA.
+   Activa TODOS los Brotes simultáneamente, sin consumirlos.
+   Cada Brote hace 8 a enemigos cardinales; daño acumulable 8/16/24.
+   Al seleccionar la habilidad se previsualiza la unión de todas las áreas.
+6. Reabsorción — 0 PA · máximo 1/turno.
+   Absorbe TODOS los Brotes propios de turnos anteriores.
+   Cada uno desaparece y otorga +1 PA.
+   Los Brotes creados en el turno actual no se absorben.
+   Después, Germinar queda bloqueado por el resto del turno.
 
 ## IA
-- Loadouts actualizados: ya no usa Disparo Marcador ni Pulso Reparador.
-- Marcar Objetivo se evalúa como acción propia de 0 PA.
-- Impulso IA es sólo de Piplus y usa el nuevo cruce de obstáculos.
-- Precisión/Vector/Ruptura/Interferencia usan valores y reglas nuevas.
-- Especial atención a turnos vacíos: la IA puede moverse para buscar rango, Marcar y reevaluar.
+- Germinar y Marchitar pasan a planes propios de IA.
+- La IA puede usar hasta 2 Germinaciones respetando el máximo de 3 Brotes.
+- Enredaderas valora los 5 espacios y -1 PM.
+- Esporas evalúa las 8 casillas alrededor del Brote.
+- Despertar calcula correctamente el apilado de Brotes.
+- Reabsorción valora el PA ganado contra el costo de desmontar la red de Brotes.
 
-## Prueba antes de avanzar a Onod
-1. Leer Pasiva + las 6 habilidades en Habilidades.
-2. Marcar Objetivo: 0 PA, alcance 4, LOS, 1/turno, sin daño.
-3. Precisión: 8 / 10 Marcado.
-4. Vector: 6 + empuje 1 / 2 Marcado.
-5. Impulso: 1–2 en línea, cruza obstáculos, no usa PM, 1/turno.
-6. Impulso alejándose de enemigo adyacente: empuja 1 primero.
-7. Interferencia: -1 PM y no repetir sobre el mismo rival ese turno.
-8. Ruptura: 14, consume Marca y bloquea volver a Marcar.
-9. Fijación: siguiente ofensiva contra Marcado ignora LOS y luego se consume.
-10. IA Piplus en 1v1 y 2v2: no debe dejar pasar turnos con acciones legales.
+## Prueba antes de avanzar a Korgan
+1. Leer Pasiva + 6 habilidades en Habilidades.
+2. Germinar: 1 PA, alcance 3, 12 PV, máximo 2/turno y 3 activos.
+3. Marchitar: 0 PA, 1/turno, sin beneficio.
+4. Simbiosis por curación: todos los Brotes cardinales curan 4.
+5. Simbiosis por Veneno: sólo daño REAL de Veneno; Brotes cardinales curan esa cantidad.
+6. Espina: 6 + Veneno 1, máximo 2.
+7. Enredaderas: preview móvil; 6 centro / 4 laterales / -1 PM.
+8. Savia: 8 / 12, máximo 2.
+9. Esporas: seleccionar cualquier Brote, preview de 8 casillas, 8 + Veneno 1, no consume.
+10. Despertar: preview simultáneo, 8/16/24, no consume Brotes.
+11. Reabsorción: sólo Brotes viejos, absorbe TODOS, +1 PA c/u, bloquea Germinar.
+12. Onod IA en 1v1 y 2v2.
 
-NO HACER PUSH. Cuando Piplus quede validado, crear checkpoint LOCAL.
+NO HACER PUSH. Cuando Onod quede validado, crear checkpoint LOCAL.

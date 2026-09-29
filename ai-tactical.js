@@ -1,7 +1,7 @@
 (()=>{'use strict';
 
 /*
-  Liga de los Mundos v0.6.28
+  Liga de los Mundos v0.6.29
   IA táctica única EXPERTA — 🟡 EN PRUEBA
 
   Principios:
@@ -43,11 +43,11 @@ const AI_LOADOUT_POOLS={
     {w:2,set:['precise','impulse','rupture','fixation']}
   ],
   onod:[
-    {w:4,set:['germinate','thorn','sap','awakening']},
-    {w:3,set:['germinate','thorn','vines','spores']},
-    {w:3,set:['germinate','sap','spores','awakening']},
-    {w:2,set:['germinate','vines','sap','awakening']},
-    {w:2,set:['germinate','thorn','spores','awakening']}
+    {w:4,set:['thorn','vines','sap','spores']},
+    {w:4,set:['thorn','sap','awakening','reabsorption']},
+    {w:3,set:['vines','spores','awakening','reabsorption']},
+    {w:3,set:['thorn','vines','spores','awakening']},
+    {w:2,set:['thorn','sap','spores','reabsorption']}
   ],
   korgan:[
     {w:4,set:['trap_spikes','trap_snare','hook','shot']},
@@ -340,7 +340,6 @@ function aiFollowUpBonus(u,id,target){
   if(left<=0)return 0;
 
   if(u.championId==='houngan'&&id==='needle'&&u.loadout.includes('doll')&&!ownedDoll(u)&&left>=3)return 10;
-  if(u.championId==='onod'&&id==='germinate'&&u.loadout.includes('awakening')&&left>=4)return 5;
   if(u.championId==='arfeli'){
     const bonus=globalThis.LDMArfeli0626?.previewBonus?.(u,id)||0;
     const repeated=Array.isArray(u.arfeliMasteryChain)&&u.arfeliMasteryChain.includes(id);
@@ -352,8 +351,22 @@ function aiFollowUpBonus(u,id,target){
 
 function aiScoreAreaDamage(u,id,x,y){
   const a=ability(u.championId,id);
+  if(id==='vines'){
+    const cells=globalThis.LDMOnod0629?.vinesCells?.(x,y)||[];
+    let s=0,hits=0;
+    for(const z of enemyUnits(u,true)){
+      const cell=cells.find(c=>c.x===z.x&&c.y===z.y);
+      if(!cell)continue;
+      hits++;
+      const dmg=cell.zone==='center'?6:4;
+      s+=aiDamageScore(z,dmg)+aiStatusValue(z,'pm');
+    }
+    return hits?s+(hits-1)*4:-18;
+  }
+
   if(id==='spores'){
-    const cells=[{x,y},{x:x+1,y},{x:x-1,y},{x,y:y+1},{x,y:y-1}];
+    const sprout=entityAt(x,y);
+    const cells=globalThis.LDMOnod0629?.sporesCells?.(sprout)||[];
     let s=0,hits=0;
     for(const z of enemyUnits(u,true)){
       if(cells.some(c=>c.x===z.x&&c.y===z.y)){
@@ -361,7 +374,7 @@ function aiScoreAreaDamage(u,id,x,y){
         s+=aiDamageScore(z,8)+aiStatusValue(z,'poison');
       }
     }
-    return hits?s+(hits-1)*5:-20;
+    return hits?s+(hits-1)*5:-22;
   }
 
   if(id==='trap_bomb'){
@@ -460,7 +473,7 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   const target=entityAt(x,y);
   let score=0;
 
-  if(id==='spores'||id==='trap_bomb'||id==='awakening'){
+  if(id==='vines'||id==='spores'||id==='trap_bomb'||id==='awakening'){
     score=aiScoreAreaDamage(u,id,x,y);
   }
 
@@ -479,9 +492,9 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
   }
 
   else if(id==='sap'){
-    const amount=ownedSprouts(u).some(sp=>adjCardinal(sp,target))?14:10;
+    const amount=ownedSprouts(u).some(sp=>adjCardinal(sp,target))?12:8;
     score=aiHealScore(target,amount);
-    if(amount===14)score+=2;
+    if(amount===12)score+=2;
   }
 
   else if(id==='absorb'){
@@ -498,7 +511,7 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
     if(u.pm===0)score-=2;
   }
 
-  else if(id==='pillar'||id==='germinate'||id==='trap_spikes'||id==='trap_snare'||id==='doll'){
+  else if(id==='pillar'||id==='trap_spikes'||id==='trap_snare'||id==='doll'){
     score=aiScoreSetup(u,id,x,y,focus);
   }
 
@@ -637,12 +650,23 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
     score=aiDamageScore(target,12)+3;
   }
 
-  else if(id==='vines'){
-    score=aiDamageScore(target,6)+aiStatusValue(target,'pm');
+  else if(id==='thorn'){
+    score=aiDamageScore(target,6)+aiStatusValue(target,'poison');
   }
 
-  else if(id==='thorn'){
-    score=aiDamageScore(target,7)+aiStatusValue(target,'poison');
+  else if(id==='reabsorption'){
+    const eligible=globalThis.LDMOnod0629?.absorbableSprouts?.(u)||[];
+    if(!eligible.length)return -1e9;
+
+    const paGain=eligible.length;
+    const missingUseful=Math.max(0,6-u.pa);
+    score=paGain*2.2+Math.min(paGain,missingUseful)*3;
+
+    // Reabsorber destruye estructura del mapa: hacerlo sólo si el PA extra compensa.
+    for(const s of eligible){
+      if(enemyUnits(u,true).some(e=>md(s,e)<=2))score-=2.5;
+      if(teamUnits(u,true).some(a=>adjCardinal(s,a)&&aiMissingHp(a)>=6))score-=2;
+    }
   }
 
   else if(id==='hunterstep'){
@@ -877,6 +901,8 @@ function aiExpertFutureValue(u,plan,focus){
   if(plan.kind==='ability'){
     if(['pillar','germinate','trap_spikes','trap_snare','trap_bomb','doll','needle'].includes(plan.id))value+=5;
     if(plan.kind==='piplusMark')value+=5;
+    if(plan.kind==='onodGerminate')value+=4;
+    if(plan.kind==='onodWither')value+=2;
     if(['fusion','awakening','rupture','ritual','hook','quake'].includes(plan.id))value+=2.5;
   }
   // Conservar recursos cuando la acción no genera una ventaja clara.
@@ -939,6 +965,42 @@ function aiCollectPiplusMarkCandidates(u,focus){
   return out;
 }
 
+function aiCollectOnodOwnCandidates(u,focus){
+  if(u.championId!=='onod')return [];
+  const api=globalThis.LDMOnod0629;
+  if(!api)return [];
+
+  const out=[];
+
+  if(api.germinateAvailable?.(u)){
+    for(const p of (api.bestGerminateTiles?.(u,focus)||[]).slice(0,8)){
+      if(p.score>=3){
+        out.push({
+          kind:'onodGerminate',
+          x:p.x,y:p.y,
+          score:p.score,
+          label:'Germinar'
+        });
+      }
+    }
+  }
+
+  if(api.witherAvailable?.(u)){
+    const w=api.witherCandidates?.(u,focus)?.[0];
+    if(w&&w.score>=3){
+      out.push({
+        kind:'onodWither',
+        x:w.sprout.x,y:w.sprout.y,
+        targetId:w.sprout.id,
+        score:w.score,
+        label:`Marchitar → ${w.sprout.name}`
+      });
+    }
+  }
+
+  return out;
+}
+
 function aiGeneratePlans(u){
   aiUpdateHouganMode(u);
   const focus=aiSelectFocus(u);
@@ -946,10 +1008,11 @@ function aiGeneratePlans(u){
   const direct=aiCollectAbilityCandidates(u,focus);
   const impulse=aiCollectImpulseCandidates(u,focus);
   const mark=aiCollectPiplusMarkCandidates(u,focus);
+  const onodOwn=aiCollectOnodOwnCandidates(u,focus);
   const objects=aiCollectObjectAttackCandidates(u,focus);
   const moves=aiCollectMovePlans(u,focus);
 
-  const all=[...direct,...impulse,...mark,...objects,...moves];
+  const all=[...direct,...impulse,...mark,...onodOwn,...objects,...moves];
 
   // No ejecutar acciones de valor nulo sólo por gastar PA/PM.
   return all.filter(p=>p.score>=2).sort((a,b)=>b.score-a.score);
@@ -971,6 +1034,13 @@ async function aiExecutePlanStep(u,plan){
     const target=getUnit(plan.targetId);
     if(!target?.alive)return false;
     return !!globalThis.LDMPiplus0628?.executeMarkTarget?.(u,target);
+  }
+
+  if(plan.kind==='onodGerminate'||plan.kind==='onodWither'){
+    return !!globalThis.LDMOnod0629?.executeOwnAction?.(
+      plan.kind==='onodGerminate'?'onodGerminate':'onodWither',
+      plan.x,plan.y
+    );
   }
 
   if(plan.kind==='move'){

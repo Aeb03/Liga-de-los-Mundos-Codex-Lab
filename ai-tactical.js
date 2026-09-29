@@ -1,7 +1,7 @@
 (()=>{'use strict';
 
 /*
-  Liga de los Mundos v0.6.27
+  Liga de los Mundos v0.6.28
   IA táctica única EXPERTA — 🟡 EN PRUEBA
 
   Principios:
@@ -36,11 +36,11 @@ const AI_LOADOUT_POOLS={
     {w:2,set:['rock','absorb','collapse','magnetism']}
   ],
   piplus:[
-    {w:4,set:['marker','precise','vector','pulse']},
-    {w:3,set:['marker','precise','rupture','pulse']},
-    {w:3,set:['marker','vector','rupture','impulse']},
-    {w:2,set:['precise','vector','impulse','pulse']},
-    {w:2,set:['marker','precise','impulse','rupture']}
+    {w:4,set:['precise','vector','impulse','rupture']},
+    {w:4,set:['precise','interference','rupture','fixation']},
+    {w:3,set:['vector','impulse','interference','rupture']},
+    {w:3,set:['precise','vector','interference','fixation']},
+    {w:2,set:['precise','impulse','rupture','fixation']}
   ],
   onod:[
     {w:4,set:['germinate','thorn','sap','awakening']},
@@ -339,8 +339,6 @@ function aiFollowUpBonus(u,id,target){
   const left=u.pa-ability(u.championId,id).cost;
   if(left<=0)return 0;
 
-  if(u.championId==='piplus'&&id==='marker'&&u.loadout.includes('precise')&&left>=3)return 8;
-  if(u.championId==='piplus'&&id==='marker'&&u.loadout.includes('vector')&&left>=3)return 5;
   if(u.championId==='houngan'&&id==='needle'&&u.loadout.includes('doll')&&!ownedDoll(u)&&left>=3)return 10;
   if(u.championId==='onod'&&id==='germinate'&&u.loadout.includes('awakening')&&left>=4)return 5;
   if(u.championId==='arfeli'){
@@ -549,36 +547,44 @@ function aiScoreAbilityCandidate(u,id,x,y,focus){
     if(target.hp<=damage)score+=8;
   }
 
-  else if(id==='marker'){
-    score=aiDamageScore(target,8)+6;
-    if(getMarkedTarget(u)?.id===target.id)score-=8;
-    if(target.hp<=8)score-=4;
-  }
-
   else if(id==='precise'){
-    const dmg=getMarkedTarget(u)?.id===target.id?14:12;
-    score=aiDamageScore(target,dmg)+(dmg===14?4:0);
+    const marked=getMarkedTarget(u)?.id===target.id;
+    const dmg=marked?10:8;
+    score=aiDamageScore(target,dmg)+(marked?3:0);
   }
 
   else if(id==='vector'){
     const marked=getMarkedTarget(u)?.id===target.id;
     const dist=marked?2:1;
-    score=aiDamageScore(target,8);
-    const path=aiForcedPath(u,target,dist,false);
+    score=aiDamageScore(target,6);
+    const path=aiForcedPath(u,target,dist,true);
     score+=aiKnownTrapPathBonus(u,path);
     score+=aiForcedPositionValue(u,target,path[path.length-1]||target);
-    // Piplus no quiere atraer gratis una amenaza encima.
-    const end=path[path.length-1]||target;
-    if(md(end,u)===1&&!aiKnownTrapPathBonus(u,path))score-=7;
+  }
+
+  else if(id==='interference'){
+    score=aiStatusValue(target,'pm')+5;
+    if((target.pm||0)<=1)score-=2;
+    if(target.status?.pmPenaltyNext>=1)score-=5;
   }
 
   else if(id==='rupture'){
-    score=aiDamageScore(target,16);
-    const path=aiForcedPath(u,target,2,true);
-    score+=aiKnownTrapPathBonus(u,path);
-    score+=aiForcedPositionValue(u,target,path[path.length-1]||target);
-    if(target.hp>16&&u.loadout.includes('precise'))score-=5; // conservar Marca puede valer más
-    if(target.hp<=16)score+=7;
+    score=aiDamageScore(target,14);
+    if(target.hp<=14)score+=8;
+    else if(u.loadout.includes('precise')&&u.pa>=7)score-=3;
+    // Consume Marca: premiar el cierre, penalizar ligeramente si aún hay mucho valor en mantenerla.
+    if(target.hp>28)score-=3;
+  }
+
+  else if(id==='fixation'){
+    const blocked=!clearLOS(u,target);
+    // Fijación en sí requiere LOS; su valor es preparar una ofensiva posterior
+    // tras reposicionarse o atravesando cobertura en la misma secuencia del turno.
+    score=4;
+    if(u.pa>=5)score+=4;
+    if(u.loadout.includes('rupture'))score+=2;
+    if(u.loadout.includes('precise')||u.loadout.includes('vector'))score+=2;
+    if(blocked)score=-20;
   }
 
   else if(id==='daggers'){
@@ -697,40 +703,37 @@ function aiCollectAbilityCandidates(u,focus,limit=null){
 
 function aiCollectImpulseCandidates(u,focus){
   const a=ability(u.championId,'impulse');
-  if(!a||!u.loadout.includes('impulse')||u.pa<a.cost||!skillUseAllowed(u,'impulse'))return [];
+  if(!a||u.championId!=='piplus'||!u.loadout.includes('impulse')||u.pa<a.cost||!skillUseAllowed(u,'impulse'))return [];
 
   const out=[];
-  for(const ally of teamUnits(u,true)){
-    if(!impulseTargetValid(u,ally))continue;
+  const valid=globalThis.LDMPiplus0628?.impulseDestinationValid;
+  if(typeof valid!=='function')return out;
 
-    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
-      for(const dist of [1,2]){
-        const x=ally.x+dx*dist,y=ally.y+dy*dist;
-        if(!straightDashValidFrom(ally,x,y,2))continue;
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    for(const dist of [1,2]){
+      const x=u.x+dx*dist,y=u.y+dy*dist;
+      if(!valid(u,x,y))continue;
 
-        const pos={x,y};
-        const beforeDist=aiNearestEnemyDistance(ally,ally);
-        const afterDist=Math.min(...enemyUnits(u,true).map(e=>md(pos,e)));
-        let score=0;
+      const pos={x,y};
+      const currentAction=aiCollectAbilityCandidates(u,focus,1)[0]?.score||0;
+      const afterAction=aiWithTemporaryPosition(u,pos,()=>aiCollectAbilityCandidates(u,focus,1)[0]?.score||0);
+      let score=afterAction-currentAction;
+      score+=aiPositionScore(u,pos,focus)-aiPositionScore(u,u,focus);
+      score-=aiWoundTravelCost(u,dist)*1.4;
+      score-=a.cost*.25;
 
-        if(ally.id===u.id){
-          const before=aiWithTemporaryPosition(u,{x:u.x,y:u.y},()=>aiCollectAbilityCandidates(u,focus,1)[0]?.score||0);
-          const after=aiWithTemporaryPosition(u,pos,()=>aiCollectAbilityCandidates(u,focus,1)[0]?.score||0);
-          score+=(after-before);
-          score+=aiPositionScore(u,pos,focus)-aiPositionScore(u,u,focus);
-        }else{
-          const wounded=ally.hp/ally.maxHp<.45;
-          if(wounded&&afterDist>beforeDist)score+=(afterDist-beforeDist)*5;
-          if(aiRangeIdentity(ally)==='close'&&focus&&md(pos,focus)<md(ally,focus))score+=4;
-        }
-
-        score-=aiWoundTravelCost(ally,dist)*1.4;
-        score-=a.cost*.25;
-
-        if(score>=5)out.push({kind:'impulse',targetId:ally.id,x,y,score,label:`Impulso → ${ally.name}`});
+      // Si se aleja exactamente de un enemigo adyacente, Impulso además lo empuja 1.
+      const enemy=entityAt(u.x-dx,u.y-dy);
+      if(enemy?.alive&&enemy.kind==='unit'&&enemy.side!==u.side){
+        score+=5;
+        const path=aiForcedPath(u,enemy,1,true);
+        score+=aiForcedPositionValue(u,enemy,path[path.length-1]||enemy);
       }
+
+      if(score>=3)out.push({kind:'impulse',targetId:u.id,x,y,score,label:'Impulso'});
     }
   }
+  out.sort((a,b)=>b.score-a.score);
   return out;
 }
 
@@ -872,7 +875,8 @@ function aiExpertFutureValue(u,plan,focus){
   }
   // Preparación y negación: premiar planes que sostienen la identidad táctica.
   if(plan.kind==='ability'){
-    if(['pillar','germinate','trap_spikes','trap_snare','trap_bomb','doll','marker','needle'].includes(plan.id))value+=5;
+    if(['pillar','germinate','trap_spikes','trap_snare','trap_bomb','doll','needle'].includes(plan.id))value+=5;
+    if(plan.kind==='piplusMark')value+=5;
     if(['fusion','awakening','rupture','ritual','hook','quake'].includes(plan.id))value+=2.5;
   }
   // Conservar recursos cuando la acción no genera una ventaja clara.
@@ -911,16 +915,41 @@ function aiPickNearBest(candidates,u=null){
 // GENERADOR DE PLAN DEL TURNO
 // ─────────────────────────────────────────────
 
+function aiCollectPiplusMarkCandidates(u,focus){
+  if(u.championId!=='piplus')return [];
+  const api=globalThis.LDMPiplus0628;
+  if(!api?.markAvailable?.(u))return [];
+
+  const current=getMarkedTarget(u);
+  const out=[];
+  for(const target of enemyUnits(u,true)){
+    if(!api.markTargetValid(u,target))continue;
+    if(current?.id===target.id)continue;
+
+    let score=8;
+    if(focus?.id===target.id)score+=6;
+    score+=(1-target.hp/target.maxHp)*4;
+    if(u.loadout.includes('rupture'))score+=4;
+    if(u.loadout.includes('precise'))score+=3;
+    if(u.loadout.includes('vector'))score+=2;
+    if(u.loadout.includes('interference'))score+=2;
+    out.push({kind:'piplusMark',targetId:target.id,x:target.x,y:target.y,score,label:`Marcar → ${target.name}`});
+  }
+  out.sort((a,b)=>b.score-a.score);
+  return out;
+}
+
 function aiGeneratePlans(u){
   aiUpdateHouganMode(u);
   const focus=aiSelectFocus(u);
 
   const direct=aiCollectAbilityCandidates(u,focus);
   const impulse=aiCollectImpulseCandidates(u,focus);
+  const mark=aiCollectPiplusMarkCandidates(u,focus);
   const objects=aiCollectObjectAttackCandidates(u,focus);
   const moves=aiCollectMovePlans(u,focus);
 
-  const all=[...direct,...impulse,...objects,...moves];
+  const all=[...direct,...impulse,...mark,...objects,...moves];
 
   // No ejecutar acciones de valor nulo sólo por gastar PA/PM.
   return all.filter(p=>p.score>=2).sort((a,b)=>b.score-a.score);
@@ -935,9 +964,13 @@ async function aiExecutePlanStep(u,plan){
   }
 
   if(plan.kind==='impulse'){
+    return await executeImpulse(u,u,plan.x,plan.y);
+  }
+
+  if(plan.kind==='piplusMark'){
     const target=getUnit(plan.targetId);
     if(!target?.alive)return false;
-    return await executeImpulse(u,target,plan.x,plan.y);
+    return !!globalThis.LDMPiplus0628?.executeMarkTarget?.(u,target);
   }
 
   if(plan.kind==='move'){

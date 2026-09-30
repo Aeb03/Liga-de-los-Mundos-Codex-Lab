@@ -121,3 +121,26 @@
   .online-screen>.actions{height:36px!important}
   .online-screen>.actions button{height:34px!important;min-height:34px!important}
 }
+
+/* v0.6.38h1 — autoridad online compacta: no tapa la arena ni los controles */
+.battle-command-panel>.online-turn-status{
+  grid-area:skills;min-width:0;margin:0;padding:6px 8px;border:1px solid #3d9bc5;border-radius:9px;
+  background:#071b2ae8;display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;
+  align-items:center;gap:3px 8px;text-align:left;overflow:hidden
+}
+.battle-command-panel>.online-turn-status>b{font-size:10px;color:#9de5ff;white-space:nowrap}
+.battle-command-panel>.online-turn-status>span{font-size:8px;color:#f2d77b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.battle-command-panel>.online-turn-status>small{grid-column:1/3;font-size:7px;color:#cdefff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.battle-command-panel>.online-turn-status>.online-leave-compact{grid-column:3;grid-row:1/3;align-self:stretch;padding:3px 7px;min-height:0;font-size:7px}
+.battle-command-panel>.online-turn-status.online-turn-rival{border-color:#a96262;background:#241316e8}
+.battle-command-panel>.online-turn-status.online-turn-error{border-color:#d49a4d;background:#2a1d0de8}
+.battle-command-panel>.online-turn-hud{grid-area:hud}
+.battle-command-panel>.online-preview-lock{grid-column:2/4;width:auto;max-width:none;margin:0;padding:6px 8px}
+.battle-command-panel.collapsed>.online-turn-status,.battle-command-panel.collapsed>.online-preview-lock{display:none!important}
+@media (orientation:landscape) and (max-height:450px){
+  .battle-command-panel>.online-turn-status{padding:4px 6px;gap:2px 5px}
+  .battle-command-panel>.online-turn-status>b{font-size:8px}
+  .battle-command-panel>.online-turn-status>span{font-size:7px}
+  .battle-command-panel>.online-turn-status>small{font-size:6px}
+  .battle-command-panel>.online-turn-status>.online-leave-compact{font-size:6px;padding:2px 5px}
+}

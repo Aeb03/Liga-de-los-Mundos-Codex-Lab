@@ -20,7 +20,7 @@ const validLoadout=(championId,list)=>{const c=champion(championId);if(!c)return
 function shell(body){app().innerHTML=`<section class="screen online-screen"><div class="topbar"><b>🌐 1v1 ONLINE · MOVIMIENTO + HABILIDAD SIMPLE</b><span>Protocolo ${PROTOCOL_VERSION}</span></div>${body}</section>`}
 function home(msg=''){
   cleanupRealtime();session=null;
-  shell(`<div class="online-card"><small>PRUEBA ONLINE v0.6.39h3</small><h2>1 PLAYER vs 1 PLAYER</h2><p>Sincroniza selección, despliegue y autoridad de turno. Este bloque agrega Corte con Espada como primera habilidad sincronizada, manteniendo Movimiento normal y Fin de turno.</p>${msg?`<div class="online-message">${esc(msg)}</div>`:''}<div class="online-actions"><button id="onlineCreate">CREAR PARTIDA</button><div class="online-join"><input id="onlineCode" maxlength="6" autocomplete="off" placeholder="CÓDIGO"><button id="onlineJoin">UNIRSE</button></div></div><div class="online-status ${readyConfig()?'ok':'warn'}">${readyConfig()?'Supabase configurado · listo para probar':'Falta configurar Project URL + Publishable key'}</div></div><div class="actions"><button class="secondary" id="onlineBack">Volver</button></div>`);
+  shell(`<div class="online-card"><small>PRUEBA ONLINE v0.6.39</small><h2>1 PLAYER vs 1 PLAYER</h2><p>Sincroniza selección, despliegue y autoridad de turno. Este bloque agrega Corte con Espada como primera habilidad sincronizada, manteniendo Movimiento normal y Fin de turno.</p>${msg?`<div class="online-message">${esc(msg)}</div>`:''}<div class="online-actions"><button id="onlineCreate">CREAR PARTIDA</button><div class="online-join"><input id="onlineCode" maxlength="6" autocomplete="off" placeholder="CÓDIGO"><button id="onlineJoin">UNIRSE</button></div></div><div class="online-status ${readyConfig()?'ok':'warn'}">${readyConfig()?'Supabase configurado · listo para probar':'Falta configurar Project URL + Publishable key'}</div></div><div class="actions"><button class="secondary" id="onlineBack">Volver</button></div>`);
   document.getElementById('onlineCreate').onclick=createMatch;
   document.getElementById('onlineJoin').onclick=()=>joinMatch(document.getElementById('onlineCode').value);
   document.getElementById('onlineCode').oninput=e=>e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
@@ -205,51 +205,41 @@ async function requestMove(command={}){
   }finally{if(session)session.actionSending=false}
 }
 async function requestAbility(command={}){
-  if(!session||session.phase!=='turn-authority'||session.actionSending){
-    window.LigaOnlineGame?.actionError?.('La habilidad no pudo enviarse: sesión/fase no disponible o hay otra acción en curso.');
-    return false;
-  }
+  if(!session||session.phase!=='turn-authority'||session.actionSending)return false;
   session.actionSending=true;
   try{
     const match=await currentMatchState();
-    if(!match||match.status!=='turn_authority')throw new Error('La partida ya no está en una fase de turno válida.');
-    const actor=localAuthorityParticipant(match);if(!actor)throw new Error('Este cliente ya no tiene la autoridad del turno.');
+    if(!match||match.status!=='turn_authority')return false;
+    const actor=localAuthorityParticipant(match);if(!actor)return false;
     const abilityId=String(command?.abilityId||'');
-    if(abilityId!=='sword'||actor.championId!=='arfeli')throw new Error('La acción recibida no corresponde a Corte con Espada de Arfeli.');
     const target=command?.target||{},actorState=command?.actor||{},expected=command?.expected||{};
-    const targetTeam=String(target.team||''),targetSlot=Number(target.slotNumber);
-    if(!['A','B'].includes(targetTeam)||targetTeam===actor.team||!Number.isInteger(targetSlot)||targetSlot<1||targetSlot>5)throw new Error('Objetivo online inválido para Corte con Espada.');
+    if(abilityId!=='sword'||actor.championId!=='arfeli')return false;
+    if(!actor.loadout.includes('sword'))return false;
+    if(!['A','B'].includes(String(target.team||''))||String(target.team)===actor.team)return false;
+    if(!Number.isInteger(Number(target.slotNumber))||Number(target.slotNumber)<1||Number(target.slotNumber)>5)return false;
+    if(!Number.isInteger(Number(target.x))||!Number.isInteger(Number(target.y)))return false;
+    if(!Number.isInteger(Number(actorState.x))||!Number.isInteger(Number(actorState.y)))return false;
     const cost=Number(command?.cost),damage=Number(command?.damage),paBefore=Number(command?.paBefore),useBefore=Number(command?.useBefore);
-    const row=actionRowPayload('ability',match.turn_seq,actor,{
+    if(!Number.isFinite(cost)||cost<0||!Number.isFinite(damage)||damage<0||!Number.isFinite(paBefore)||!Number.isFinite(useBefore))return false;
+    await appendAction(actionRowPayload('ability',match.turn_seq,actor,{
       abilityId,
-      actor:{championId:'arfeli',x:Number(actorState.x),y:Number(actorState.y)},
-      target:{team:targetTeam,slotNumber:targetSlot,x:Number(target.x),y:Number(target.y)},
-      cost:Number.isFinite(cost)?cost:0,
-      damage:Number.isFinite(damage)?damage:0,
-      masteryBonus:Number(command?.masteryBonus)||0,
-      paBefore:Number.isFinite(paBefore)?paBefore:0,
-      useBefore:Number.isFinite(useBefore)?useBefore:0,
-      targetHpBefore:Number(command?.targetHpBefore),
-      targetShieldBefore:Number(command?.targetShieldBefore),
-      targetAliveBefore:!!command?.targetAliveBefore
+      actor:{championId:actor.championId,x:Number(actorState.x),y:Number(actorState.y)},
+      target:{team:String(target.team),slotNumber:Number(target.slotNumber),x:Number(target.x),y:Number(target.y)},
+      cost,damage,masteryBonus:Number(command?.masteryBonus)||0,paBefore,useBefore,
+      targetHpBefore:Number(command?.targetHpBefore),targetShieldBefore:Number(command?.targetShieldBefore),targetAliveBefore:!!command?.targetAliveBefore
     },{
       actorPaAfter:Number(expected.actorPaAfter),
       targetHpAfter:Number(expected.targetHpAfter),
       targetShieldAfter:Number(expected.targetShieldAfter),
       targetAliveAfter:!!expected.targetAliveAfter,
       useAfter:Number(expected.useAfter)
-    });
-    const saved=await appendAction(row);
-    if(!saved?.seq)throw new Error('Supabase no devolvió la acción ability insertada.');
-    // Aplicación inmediata en el emisor; el rival la recibe por Realtime/polling.
-    const synced=await syncPendingActions([saved]);
-    if(synced===false)throw new Error('La acción ability se guardó, pero no pudo aplicarse en el cliente emisor.');
+    }));
     await refresh();
     return true;
   }catch(e){
     console.error('Online ability',e);
     session.schemaError=/online_actions|action_type|constraint|check|column|schema cache|relation/i.test(e.message);
-    if(session.schemaError)schemaProblem();else window.LigaOnlineGame?.actionError?.(`Corte online: ${errorText(e)}`);
+    if(session.schemaError)schemaProblem();else window.LigaOnlineGame?.actionError?.(errorText(e));
     return false;
   }finally{if(session)session.actionSending=false}
 }

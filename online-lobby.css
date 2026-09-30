@@ -144,3 +144,17 @@
   .battle-command-panel>.online-turn-status>small{font-size:6px}
   .battle-command-panel>.online-turn-status>.online-leave-compact{font-size:6px;padding:2px 5px}
 }
+
+/* v0.6.39 — primera habilidad online dentro del área central, sin alterar Mover/Fin turno */
+.battle-command-panel>.online-turn-status>.online-test-skill{
+  grid-column:1/3;min-width:0;min-height:18px;height:18px;padding:1px 6px;border-radius:6px;
+  border:1px solid #b9913f;background:#2b2412;color:#ffe7a0;font-size:7px;font-weight:900;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.battle-command-panel>.online-turn-status>.online-test-skill.active-action{
+  border-color:#f2d77b;background:#493916;box-shadow:inset 0 0 8px #f2d77b33
+}
+.battle-command-panel>.online-turn-status>.online-test-skill:disabled{opacity:.42}
+@media (orientation:landscape) and (max-height:450px){
+  .battle-command-panel>.online-turn-status>.online-test-skill{height:15px;min-height:15px;font-size:6px;padding:0 4px}
+}

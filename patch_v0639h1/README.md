@@ -35,9 +35,5 @@ No se modifica `online-config.js` y el ZIP no lo incluye.
 Primera habilidad online sincronizada: Arfeli — Corte con Espada. Movimiento y Fin de turno validados se mantienen. Requiere `supabase-online-v0639.sql`.
 
 
-## v0.6.39h2-v02
+## v0.6.39h1-v02
 Hotfix experimental: reconciliación determinista del daño de Corte con Espada entre ambos clientes. Sin migración adicional.
-
-
-## v0.6.39h3-v02
-Hotfix táctil: Corte con Espada online se ejecuta en `pointerup` sobre la casilla objetivo, igual que Mover, para evitar que Android pierda el click por la cámara. Sin migración adicional.

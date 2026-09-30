@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const SIZE=12, VERSION='0.6.39h3-v02';
+const SIZE=12, VERSION='0.6.39h1-v02';
 
 
 
@@ -338,18 +338,11 @@ function bindBattleCamera(grid=$('#grid')){
     if(pointer!==e.pointerId)return;
     if(raf){cancelAnimationFrame(raf);raf=0;if(next){B.camera={...battleCameraState(),...next};applyBattleCamera(grid)}}
     if(moved){suppressClick=true;e.preventDefault()}
-    else if(B?.onlineMode&&B.onlineLocalHasAuthority&&!B.onlineActionPending&&!B.onlineDesync&&startTile){
+    else if(B?.onlineMode&&B.selectedAction==='move'&&B.onlineLocalHasAuthority&&!B.onlineActionPending&&!B.onlineDesync&&startTile?.classList?.contains('move')){
       const x=Number(startTile.dataset.x),y=Number(startTile.dataset.y),u=cur();
-      if(Number.isInteger(x)&&Number.isInteger(y)&&u&&B.selectedAction==='move'&&startTile.classList?.contains('move')){
+      if(Number.isInteger(x)&&Number.isInteger(y)&&u){
         suppressClick=true;e.preventDefault();
         Promise.resolve(requestOnlineMove(u,x,y)).catch(err=>console.error('Online move tap',err));
-      }else if(Number.isInteger(x)&&Number.isInteger(y)&&u&&B.selectedAction&&onlineAbilityEnabled(u,B.selectedAction)&&startTile.classList?.contains('target')){
-        // Android + touch-action:none + pointer capture no siempre generan el click final
-        // sobre una casilla ocupada. Ejecutamos la habilidad online directamente en
-        // pointerup, igual que el movimiento validado, y suprimimos el click duplicado.
-        const abilityId=B.selectedAction;
-        suppressClick=true;e.preventDefault();
-        Promise.resolve(requestOnlineAbility(u,abilityId,x,y)).catch(err=>console.error('Online ability tap',err));
       }
     }
     try{grid.releasePointerCapture(pointer)}catch{}
@@ -2050,29 +2043,17 @@ function previewDirectDamage(target,amount){
   return {hpBefore,hpAfter,shieldBefore:shieldTotal(target),shieldAfter,aliveAfter:hpAfter>0};
 }
 async function requestOnlineAbility(u,id,x,y){
-  const fail=msg=>{if(B?.onlineMode){B.onlineActionPending=false;B.notice=`⚠️ ${msg}`;renderBattle()}return false};
-  if(!B?.onlineMode)return false;
-  if(B.onlinePhase!=='turn-authority')return fail('La habilidad no puede enviarse fuera de la fase de turno.');
-  if(!B.onlineLocalHasAuthority)return fail('Este cliente no tiene la autoridad del turno.');
-  if(B.onlineActionPending)return fail('Todavía hay una acción online pendiente.');
-  if(B.onlineDesync)return fail('Las acciones están bloqueadas por desincronización.');
-  if(!onlineAbilityEnabled(u,id))return fail('Corte con Espada no está habilitado para esta unidad/loadout online.');
-  if(!canUseAbility(u,id,x,y))return fail(invalidAbilityReason(u,id,x,y));
+  if(!B?.onlineMode||B.onlinePhase!=='turn-authority'||!B.onlineLocalHasAuthority||B.onlineActionPending||B.onlineDesync)return false;
+  if(!onlineAbilityEnabled(u,id)||!canUseAbility(u,id,x,y))return false;
   const target=entityAt(x,y),a=ability(u.championId,id);
-  if(!target?.alive||target.kind!=='unit')return fail('El objetivo online no es una unidad válida.');
-  let targetTeam=target.onlineTeam, targetSlot=Number(target.onlineSlotNumber);
-  if((!targetTeam||!Number.isInteger(targetSlot))&&typeof target.id==='string'){
-    const m=target.id.match(/^online-([AB])-(\d+)$/);
-    if(m){targetTeam=m[1];targetSlot=Number(m[2])}
-  }
-  if(!['A','B'].includes(String(targetTeam||''))||!Number.isInteger(targetSlot))return fail('No se pudo identificar el equipo/slot del objetivo online.');
+  if(!target?.alive||target.kind!=='unit'||!target.onlineTeam||!Number.isInteger(target.onlineSlotNumber))return false;
   const masteryBonus=Number(globalThis.LDMArfeli0626?.previewBonus?.(u,id))||0;
   const damage=Math.max(0,Number(a?.damage)||0)+masteryBonus;
   const preview=previewDirectDamage(target,damage);
   const command={
     abilityId:id,
     actor:{championId:u.championId,x:u.x,y:u.y},
-    target:{team:String(targetTeam),slotNumber:targetSlot,x:target.x,y:target.y},
+    target:{team:target.onlineTeam,slotNumber:target.onlineSlotNumber,x:target.x,y:target.y},
     cost:Number(a.cost)||0,damage,masteryBonus,
     paBefore:u.pa,useBefore:skillUseCount(u,id),
     targetHpBefore:preview.hpBefore,targetShieldBefore:preview.shieldBefore,targetAliveBefore:!!target.alive,

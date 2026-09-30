@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const SIZE=12, VERSION='0.6.39h3-v02';
+const SIZE=12, VERSION='0.6.40h1-v02';
 
 
 
@@ -1530,9 +1530,13 @@ function renderBattle(){
       if(B.onlineDesync){
         controls=`<div class="online-turn-status online-turn-error"><b>⚠️ DESINCRONIZACIÓN</b><span>Sala ${B.onlineRoomCode||'—'} · Sec. ${B.onlineTurnSeq||1}</span><small>Acciones bloqueadas para evitar separar los estados.</small><button class="secondary online-leave-compact" id="onlineLeaveBattle" type="button">Abandonar</button></div><div class="hud online-turn-hud"><button disabled>👣<b>Mover</b></button><button class="end-turn" disabled>⏭️<b>Fin turno</b></button></div>`;
       }else if(mine){
-        const sword=onlineAbilityEnabled(active,'sword')?ability(active.championId,'sword'):null;
-        const swordRemaining=sword?skillUsesRemaining(active,'sword'):0;
-        const statusAction=pending?'<small>Sincronizando acción…</small>':(sword?`<button id="onlineSword" class="online-test-skill ${B.selectedAction==='sword'?'active-action':''}" ${active.pa<sword.cost||swordRemaining<=0?'disabled':''}>⚔️ Corte con Espada · ${sword.cost} PA · ${swordRemaining} uso${swordRemaining===1?'':'s'}</button>`:'<small>Movimiento habilitado · habilidades de este campeón aún bloqueadas</small>');
+        const onlineSkillButtons=(active?.loadout||[]).filter(id=>onlineAbilityEnabled(active,id)).map(id=>{
+          const a=ability(active.championId,id),remaining=skillUsesRemaining(active,id),limited=Number.isFinite(a?.maxUsesPerTurn);
+          const uses=limited?`<span class="online-skill-uses">${remaining}/${a.maxUsesPerTurn}</span>`:'';
+          const label=`${a?.name||id} · ${a?.cost||0} PA${limited?` · ${remaining}/${a.maxUsesPerTurn} usos`:''}`;
+          return `<button data-online-ability="${id}" class="online-test-skill ${B.selectedAction===id?'active-action':''}" aria-label="${label}" title="${a?.name||id}" ${!a||active.pa<a.cost||remaining<=0?'disabled':''}><span class="online-skill-cost">${a?.cost||0} PA</span>${uses}<span class="online-skill-icon">${a?.icon||'✦'}</span></button>`;
+        }).join('');
+        const statusAction=pending?'<small>Sincronizando acción…</small>':(onlineSkillButtons?`<div class="online-skill-strip">${onlineSkillButtons}</div>`:'<small>Movimiento habilitado · habilidades de este campeón aún bloqueadas</small>');
         controls=`<div class="online-turn-status online-turn-mine"><b>🟢 TU TURNO</b><span>${active?.icon||''} ${active?.name||'—'} · Ronda ${B.round}</span>${statusAction}<button class="secondary online-leave-compact" id="onlineLeaveBattle" type="button">Abandonar</button></div><div class="hud online-turn-hud"><button id="onlineMove" class="${B.selectedAction==='move'?'active-action':''}" ${pending||active?.pm<=0?'disabled':''}>👣<b>Mover</b></button><button class="end-turn" id="onlineEnd" ${pending?'disabled':''}>⏭️<b>Fin turno</b></button></div>`;
       }else{
         controls=`<div class="online-turn-status online-turn-rival"><b>👁️ TURNO RIVAL</b><span>${active?.icon||''} ${active?.name||'—'} · Ronda ${B.round}</span><small>Modo observador · esperando Movimiento, habilidad o Fin de turno.</small><button class="secondary online-leave-compact" id="onlineLeaveBattle" type="button">Abandonar</button></div><div class="hud online-turn-hud"><button disabled>👣<b>Mover</b></button><button class="end-turn" disabled>⏭️<b>Fin turno</b></button></div>`;
@@ -1633,11 +1637,11 @@ function renderBattle(){
     if(!B?.onlineMode||!B.onlineLocalHasAuthority||B.onlineActionPending||B.onlineDesync)return;
     B.selectedAction=B.selectedAction==='move'?null:'move';B.skillsOpen=false;renderBattle();
   });
-  $('#onlineSword')?.addEventListener('click',()=>{
+  $$('[data-online-ability]').forEach(b=>b.addEventListener('click',()=>{
     if(!B?.onlineMode||!B.onlineLocalHasAuthority||B.onlineActionPending||B.onlineDesync)return;
-    const active=cur();if(!onlineAbilityEnabled(active,'sword'))return;
-    B.selectedAction=B.selectedAction==='sword'?null:'sword';B.skillsOpen=false;renderBattle();
-  });
+    const active=cur(),id=String(b.dataset.onlineAbility||'');if(!onlineAbilityEnabled(active,id))return;
+    B.selectedAction=B.selectedAction===id?null:id;B.skillsOpen=false;renderBattle();
+  }));
   $('#onlineEnd')?.addEventListener('click',()=>{if(B?.onlineMode&&!B.onlineActionPending)requestOnlineEndTurn()});
   $('#onlineLeaveBattle')?.addEventListener('click',()=>window.LigaOnline?.leave?.());
 }
@@ -2032,9 +2036,23 @@ function onlineTurnReset(u){
   if(u.championId==='arfeli'){u.arfeliMasteryChain=[];u.arfeliMasteryLastBonus=0;}
   u.symbiosisUsed=false;
 }
-const ONLINE_TEST_ABILITY_IDS=new Set(['sword']);
+const ONLINE_TEST_ABILITIES={
+  arfeli:new Set(['sword','bow','shield']),
+  piplus:new Set(['precise'])
+};
 function onlineAbilityEnabled(u,id){
-  return !!(B?.onlineMode&&u?.championId==='arfeli'&&id==='sword'&&ONLINE_TEST_ABILITY_IDS.has(id)&&u.loadout?.includes(id));
+  const allowed=ONLINE_TEST_ABILITIES[u?.championId];
+  return !!(B?.onlineMode&&allowed?.has(id)&&u?.loadout?.includes(id));
+}
+function onlineAbilityEffectPreview(u,id,target,a){
+  const masteryBonus=u?.championId==='arfeli'?(Number(globalThis.LDMArfeli0626?.previewBonus?.(u,id))||0):0;
+  if(u?.championId==='arfeli'&&id==='shield'){
+    return {kind:'shield',masteryBonus,shieldAmount:Math.max(0,Number(a?.shield)||0)+masteryBonus,damage:0};
+  }
+  let damage=Math.max(0,Number(a?.damage)||0);
+  if(u?.championId==='arfeli')damage+=masteryBonus;
+  if(u?.championId==='piplus'&&id==='precise'&&target?.kind==='unit'&&getMarkedTarget(u)?.id===target.id)damage+=2;
+  return {kind:'damage',masteryBonus,shieldAmount:0,damage};
 }
 function previewDirectDamage(target,amount){
   let remaining=Math.max(0,Number(amount)||0);
@@ -2056,7 +2074,7 @@ async function requestOnlineAbility(u,id,x,y){
   if(!B.onlineLocalHasAuthority)return fail('Este cliente no tiene la autoridad del turno.');
   if(B.onlineActionPending)return fail('Todavía hay una acción online pendiente.');
   if(B.onlineDesync)return fail('Las acciones están bloqueadas por desincronización.');
-  if(!onlineAbilityEnabled(u,id))return fail('Corte con Espada no está habilitado para esta unidad/loadout online.');
+  if(!onlineAbilityEnabled(u,id))return fail('Esta habilidad todavía no está habilitada para esta unidad/loadout online.');
   if(!canUseAbility(u,id,x,y))return fail(invalidAbilityReason(u,id,x,y));
   const target=entityAt(x,y),a=ability(u.championId,id);
   if(!target?.alive||target.kind!=='unit')return fail('El objetivo online no es una unidad válida.');
@@ -2066,17 +2084,18 @@ async function requestOnlineAbility(u,id,x,y){
     if(m){targetTeam=m[1];targetSlot=Number(m[2])}
   }
   if(!['A','B'].includes(String(targetTeam||''))||!Number.isInteger(targetSlot))return fail('No se pudo identificar el equipo/slot del objetivo online.');
-  const masteryBonus=Number(globalThis.LDMArfeli0626?.previewBonus?.(u,id))||0;
-  const damage=Math.max(0,Number(a?.damage)||0)+masteryBonus;
-  const preview=previewDirectDamage(target,damage);
+  const effect=onlineAbilityEffectPreview(u,id,target,a);
+  const damagePreview=effect.kind==='damage'?previewDirectDamage(target,effect.damage):{
+    hpBefore:target.hp,hpAfter:target.hp,shieldBefore:shieldTotal(target),shieldAfter:shieldTotal(target)+effect.shieldAmount,aliveAfter:!!target.alive
+  };
   const command={
-    abilityId:id,
+    abilityId:id,effectKind:effect.kind,
     actor:{championId:u.championId,x:u.x,y:u.y},
     target:{team:String(targetTeam),slotNumber:targetSlot,x:target.x,y:target.y},
-    cost:Number(a.cost)||0,damage,masteryBonus,
+    cost:Number(a.cost)||0,damage:effect.damage,shieldAmount:effect.shieldAmount,masteryBonus:effect.masteryBonus,
     paBefore:u.pa,useBefore:skillUseCount(u,id),
-    targetHpBefore:preview.hpBefore,targetShieldBefore:preview.shieldBefore,targetAliveBefore:!!target.alive,
-    expected:{actorPaAfter:Math.max(0,u.pa-(Number(a.cost)||0)),targetHpAfter:preview.hpAfter,targetShieldAfter:preview.shieldAfter,targetAliveAfter:preview.aliveAfter,useAfter:skillUseCount(u,id)+1}
+    targetHpBefore:damagePreview.hpBefore,targetShieldBefore:damagePreview.shieldBefore,targetAliveBefore:!!target.alive,
+    expected:{actorPaAfter:Math.max(0,u.pa-(Number(a.cost)||0)),targetHpAfter:damagePreview.hpAfter,targetShieldAfter:damagePreview.shieldAfter,targetAliveAfter:damagePreview.aliveAfter,useAfter:skillUseCount(u,id)+1}
   };
   B.onlineActionPending=true;B.notice=`🔗 Enviando ${a.icon} ${a.name}…`;renderBattle();
   const ok=await window.LigaOnline?.requestAbility?.(command);
@@ -2138,14 +2157,20 @@ async function applyOnlineAbilityAction(a){
   const seq=Number(a?.seq)||0,applied=onlineAppliedActionSet();
   if(seq&&applied.has(seq))return true;
   const payload=a?.payload||{},result=a?.result||{},id=String(payload.abilityId||'');
-  if(id!=='sword')return false;
   const actor=getUnit(onlineUnitId({team:String(a.actor_team||''),slotNumber:Number(a.actor_slot)||1}));
   const t=payload.target||{};
   const target=getUnit(onlineUnitId({team:String(t.team||''),slotNumber:Number(t.slotNumber)||1}));
-  if(!actor?.alive||!target?.alive||actor.championId!=='arfeli'||!actor.loadout?.includes(id))return false;
+  if(!actor?.alive||!target?.alive||!onlineAbilityEnabled(actor,id))return false;
   if(Number(a.turn_seq)!==Number(B.onlineTurnSeq||0))return false;
   if(actor.x!==Number(payload.actor?.x)||actor.y!==Number(payload.actor?.y))return false;
   if(target.x!==Number(t.x)||target.y!==Number(t.y))return false;
+
+  const effectKind=String(payload.effectKind||'damage');
+  if(effectKind==='shield'){
+    if(!(actor.championId==='arfeli'&&id==='shield'&&target.id===actor.id))return false;
+  }else if(effectKind==='damage'){
+    if(target.side===actor.side)return false;
+  }else return false;
 
   const expectedPa=Number(result.actorPaAfter),expectedHp=Number(result.targetHpAfter),expectedShield=Number(result.targetShieldAfter),expectedUse=Number(result.useAfter);
   const expectedAlive=!!result.targetAliveAfter;
@@ -2156,27 +2181,22 @@ async function applyOnlineAbilityAction(a){
     (!Number.isFinite(expectedUse)||skillUseCount(actor,id)===expectedUse)&&
     target.alive===expectedAlive;
 
-  // Idempotencia: Realtime + polling pueden entregar la misma habilidad más de una vez.
   if(stateMatches()){
     if(seq)applied.add(seq);B.onlineActionPending=false;B.notice='';B.selectedAction=null;renderBattle();return true;
   }
 
-  // Precondiciones canónicas del comando. Si no coinciden, no maquillamos una desincronización real.
   const beforePa=Number(payload.paBefore),beforeUse=Number(payload.useBefore),beforeHp=Number(payload.targetHpBefore),beforeShield=Number(payload.targetShieldBefore);
   if(Number.isFinite(beforePa)&&actor.pa!==beforePa)return false;
   if(Number.isFinite(beforeUse)&&skillUseCount(actor,id)!==beforeUse)return false;
   if(Number.isFinite(beforeHp)&&target.hp!==beforeHp)return false;
   if(Number.isFinite(beforeShield)&&shieldTotal(target)!==beforeShield)return false;
 
-  // Primero intentamos el motor local validado. Guardamos el estado para poder hacer un
-  // replay determinista si alguna condición transitoria del cliente remoto (HUD/busy)
-  // impide que executeAbility se resuelva exactamente igual.
   const snap={
-    actorPa:actor.pa,actorUses:{...(actor.skillUsesThisTurn||{})},actorChain:Array.isArray(actor.arfeliMasteryChain)?[...actor.arfeliMasteryChain]:[],actorBonus:actor.arfeliMasteryLastBonus,
+    actorPa:actor.pa,actorHp:actor.hp,actorAlive:actor.alive,actorShields:(actor.shieldStacks||[]).map(x=>({...x})),
+    actorUses:{...(actor.skillUsesThisTurn||{})},actorChain:Array.isArray(actor.arfeliMasteryChain)?[...actor.arfeliMasteryChain]:[],actorBonus:actor.arfeliMasteryLastBonus,
     targetHp:target.hp,targetAlive:target.alive,targetShields:(target.shieldStacks||[]).map(x=>({...x}))
   };
   let engineOk=false;
-  const oldBusy=B.busy;
   try{
     B.busy=false;
     if(canUseAbility(actor,id,target.x,target.y))engineOk=!!(await executeAbility(actor,id,target.x,target.y,false));
@@ -2184,19 +2204,30 @@ async function applyOnlineAbilityAction(a){
   B.busy=false;
 
   if(!engineOk||!stateMatches()){
-    // Restaurar antes del fallback evita aplicar daño/PA dos veces si el replay local quedó a medias.
-    actor.pa=snap.actorPa;actor.skillUsesThisTurn={...snap.actorUses};actor.arfeliMasteryChain=[...snap.actorChain];actor.arfeliMasteryLastBonus=snap.actorBonus;
-    target.hp=snap.targetHp;target.alive=snap.targetAlive;target.shieldStacks=snap.targetShields.map(x=>({...x}));
+    actor.pa=snap.actorPa;actor.hp=snap.actorHp;actor.alive=snap.actorAlive;actor.shieldStacks=snap.actorShields.map(x=>({...x}));
+    actor.skillUsesThisTurn={...snap.actorUses};actor.arfeliMasteryChain=[...snap.actorChain];actor.arfeliMasteryLastBonus=snap.actorBonus;
+    if(target.id!==actor.id){target.hp=snap.targetHp;target.alive=snap.targetAlive;target.shieldStacks=snap.targetShields.map(x=>({...x}))}
+    else {target.hp=snap.targetHp;target.alive=snap.targetAlive;target.shieldStacks=snap.targetShields.map(x=>({...x}))}
 
     const adef=ability(actor.championId,id);
-    if(!adef||actor.pa<Number(payload.cost)||!damageableEnemy(actor,target)||!inRange(actor,target,effectiveRange(actor,adef)))return false;
-    const mastery=globalThis.LDMArfeli0626?.commit?.(actor,id)||{bonus:0};
-    if(Number(mastery.bonus||0)!==(Number(payload.masteryBonus)||0))return false;
-    faceTarget(actor,target);
+    B.busy=false;
+    if(!adef||actor.pa<Number(payload.cost)||!canUseAbility(actor,id,target.x,target.y))return false;
+    if(actor.championId==='arfeli'){
+      const mastery=globalThis.LDMArfeli0626?.commit?.(actor,id)||{bonus:0};
+      if(Number(mastery.bonus||0)!==(Number(payload.masteryBonus)||0))return false;
+    }
+    if(target.id!==actor.id)faceTarget(actor,target);
     registerSkillUse(actor,id);
     actor.pa=expectedPa;
-    applyDamage(target,Math.max(0,Number(payload.damage)||0),false);
-    log(`🔗 ⚔️ Corte con Espada sincronizado: ${Math.max(0,Number(payload.damage)||0)} daño a ${target.name}.`);
+    if(effectKind==='shield'){
+      const amount=Math.max(0,Number(payload.shieldAmount)||0);
+      addShield(actor,amount,adef.name,actor.id);
+      log(`🔗 ${adef.icon} ${adef.name} sincronizado: ${amount} de Escudo para ${actor.name}.`);
+    }else{
+      const damage=Math.max(0,Number(payload.damage)||0);
+      applyDamage(target,damage,false);
+      log(`🔗 ${adef.icon} ${adef.name} sincronizado: ${damage} daño a ${target.name}.`);
+    }
   }
 
   if(!stateMatches())return false;

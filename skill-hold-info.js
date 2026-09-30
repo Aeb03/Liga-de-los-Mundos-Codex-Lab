@@ -45,7 +45,7 @@ function line(className,text){
 
 function showTooltip(button){
   if(!button?.isConnected)return;
-  const data=safeActionInfo(button.dataset.skill,button);
+  const data=safeActionInfo(button.dataset.skill||button.dataset.onlineAbility,button);
   const box=ensureTooltip();
   box.replaceChildren();
 
@@ -97,7 +97,7 @@ function resetHold(){
 }
 
 document.addEventListener('pointerdown',e=>{
-  const button=e.target.closest?.('[data-skill]');
+  const button=e.target.closest?.('[data-skill],[data-online-ability]');
   if(!button||!button.closest('.battle-command-panel'))return;
   if(e.isPrimary===false)return;
 
@@ -131,7 +131,7 @@ document.addEventListener('pointercancel',e=>{
 },true);
 
 document.addEventListener('contextmenu',e=>{
-  if(e.target.closest?.('[data-skill]'))e.preventDefault();
+  if(e.target.closest?.('[data-skill],[data-online-ability]'))e.preventDefault();
 },true);
 
 window.addEventListener('blur',resetHold);

@@ -16,11 +16,16 @@ function errorText(e){const raw=String(e?.message||e||'Error desconocido');try{c
 const code=()=>{const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>a[Math.floor(Math.random()*a.length)]).join('')};
 const roster=()=>window.LigaOnlineGame?.roster?.()||[];
 const champion=id=>roster().find(c=>c.id===id)||null;
+const ONLINE_BASIC_ABILITIES={
+  arfeli:new Set(['sword','bow','shield']),
+  piplus:new Set(['precise'])
+};
+const onlineBasicAbilityAllowed=(championId,id)=>!!ONLINE_BASIC_ABILITIES[championId]?.has(id);
 const validLoadout=(championId,list)=>{const c=champion(championId);if(!c)return[];const ids=new Set(c.abilities.map(a=>a.id));return Array.isArray(list)?list.filter(x=>ids.has(x)).slice(0,4):[]};
-function shell(body){app().innerHTML=`<section class="screen online-screen"><div class="topbar"><b>🌐 1v1 ONLINE · MOVIMIENTO + HABILIDAD SIMPLE</b><span>Protocolo ${PROTOCOL_VERSION}</span></div>${body}</section>`}
+function shell(body){app().innerHTML=`<section class="screen online-screen"><div class="topbar"><b>🌐 1v1 ONLINE · MOVIMIENTO + HABILIDADES BÁSICAS</b><span>Protocolo ${PROTOCOL_VERSION}</span></div>${body}</section>`}
 function home(msg=''){
   cleanupRealtime();session=null;
-  shell(`<div class="online-card"><small>PRUEBA ONLINE v0.6.39h3</small><h2>1 PLAYER vs 1 PLAYER</h2><p>Sincroniza selección, despliegue y autoridad de turno. Este bloque agrega Corte con Espada como primera habilidad sincronizada, manteniendo Movimiento normal y Fin de turno.</p>${msg?`<div class="online-message">${esc(msg)}</div>`:''}<div class="online-actions"><button id="onlineCreate">CREAR PARTIDA</button><div class="online-join"><input id="onlineCode" maxlength="6" autocomplete="off" placeholder="CÓDIGO"><button id="onlineJoin">UNIRSE</button></div></div><div class="online-status ${readyConfig()?'ok':'warn'}">${readyConfig()?'Supabase configurado · listo para probar':'Falta configurar Project URL + Publishable key'}</div></div><div class="actions"><button class="secondary" id="onlineBack">Volver</button></div>`);
+  shell(`<div class="online-card"><small>PRUEBA ONLINE v0.6.40</small><h2>1 PLAYER vs 1 PLAYER</h2><p>Amplía el canal de habilidades validado: Arfeli usa Corte, Disparo con Arco y Portación de Escudo; Piplus usa Flecha de Precisión. Movimiento y Fin de turno se conservan.</p>${msg?`<div class="online-message">${esc(msg)}</div>`:''}<div class="online-actions"><button id="onlineCreate">CREAR PARTIDA</button><div class="online-join"><input id="onlineCode" maxlength="6" autocomplete="off" placeholder="CÓDIGO"><button id="onlineJoin">UNIRSE</button></div></div><div class="online-status ${readyConfig()?'ok':'warn'}">${readyConfig()?'Supabase configurado · listo para probar':'Falta configurar Project URL + Publishable key'}</div></div><div class="actions"><button class="secondary" id="onlineBack">Volver</button></div>`);
   document.getElementById('onlineCreate').onclick=createMatch;
   document.getElementById('onlineJoin').onclick=()=>joinMatch(document.getElementById('onlineCode').value);
   document.getElementById('onlineCode').oninput=e=>e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
@@ -214,18 +219,25 @@ async function requestAbility(command={}){
     const match=await currentMatchState();
     if(!match||match.status!=='turn_authority')throw new Error('La partida ya no está en una fase de turno válida.');
     const actor=localAuthorityParticipant(match);if(!actor)throw new Error('Este cliente ya no tiene la autoridad del turno.');
-    const abilityId=String(command?.abilityId||'');
-    if(abilityId!=='sword'||actor.championId!=='arfeli')throw new Error('La acción recibida no corresponde a Corte con Espada de Arfeli.');
+    const abilityId=String(command?.abilityId||''),effectKind=String(command?.effectKind||'damage');
+    if(!onlineBasicAbilityAllowed(actor.championId,abilityId))throw new Error('La habilidad recibida todavía no pertenece al bloque online habilitado.');
     const target=command?.target||{},actorState=command?.actor||{},expected=command?.expected||{};
+    if(String(actorState.championId||'')!==actor.championId)throw new Error('El campeón actor de la habilidad no coincide con el turno activo.');
     const targetTeam=String(target.team||''),targetSlot=Number(target.slotNumber);
-    if(!['A','B'].includes(targetTeam)||targetTeam===actor.team||!Number.isInteger(targetSlot)||targetSlot<1||targetSlot>5)throw new Error('Objetivo online inválido para Corte con Espada.');
-    const cost=Number(command?.cost),damage=Number(command?.damage),paBefore=Number(command?.paBefore),useBefore=Number(command?.useBefore);
+    if(!['A','B'].includes(targetTeam)||!Number.isInteger(targetSlot)||targetSlot<1||targetSlot>5)throw new Error('Objetivo online inválido.');
+    if(effectKind==='shield'){
+      if(!(actor.championId==='arfeli'&&abilityId==='shield'&&targetTeam===actor.team&&targetSlot===actor.slotNumber))throw new Error('Portación de Escudo sólo puede aplicarse a Arfeli.');
+    }else if(effectKind==='damage'){
+      if(targetTeam===actor.team)throw new Error('El objetivo de daño debe pertenecer al equipo rival.');
+    }else throw new Error('Tipo de efecto online no admitido.');
+    const cost=Number(command?.cost),damage=Number(command?.damage),shieldAmount=Number(command?.shieldAmount),paBefore=Number(command?.paBefore),useBefore=Number(command?.useBefore);
     const row=actionRowPayload('ability',match.turn_seq,actor,{
-      abilityId,
-      actor:{championId:'arfeli',x:Number(actorState.x),y:Number(actorState.y)},
+      abilityId,effectKind,
+      actor:{championId:actor.championId,x:Number(actorState.x),y:Number(actorState.y)},
       target:{team:targetTeam,slotNumber:targetSlot,x:Number(target.x),y:Number(target.y)},
       cost:Number.isFinite(cost)?cost:0,
       damage:Number.isFinite(damage)?damage:0,
+      shieldAmount:Number.isFinite(shieldAmount)?shieldAmount:0,
       masteryBonus:Number(command?.masteryBonus)||0,
       paBefore:Number.isFinite(paBefore)?paBefore:0,
       useBefore:Number.isFinite(useBefore)?useBefore:0,
@@ -241,7 +253,6 @@ async function requestAbility(command={}){
     });
     const saved=await appendAction(row);
     if(!saved?.seq)throw new Error('Supabase no devolvió la acción ability insertada.');
-    // Aplicación inmediata en el emisor; el rival la recibe por Realtime/polling.
     const synced=await syncPendingActions([saved]);
     if(synced===false)throw new Error('La acción ability se guardó, pero no pudo aplicarse en el cliente emisor.');
     await refresh();
@@ -249,7 +260,7 @@ async function requestAbility(command={}){
   }catch(e){
     console.error('Online ability',e);
     session.schemaError=/online_actions|action_type|constraint|check|column|schema cache|relation/i.test(e.message);
-    if(session.schemaError)schemaProblem();else window.LigaOnlineGame?.actionError?.(`Corte online: ${errorText(e)}`);
+    if(session.schemaError)schemaProblem();else window.LigaOnlineGame?.actionError?.(`Habilidad online: ${errorText(e)}`);
     return false;
   }finally{if(session)session.actionSending=false}
 }

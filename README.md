@@ -41,3 +41,10 @@ Hotfix experimental: reconciliación determinista del daño de Corte con Espada 
 
 ## v0.6.39h3-v02
 Hotfix táctil: Corte con Espada online se ejecuta en `pointerup` sobre la casilla objetivo, igual que Mover, para evitar que Android pierda el click por la cámara. Sin migración adicional.
+
+
+## v0.6.40-v02
+Amplía habilidades online básicas: Arfeli (Corte, Disparo con Arco, Portación de Escudo) y Piplus (Flecha de Precisión). Sin migración Supabase nueva.
+
+## v0.6.40h1-v02
+Hotfix visual del HUD online: botones de habilidad compactos (icono + coste PA + contador de usos), sin nombre largo visible. La descripción completa se mantiene por pulsación larga ~1,5 s también en botones online. Sin cambios de lógica ni Supabase.

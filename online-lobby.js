@@ -17,15 +17,17 @@ const code=()=>{const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({le
 const roster=()=>window.LigaOnlineGame?.roster?.()||[];
 const champion=id=>roster().find(c=>c.id===id)||null;
 const ONLINE_BASIC_ABILITIES={
-  arfeli:new Set(['sword','bow','shield']),
-  piplus:new Set(['precise'])
+  arfeli:new Set(['sword','daggers','bow','shield']),
+  piplus:new Set(['precise']),
+  onod:new Set(['sap']),
+  korgan:new Set(['shot'])
 };
 const onlineBasicAbilityAllowed=(championId,id)=>!!ONLINE_BASIC_ABILITIES[championId]?.has(id);
 const validLoadout=(championId,list)=>{const c=champion(championId);if(!c)return[];const ids=new Set(c.abilities.map(a=>a.id));return Array.isArray(list)?list.filter(x=>ids.has(x)).slice(0,4):[]};
 function shell(body){app().innerHTML=`<section class="screen online-screen"><div class="topbar"><b>🌐 1v1 ONLINE · MOVIMIENTO + HABILIDADES BÁSICAS</b><span>Protocolo ${PROTOCOL_VERSION}</span></div>${body}</section>`}
 function home(msg=''){
   cleanupRealtime();session=null;
-  shell(`<div class="online-card"><small>PRUEBA ONLINE v0.6.40</small><h2>1 PLAYER vs 1 PLAYER</h2><p>Amplía el canal de habilidades validado: Arfeli usa Corte, Disparo con Arco y Portación de Escudo; Piplus usa Flecha de Precisión. Movimiento y Fin de turno se conservan.</p>${msg?`<div class="online-message">${esc(msg)}</div>`:''}<div class="online-actions"><button id="onlineCreate">CREAR PARTIDA</button><div class="online-join"><input id="onlineCode" maxlength="6" autocomplete="off" placeholder="CÓDIGO"><button id="onlineJoin">UNIRSE</button></div></div><div class="online-status ${readyConfig()?'ok':'warn'}">${readyConfig()?'Supabase configurado · listo para probar':'Falta configurar Project URL + Publishable key'}</div></div><div class="actions"><button class="secondary" id="onlineBack">Volver</button></div>`);
+  shell(`<div class="online-card"><small>PRUEBA ONLINE v0.6.41</small><h2>1 PLAYER vs 1 PLAYER</h2><p>Amplía el canal validado con Dagas Danzantes + Herida, Savia Vital y Disparo de Caza, manteniendo las habilidades básicas ya aprobadas.</p>${msg?`<div class="online-message">${esc(msg)}</div>`:''}<div class="online-actions"><button id="onlineCreate">CREAR PARTIDA</button><div class="online-join"><input id="onlineCode" maxlength="6" autocomplete="off" placeholder="CÓDIGO"><button id="onlineJoin">UNIRSE</button></div></div><div class="online-status ${readyConfig()?'ok':'warn'}">${readyConfig()?'Supabase configurado · listo para probar':'Falta configurar Project URL + Publishable key'}</div></div><div class="actions"><button class="secondary" id="onlineBack">Volver</button></div>`);
   document.getElementById('onlineCreate').onclick=createMatch;
   document.getElementById('onlineJoin').onclick=()=>joinMatch(document.getElementById('onlineCode').value);
   document.getElementById('onlineCode').oninput=e=>e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
@@ -229,26 +231,33 @@ async function requestAbility(command={}){
       if(!(actor.championId==='arfeli'&&abilityId==='shield'&&targetTeam===actor.team&&targetSlot===actor.slotNumber))throw new Error('Portación de Escudo sólo puede aplicarse a Arfeli.');
     }else if(effectKind==='damage'){
       if(targetTeam===actor.team)throw new Error('El objetivo de daño debe pertenecer al equipo rival.');
+    }else if(effectKind==='heal'){
+      if(!(actor.championId==='onod'&&abilityId==='sap')||targetTeam!==actor.team)throw new Error('Savia Vital sólo puede curar a Onod o a un aliado.');
     }else throw new Error('Tipo de efecto online no admitido.');
-    const cost=Number(command?.cost),damage=Number(command?.damage),shieldAmount=Number(command?.shieldAmount),paBefore=Number(command?.paBefore),useBefore=Number(command?.useBefore);
+    const cost=Number(command?.cost),damage=Number(command?.damage),healAmount=Number(command?.healAmount),shieldAmount=Number(command?.shieldAmount),paBefore=Number(command?.paBefore),useBefore=Number(command?.useBefore),statusAmount=Number(command?.statusAmount);
     const row=actionRowPayload('ability',match.turn_seq,actor,{
       abilityId,effectKind,
       actor:{championId:actor.championId,x:Number(actorState.x),y:Number(actorState.y)},
       target:{team:targetTeam,slotNumber:targetSlot,x:Number(target.x),y:Number(target.y)},
       cost:Number.isFinite(cost)?cost:0,
       damage:Number.isFinite(damage)?damage:0,
+      healAmount:Number.isFinite(healAmount)?healAmount:0,
       shieldAmount:Number.isFinite(shieldAmount)?shieldAmount:0,
       masteryBonus:Number(command?.masteryBonus)||0,
+      statusType:String(command?.statusType||''),
+      statusAmount:Number.isFinite(statusAmount)?statusAmount:0,
       paBefore:Number.isFinite(paBefore)?paBefore:0,
       useBefore:Number.isFinite(useBefore)?useBefore:0,
       targetHpBefore:Number(command?.targetHpBefore),
       targetShieldBefore:Number(command?.targetShieldBefore),
-      targetAliveBefore:!!command?.targetAliveBefore
+      targetAliveBefore:!!command?.targetAliveBefore,
+      targetStatusBefore:Number(command?.targetStatusBefore)
     },{
       actorPaAfter:Number(expected.actorPaAfter),
       targetHpAfter:Number(expected.targetHpAfter),
       targetShieldAfter:Number(expected.targetShieldAfter),
       targetAliveAfter:!!expected.targetAliveAfter,
+      targetStatusAfter:Number(expected.targetStatusAfter),
       useAfter:Number(expected.useAfter)
     });
     const saved=await appendAction(row);

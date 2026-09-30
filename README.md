@@ -48,3 +48,6 @@ Amplía habilidades online básicas: Arfeli (Corte, Disparo con Arco, Portación
 
 ## v0.6.40h1-v02
 Hotfix visual del HUD online: botones de habilidad compactos (icono + coste PA + contador de usos), sin nombre largo visible. La descripción completa se mantiene por pulsación larga ~1,5 s también en botones online. Sin cambios de lógica ni Supabase.
+
+## v0.6.41-v02
+Amplía el canal `ability` online con Arfeli — Dagas Danzantes (daño + Herida 2), Onod — Savia Vital (curación) y Korgan — Disparo de Caza. Mantiene las habilidades básicas ya validadas, sin migración Supabase nueva.

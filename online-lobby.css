@@ -162,3 +162,25 @@
 /* Online asíncrono — Lab */
 .async-match-list{display:grid;gap:8px;margin:10px 0}.async-match-list button{width:100%;text-align:left}
 .async-create-join{display:grid;grid-template-columns:1fr 1fr;gap:8px}.async-create-join input{min-width:0}
+
+
+/* Async Lab: las acciones forman parte del flujo y no tapan Mis partidas. */
+@media (orientation:landscape){
+  .async-online-screen{
+    overflow-y:auto!important;
+    padding-bottom:max(10px,env(safe-area-inset-bottom))!important;
+  }
+  .async-online-screen>.actions{
+    position:static!important;
+    left:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    width:auto!important;
+    height:auto!important;
+    min-height:0!important;
+    margin:10px 8px!important;
+    padding:2px!important;
+    z-index:auto!important;
+    background:transparent!important;
+  }
+}

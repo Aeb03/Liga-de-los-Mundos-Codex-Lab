@@ -2367,6 +2367,58 @@ function syncOnlineTurnAuthority(cfg={}){
   }
   return true;
 }
+function asyncBattleSnapshot(turnSequence=0){
+  if(!B||!window.LigaAsyncSnapshot)return null;
+  const battle=window.LigaAsyncSnapshot.plain(B);
+  for(const u of battle.units||[]){
+    if(u.onlineTeam)u.side=u.onlineTeam==='A'?'player':'enemy';
+    if(u.onlineControllerType!=='AI')u.controller='remote';
+  }
+  battle.asyncMode=true;battle.onlineMode=false;battle.onlinePreview=false;battle.onlinePhase='';
+  battle.camera={x:0,y:0,rotation:0};battle.busy=false;battle.pendingTimeout=false;
+  battle.selectedAction=null;battle.skillsOpen=false;battle.notice='';
+  return window.LigaAsyncSnapshot.create(battle,{engineVersion:641,turnSequence});
+}
+function hydrateAsyncBattle(snapshot,localPlayerId=null){
+  if(!window.LigaAsyncSnapshot)return false;
+  window.LigaAsyncSnapshot.validate(snapshot);
+  clearInterval(timerId);
+  B=window.LigaAsyncSnapshot.clone(snapshot).battle;
+  B.mode='async1v1';B.asyncMode=true;B.onlineMode=false;B.onlinePreview=false;
+  B.timer=30;B.busy=false;B.pendingTimeout=false;B.selectedAction=null;B.skillsOpen=false;
+  const local=B.units.find(u=>u.onlineControllerId===localPlayerId);
+  const localTeam=local?.onlineTeam||'A';
+  for(const u of B.units){
+    if(!u.onlineTeam)continue;
+    u.side=u.onlineTeam===localTeam?'player':'enemy';
+    u.controller=u.onlineControllerId===localPlayerId?'human':'remote';
+  }
+  B.camera={x:0,y:0,rotation:localTeam==='B'?2:0};
+  B.selectedUnitId=cur()?.id||local?.id||B.selectedUnitId;
+  renderBattle();return true;
+}
+function completeAsyncTurn(){nextTurn();if(B?.dollPhase)finishDollPhase()}
+function buildAsyncInitialSnapshot(cfg={}){
+  const participants=(cfg.members||cfg.participants||[]).map((m,i)=>({
+    team:String(m.team||m.team_code||m.team_number||'')==='2'?'B':String(m.team||m.team_code||'A'),
+    slotNumber:Number(m.slotNumber||m.slot_number||m.slot||1),controller:'PLAYER',
+    playerId:m.playerId||m.player_id||m.user_id||null,championId:m.championId||m.champion_id,
+    loadout:m.loadout||[],deploymentReady:true,x:Number(m.x??m.deploy_x),y:Number(m.y??m.deploy_y)
+  }));
+  if(!startOnlineDeployment({participants,localTeam:'A',localPlayerId:participants[0]?.playerId,roomCode:cfg.roomCode||cfg.room_code||''}))return null;
+  if(!startOnlineRoundReady({participants,roomCode:cfg.roomCode||cfg.room_code||''}))return null;
+  B.asyncMode=true;B.onlineMode=false;B.onlinePreview=false;
+  const active=cur();if(active)onlineTurnReset(active);
+  return asyncBattleSnapshot(0);
+}
+function prepareAsyncTimeout(turnSequence=0){
+  const original=asyncBattleSnapshot(turnSequence);if(!original)return null;
+  completeAsyncTurn();const timeout=asyncBattleSnapshot(turnSequence+1);
+  hydrateAsyncBattle(original,null);return timeout;
+}
+function finalizeAsyncTurn(turnSequence=0){completeAsyncTurn();return asyncBattleSnapshot(turnSequence+1)}
+window.LigaAsyncEngine={snapshot:asyncBattleSnapshot,hydrate:hydrateAsyncBattle,buildInitial:buildAsyncInitialSnapshot,prepareTimeout:prepareAsyncTimeout,finalizeTurn:finalizeAsyncTurn,render:renderBattle};
+
 window.LigaOnlineGame={
   roster:onlineRosterSnapshot,
   defaultSelection:()=>({championId:setup.championId,loadout:[...setup.loadout]}),

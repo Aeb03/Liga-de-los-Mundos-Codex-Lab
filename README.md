@@ -51,3 +51,9 @@ Hotfix visual del HUD online: botones de habilidad compactos (icono + coste PA +
 
 ## v0.6.41-v02
 Amplía el canal `ability` online con Arfeli — Dagas Danzantes (daño + Herida 2), Onod — Savia Vital (curación) y Korgan — Disparo de Caza. Mantiene las habilidades básicas ya validadas, sin migración Supabase nueva.
+
+
+## Experimental — online asíncrono
+La rama de laboratorio incorpora un modo 1v1 asíncrono persistente, separado del online LIVE existente.
+La arquitectura, flujo de prueba, migraciones y limitaciones están documentados en `docs/ONLINE-ASYNC.md`.
+No aplicar las migraciones fuera del proyecto Supabase Lab.

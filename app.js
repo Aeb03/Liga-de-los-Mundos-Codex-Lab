@@ -2397,7 +2397,15 @@ function hydrateAsyncBattle(snapshot,localPlayerId=null){
   B.selectedUnitId=cur()?.id||local?.id||B.selectedUnitId;
   renderBattle();return true;
 }
-function completeAsyncTurn(){nextTurn();if(B?.dollPhase)finishDollPhase()}
+function completeAsyncTurn(){
+  if(!B)return;
+  const wasAsync=!!B.asyncMode;
+  if(wasAsync)B.asyncMode=false;
+  nextTurn();
+  if(B?.dollPhase)finishDollPhase();
+  clearInterval(timerId);
+  if(B)B.asyncMode=wasAsync;
+}
 function buildAsyncInitialSnapshot(cfg={}){
   const participants=(cfg.members||cfg.participants||[]).map((m,i)=>({
     team:String(m.team||m.team_code||m.team_number||'')==='2'?'B':String(m.team||m.team_code||'A'),

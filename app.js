@@ -922,7 +922,7 @@ function beginTurn(){
       else nextTurn();
     }
   },1000);
-  if(u.controller==='ai')setTimeout(aiTurn,550);
+  if(u.controller==='ai'&&!B.asyncMode)setTimeout(aiTurn,550);
 }
 
 function endTurnEffects(u){
@@ -953,7 +953,7 @@ function startDollPhase(owner,doll){
   B.selectedAction=null;B.pendingImpulseTargetId=null;B.skillsOpen=false;B.busy=false;B.pendingTimeout=false;B.selectedUnitId=doll.id;
   log(`🪆 ${doll.name} dispone de 3 PM después del turno de ${owner.name}.`);
   renderBattle();
-  if(owner.controller==='ai')setTimeout(aiDollPhase,380);
+  if(owner.controller==='ai'&&!B.asyncMode)setTimeout(aiDollPhase,380);
 }
 function finishDollPhase(){
   if(!B?.dollPhase)return;

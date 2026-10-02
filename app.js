@@ -632,12 +632,16 @@ function showModeSelect(){
       <button class="mode-card online-mode-card" id="onlineDuel">
         <span class="mode-icon">🌐</span><b>1v1 ONLINE</b><small>Conectá dos dispositivos mediante código de sala.</small><em>PRUEBA · SALA + PREPARACIÓN</em>
       </button>
+      <button class="mode-card online-mode-card" id="asyncDuel">
+        <span class="mode-icon">⏳</span><b>ONLINE ASÍNCRONO</b><small>Jugá tu turno y continuá cuando tu rival responda.</small><em>LAB · 1v1 PERSISTENTE</em>
+      </button>
     </div>
     <div class="actions"><button class="secondary" id="backLobby">Volver al Lobby</button></div>
   </section>`;
   $('#duel').onclick=()=>{setup.mode='1v1';showChampionSelect()};
   $('#teamfight').onclick=()=>{setup.mode='2v2';ensureTeamSetup();showChampionSelect()};
   $('#onlineDuel').onclick=()=>window.LigaOnline?.show();
+  $('#asyncDuel').onclick=()=>window.LigaAsyncOnline?.show();
   window.LigaOnlineBack=showModeSelect;
   $('#backLobby').onclick=showLobby;
 }
@@ -1627,7 +1631,7 @@ function renderBattle(){
     $('#move')?.addEventListener('click',()=>{if(B.busy)return;B.pendingImpulseTargetId=null;B.selectedAction=B.selectedAction==='move'?null:'move';B.skillsOpen=false;renderBattle()});
     $('#skills')?.addEventListener('click',()=>{if(B.busy)return;B.skillsOpen=!B.skillsOpen;if(B.skillsOpen&&B.selectedAction==='move')B.selectedAction=null;renderBattle()});
     $$('[data-skill]').forEach(b=>b.onclick=()=>{if(B.busy)return;const id=b.dataset.skill;if(B.selectedAction===id){B.selectedAction=null;B.pendingImpulseTargetId=null}else{B.selectedAction=id;B.pendingImpulseTargetId=null}B.skillsOpen=true;renderBattle()});
-    $('#end')?.addEventListener('click',()=>{if(!B.busy)nextTurn()});
+    $('#end')?.addEventListener('click',()=>{if(B.busy)return;if(B.asyncMode)window.LigaAsyncOnline?.finish?.();else nextTurn()});
     $('#exitMonolith')?.addEventListener('click',exitMonolith);
     $('#consumePillar')?.addEventListener('click',selectConsumePillar);
     $('#removeSprout')?.addEventListener('click',selectRemoveSprout);
@@ -1695,7 +1699,7 @@ function checkBattleEnd(){
   if(blueAlive&&redAlive)return false;
   clearInterval(timerId);B.ended=true;
   const win=blueAlive&&!redAlive;
-  setTimeout(()=>showResult(win),250);
+  if(!B.asyncMode)setTimeout(()=>showResult(win),250);
   return true;
 }
 

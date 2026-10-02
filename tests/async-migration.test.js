@@ -1,0 +1,5 @@
+'use strict';const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
+const lobby=fs.readFileSync('supabase/migrations/202610020002_async_lobby.sql','utf8'),turns=fs.readFileSync('supabase/migrations/202610020001_async_turns.sql','utf8');
+test('migración expone el flujo completo sólo a authenticated',()=>{for(const rpc of ['async_create_match','async_join_match','async_prepare_member','async_initialize_match'])assert.match(lobby,new RegExp(`function public\\.${rpc}`));assert.match(lobby,/grant execute[\s\S]*to authenticated/);assert.doesNotMatch(lobby,/grant execute[\s\S]*to anon/)});
+test('inicialización valida roster y obtiene autoridad desde el snapshot',()=>{assert.match(lobby,/snapshot roster mismatch/);assert.match(lobby,/active_member_id=active_id/);assert.match(lobby,/interval '12 hours'/)});
+test('turnos usan locks, CAS, request id y reloj servidor',()=>{assert.match(turns,/for update/);assert.match(turns,/m\.state_version<>p_expected_version/);assert.match(turns,/p_expected_hash/);assert.match(turns,/clock_timestamp\(\)\+interval '30 seconds'/);assert.match(turns,/async_requests/)});

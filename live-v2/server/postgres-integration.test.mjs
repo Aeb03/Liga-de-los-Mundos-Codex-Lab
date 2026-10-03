@@ -69,7 +69,7 @@ test('PostgreSQL: handler → authority → repository → SQL, privacy, move, r
   const stateBefore=(await x.repo.get(x.match));
   assert.equal(stateBefore.slots.B1.controllerId,x.b);
   const start=await combat(x);
-  assert.equal(start.state.combat.obstacles.length,4);
+  assert.equal(start.state.combat.board.obstacles.length,4);
   assert(start.state.turnDeadline>Date.now()+29000);
   const id=randomUUID();
   const intent={id,matchId:x.match,type:'move',expectedVersion:start.version,expectedTurn:0,slotId:'A1',path:[{x:0,y:3},{x:1,y:3}]};

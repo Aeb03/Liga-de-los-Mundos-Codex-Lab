@@ -1,0 +1,15 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVE v2 — Escudo y Roca</title><link rel="stylesheet" href="client/ui.css"><link rel="stylesheet" href="client/presentation.css?v=20261003-shieldrock1"><body class="in-arena"><header><h1>Escudo y Roca · prueba visual</h1><span>Sin sala ni conexión</span></header><main id="app"></main><script type="module">
+import {renderArena} from './client/presentation.mjs?v=20261003-shieldrock1';
+import {createUnit,initializeCombat,useAbility,endTurn,abilityTargets} from './combat-core.mjs?v=20261003-shieldrock1';
+const slots={A1:{id:'A1',team:'A',controllerId:'demo-a',championId:'arfeli',position:{x:5,y:5},skills:['sword','daggers','bow','shield']},B1:{id:'B1',team:'B',controllerId:'demo-b',championId:'coloso',position:{x:8,y:5},skills:['rock','stonearmor','absorb','quake']}};
+const state={id:'demo',version:0,phase:'combat',slots,combat:initializeCombat({units:Object.values(slots).map(s=>createUnit({...s,slot:1}))}).state};let abilitySelection=null,hudCollapsed=false;
+const active=()=>state.combat.units.find(u=>u.id===state.combat.order[state.combat.turnIndex]);
+function render(){const u=active();document.querySelector('#app').innerHTML=renderArena({state,actor:u.controllerId,slotId:u.id,blocked:false,canMove:true,remaining:24,hudCollapsed,abilitySelection});}
+document.querySelector('#app').addEventListener('click',e=>{const t=e.target.closest('[data-action],[data-x]');if(!t||t.disabled)return;const id=t.dataset.action;
+if(['sword','shield','rock'].includes(id)){abilitySelection=abilitySelection?.abilityId===id?null:{abilityId:id,targetId:null};render();return;}
+if(id==='toggleHud'){hudCollapsed=!hudCollapsed;render();return;}if(id==='moveMode'){abilitySelection=null;render();return;}
+if(id==='end'){state.combat=endTurn(state.combat,{unitId:active().id}).state;state.version++;abilitySelection=null;render();return;}
+if(abilitySelection&&t.dataset.x!=null){const u=active(),valid=abilityTargets(state.combat,u.id,abilitySelection.abilityId),target=state.combat.units.find(v=>valid.includes(v.id)&&v.x===Number(t.dataset.x)&&v.y===Number(t.dataset.y));if(!target)return;
+if(abilitySelection.targetId===target.id){state.combat=useAbility(state.combat,{unitId:u.id,abilityId:abilitySelection.abilityId,targetId:target.id}).state;state.version++;abilitySelection=null;}else abilitySelection.targetId=target.id;render();}
+});render();
+</script></body></html>

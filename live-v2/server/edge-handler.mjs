@@ -20,6 +20,7 @@ export function createEdgeHandler({
   rooms,
   authority,
   backendSecret,
+  authenticateBackend,
 }) {
   return async ({ bearer, backendToken, body }) => {
     const operation = body?.operation;
@@ -27,7 +28,10 @@ export function createEdgeHandler({
       throw new ProtocolError("INVALID_OPERATION", "Operación inválida");
     const args = pick(body.args ?? {}, allowed[operation]);
     if (operation === "expire") {
-      if (!backendSecret || backendToken !== backendSecret)
+      const authorized = authenticateBackend
+        ? await authenticateBackend(backendToken)
+        : Boolean(backendSecret && backendToken === backendSecret);
+      if (!authorized)
         throw new ProtocolError("FORBIDDEN", "Worker no autorizado");
       return authority.command("backend", {
         id: args.commandId,

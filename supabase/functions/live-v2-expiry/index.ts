@@ -1,43 +1,26 @@
-const url = Deno.env.get("SUPABASE_URL")!;
-const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const headers = {
-  apikey: key,
-  authorization: `Bearer ${key}`,
-  "content-type": "application/json",
-};
+import { authority, repository, authorizeWorker } from "../_shared/runtime.ts";
 Deno.serve(async (req) => {
-  if (
-    req.headers.get("x-worker-secret") !== Deno.env.get("LIVE_V2_WORKER_SECRET")
-  )
-    return new Response("forbidden", { status: 403 });
-  const claimed = await fetch(`${url}/rest/v1/rpc/live_v2_claim_expired`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ p_limit: 50 }),
-  });
-  if (!claimed.ok) return new Response(await claimed.text(), { status: 500 });
-  const jobs = await claimed.json();
-  const results = [];
-  for (const job of jobs) {
-    const response = await fetch(`${url}/functions/v1/live-v2-command`, {
-      method: "POST",
-      headers: {
-        ...headers,
-        "x-backend-expiry": Deno.env.get("LIVE_V2_WORKER_SECRET")!,
-      },
-      body: JSON.stringify({
-        operation: "expire",
-        args: {
-          matchId: job.match_id,
-          commandId: job.command_id,
-          expectedVersion: job.expected_version,
-          expectedTurn: job.expected_turn,
-        },
-      }),
-    });
-    results.push({ matchId: job.match_id, status: response.status });
+  if (req.method !== "POST") return Response.json({ error: "METHOD_NOT_ALLOWED" }, { status: 405 });
+  if (!await authorizeWorker(req.headers.get("x-worker-secret"))) {
+    return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   }
-  return new Response(JSON.stringify(results), {
-    headers: { "content-type": "application/json" },
-  });
+  try {
+    const jobs = await repository.expired(50);
+    const results = [];
+    for (const job of jobs) {
+      try {
+        const result = await authority.command("backend", {
+          id: job.command_id, matchId: job.match_id, type: "expireTurn",
+          expectedVersion: job.expected_version, expectedTurn: job.expected_turn,
+        });
+        results.push({ matchId: job.match_id, accepted: true, version: result.version });
+      } catch (error) {
+        results.push({ matchId: job.match_id, accepted: false,
+          error: error instanceof Error && "code" in error ? String(error.code) : "SERVER_ERROR" });
+      }
+    }
+    return Response.json({ results });
+  } catch {
+    return Response.json({ error: "WORKER_ERROR" }, { status: 500 });
+  }
 });

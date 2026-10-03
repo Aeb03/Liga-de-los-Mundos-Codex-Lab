@@ -4,6 +4,22 @@ const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 const key=p=>`${p.x},${p.y}`;
 export const boardPoint=(x,y)=>({x:260+(x-y)*20,y:30+(x+y)*10});
 const zones={A:['0,3','1,3','0,4','2,5','1,6','2,6'],B:['11,3','10,3','11,4','9,5','10,6','9,6']};
+export function unitIndicators(unit) {
+  return [
+    ['Escudo', (unit.shield ?? []).reduce((total, shield) => total + shield.amount, 0)],
+    ['Herida', unit.status?.wound ?? 0],
+    ['Veneno', unit.status?.poison ?? 0],
+    ['Quemadura', unit.status?.burn ?? 0],
+  ].filter(([, value]) => value > 0);
+}
+function statuses(unit) {
+  return unitIndicators(unit).map(([label,value])=>`${label} ${value}`).join(' · ');
+}
+export function turnSequence(combat) {
+  if (!combat) return [];
+  const ordered = [...combat.order.slice(combat.turnIndex), ...combat.order.slice(0,combat.turnIndex)];
+  return ordered.map(id=>combat.units.find(u=>u.id===id)).filter(u=>u?.alive);
+}
 export function renderArena({state,actor,slotId,preview,blocked,canMove,remaining,hudCollapsed=false}) {
   const own=state.slots[slotId]??Object.values(state.slots).find(s=>s.controllerId===actor);
   const active=state.combat?.units.find(u=>u.id===state.combat.order[state.combat.turnIndex]);
@@ -19,7 +35,9 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
   const trail=preview?`<polyline class="trail" points="${preview.path.map(p=>{const c=boardPoint(p.x,p.y);return `${c.x},${c.y}`;}).join(' ')}"/>`:'';
   const units=state.combat?.units??Object.values(state.slots).filter(s=>s.position).map(s=>({...s,x:s.position.x,y:s.position.y,alive:true}));
   const pieces=units.filter(u=>u.alive).sort((a,b)=>(a.x+a.y)-(b.x+b.y)).map(u=>{
-    const p=boardPoint(u.x,u.y);return `<ellipse class="marker" cx="${p.x}" cy="${p.y}" rx="16" ry="7" stroke="${u.controllerId===actor?'#64c6f2':'#f18b83'}"/><image class="champion-piece" href="../assets/champions/${u.championId}/${u.championId}-combat-down-right.png" x="${p.x-22}" y="${p.y-53}" width="44" height="58"/>`;
+    const p=boardPoint(u.x,u.y);
+    const indicators=statuses(u), life=u.hp == null ? '' : `<g class="piece-health" aria-label="${escape(catalog[u.championId]?.name)}: ${u.hp}/${u.maxHp} PV${indicators?`, ${escape(indicators)}`:''}"><rect x="${p.x-23}" y="${p.y-66}" width="46" height="9" rx="2"/><rect class="health-fill" x="${p.x-22}" y="${p.y-65}" width="${44*Math.max(0,Math.min(1,u.hp/u.maxHp))}" height="7" rx="1"/><text x="${p.x}" y="${p.y-59}">${u.hp}/${u.maxHp}</text>${indicators?`<text class="piece-status" x="${p.x}" y="${p.y-70}">${escape(indicators)}</text>`:''}</g>`;
+    return `<ellipse class="marker" cx="${p.x}" cy="${p.y}" rx="16" ry="7" stroke="${u.controllerId===actor?'#64c6f2':'#f18b83'}"/><image class="champion-piece" href="../assets/champions/${u.championId}/${u.championId}-combat-down-right.png" x="${p.x-22}" y="${p.y-53}" width="44" height="58"/>${life}`;
   }).join('');
   function roster(mine){
     const slots=Object.values(state.slots).filter(s=>(s.team===own?.team)===mine);
@@ -34,9 +52,12 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
   const allConfirmed=Object.values(state.slots).every(s=>s.confirmed);
   const controls=deployment?`<button class="live-action" data-action="confirmPosition" ${blocked||!own?.position||own.confirmed?'disabled':''}>${own?.confirmed?'Confirmado':'Confirmar posición'}</button>${state.creatorId===actor?`<button class="live-action end-action" data-action="start" ${blocked||!allConfirmed?'disabled':''}>Iniciar combate</button>`:'<span>El creador iniciará cuando ambos confirmen.</span>'}`:
     finished?'<span>Combate finalizado</span>':`<div class="move-action" aria-label="Movimiento">MOVER<span>${active?.controllerId===actor?active.pm:'—'} PM</span></div><button class="live-action end-action" data-action="end" ${blocked||!canMove?'disabled':''}>Terminar turno</button>`;
+  const turnOrder=state.combat?`<ol class="turn-order" aria-label="Orden de turnos">${turnSequence(state.combat).map((u,i)=>`<li class="${i===0?'current':''}" ${i===0?'aria-current="step"':''} title="${escape(catalog[u.championId]?.name)} · ${escape(u.id)}"><img src="../assets/champions/${u.championId}/${u.championId}-avatar.png" alt="${escape(catalog[u.championId]?.name)}"><span>${escape(u.id)}</span></li>`).join('')}</ol>`:'';
+  const championCard=active?`<div class="active-champion" aria-label="Campeón activo"><img src="../assets/champions/${active.championId}/${active.championId}-avatar.png" alt=""><div class="active-details"><strong>${escape(catalog[active.championId]?.name)} · ${escape(active.id)}</strong><div class="active-life"><meter min="0" max="${active.maxHp}" value="${active.hp}" aria-label="Vida del campeón activo"></meter><span>${active.hp}/${active.maxHp} PV</span></div><div class="active-resources"><span>${active.pa} PA</span><span>${active.pm} PM</span><span>Escudo ${(active.shield??[]).reduce((n,s)=>n+s.amount,0)}</span></div>${statuses(active)?`<small>${escape(statuses(active))}</small>`:''}</div></div>`:'';
+  const skillButtons=active?`<div class="combat-skills" aria-label="Habilidades seleccionadas">${(state.slots[active.id]?.skills??[]).map(id=>{const skill=catalog[active.championId]?.skills.find(s=>s.id===id);return `<button class="combat-skill" disabled title="Todavía no disponible" aria-label="${escape(skill?.name??id)}: todavía no disponible">${escape(skill?.name??id)}</button>`;}).join('')}</div>`:'';
   const pending=blocked?'Esperando confirmación o conexión…':'Estado confirmado';
   return `<section class="live-battle" aria-label="Arena Central"><div class="arena-stage"><img class="arena-platform" src="../assets/arenas/central/arena-central-base.png" alt=""><svg class="live-board" viewBox="0 0 520 280" aria-label="Tablero 12 por 12">${cells}${trail}${pieces}</svg></div>
     <div class="live-round"><span>${deployment?'DESPLIEGUE':finished?'RESULTADO':`RONDA ${state.combat.round}`}</span><strong>${active?escape(catalog[active.championId]?.name):'Arena Central'}</strong>${!deployment&&!finished?`<span class="timer" id="timer">${remaining}</span>`:''}</div>
-    ${roster(true)}${roster(false)}
-    <div class="live-command ${hudCollapsed?'collapsed':''}"><button class="hud-fold" data-action="toggleHud" aria-label="${hudCollapsed?'Expandir controles':'Plegar controles'}" aria-expanded="${!hudCollapsed}">${hudCollapsed?'+':'−'}</button><p class="board-note">${note}</p><div class="command-controls">${controls}<span class="phase-text" id="pending">${pending}</span></div></div></section>`;
+    ${turnOrder}${roster(true)}${roster(false)}
+    <div class="live-command ${hudCollapsed?'collapsed':''}"><button class="hud-fold" data-action="toggleHud" aria-label="${hudCollapsed?'Expandir controles':'Plegar controles'}" aria-expanded="${!hudCollapsed}">${hudCollapsed?'+':'−'}</button>${championCard}<p class="board-note">${note}</p>${skillButtons}<div class="command-controls">${controls}<span class="phase-text" id="pending">${pending}</span></div></div></section>`;
 }

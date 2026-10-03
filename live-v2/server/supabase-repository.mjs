@@ -6,7 +6,7 @@ export class SupabaseRepository {
   async rpc(name, args) {
     const { data, error } = await this.client.rpc(name, args);
     if (error)
-      throw new ProtocolError(error.code ?? "PERSISTENCE_ERROR", error.message);
+      throw new ProtocolError(error.code === "40001" ? "VERSION_CONFLICT" : error.message ?? error.code ?? "PERSISTENCE_ERROR", error.message);
     return data;
   }
   createRoom(actorId, room) {
@@ -37,7 +37,7 @@ export class SupabaseRepository {
   }
   async atomic(matchId, commandId, fingerprint, identity, work) {
     const prepared = await this.rpc("live_v2_prepare_command", {
-      p_actor: identity,
+      p_actor: identity === "backend" ? null : identity,
       p_match: matchId,
       p_command: commandId,
       p_fingerprint: fingerprint,
@@ -65,7 +65,7 @@ export class SupabaseRepository {
       const result = await work(transaction);
       if (!next) throw new ProtocolError("MISSING_STATE", "Comando sin estado");
       return await this.rpc("live_v2_confirm_command", {
-        p_actor: identity,
+        p_actor: identity === "backend" ? null : identity,
         p_match: matchId,
         p_command: commandId,
         p_fingerprint: fingerprint,
@@ -81,7 +81,7 @@ export class SupabaseRepository {
         p_automatic: identity === "backend",
       });
     } catch (error) {
-      await this.rpc("live_v2_reject_command", {
+      const rejection = await this.rpc("live_v2_reject_command", {
         p_actor: identity === "backend" ? null : identity,
         p_match: matchId,
         p_command: commandId,
@@ -91,11 +91,15 @@ export class SupabaseRepository {
         p_error_code: error.code ?? "SERVER_ERROR",
         p_automatic: identity === "backend",
       });
+      if (rejection.status === "confirmed") return rejection.result;
       throw error;
     }
   }
   commandResult(matchId, commandId, identity) {
-    return this.recover(identity, matchId, commandId);
+    return this.recover(identity, matchId, commandId).then((reply) => {
+      if (reply.status === "not_registered") return null;
+      return reply.result;
+    });
   }
   expired(limit = 50) {
     return this.rpc("live_v2_claim_expired", { p_limit: limit });

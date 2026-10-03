@@ -43,7 +43,7 @@ export class SyncCoordinator {
     if (!this.pending) return "none";
     if (result) {
       this.applyEnvelope(result);
-      return "confirmed";
+      return result.rejected ? "rejected" : "confirmed";
     }
     return "retry-original";
   }

@@ -3,7 +3,6 @@ import {
   initializeCombat,
   resolvePath,
   endTurn,
-  serializeState,
 } from "../combat-core.mjs";
 import {
   ProtocolError,
@@ -33,7 +32,6 @@ const DEPLOY = {
 const err = (c, m) => {
   throw new ProtocolError(c, m);
 };
-const nowMs = (n) => (typeof n === "function" ? n() : n);
 export function createMatch({ id, creatorId, slots, createdAt }) {
   if (!id || !creatorId || !Array.isArray(slots) || slots.length !== 2)
     err("UNSUPPORTED_FORMAT", "Etapa 2 habilita exactamente 1v1");
@@ -179,7 +177,8 @@ export class AuthoritativeService {
         } else if (input.type === "setReady") {
           if (m.phase !== "preparation" || !slot || !slot.championId)
             err("WRONG_PHASE", "Listo no disponible");
-          slot.ready = !!input.ready;
+          if (typeof input.ready !== "boolean") err("INVALID_COMMAND", "ready debe ser booleano");
+          slot.ready = input.ready;
           if (Object.values(m.slots).every((s) => s.ready))
             m.phase = "deployment";
         } else if (input.type === "setPosition") {
@@ -233,6 +232,7 @@ export class AuthoritativeService {
             units,
             random: this.random,
             clock: started,
+            obstacles: [{x:5,y:4},{x:6,y:4},{x:5,y:7},{x:6,y:7}],
           });
           m.combat = out.state;
           m.phase = "combat";

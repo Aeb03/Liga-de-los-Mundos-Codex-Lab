@@ -26,7 +26,23 @@ function renderPrep(match,members,me){const r=roster(),chosen=me.champion_id||r[
 async function savePrep(ready){try{const champ=document.getElementById('asyncChamp').value,load=[...document.querySelectorAll('[data-skill]:checked')].map(x=>x.dataset.skill);if(ready&&load.length!==4)throw new Error('Elegí exactamente 4 habilidades.');await rpc('async_prepare_member',{p_match_id:current.matchId,p_champion_id:champ,p_loadout:load,p_deploy_x:Number(document.getElementById('asyncX').value),p_deploy_y:Number(document.getElementById('asyncY').value),p_ready:ready,p_request_id:id()});refresh()}catch(e){alert(e.message)}}
 async function initialize(match,members){try{const latest=await getState();if(latest.match?.snapshot||latest.match?.status!=='forming'){current.state=latest;renderState(latest);return}const snap=window.LigaAsyncEngine?.buildInitial({members:latest.members,roomCode:latest.match.room_code});if(!snap)throw new Error('No se pudo construir el estado inicial.');try{await rpc('async_initialize_match',{p_match_id:latest.match.id,p_snapshot:snap,p_request_id:id()})}catch(e){if(!/already initialized/i.test(e.message||''))throw e}await refresh()}catch(e){const m=asyncErrorMessage(e);if(m)alert(m)}}
 async function startTurn(match,me){try{clearInterval(poll);poll=null;const latest=await getState();if(!latest.match||latest.match.active_member_id!==me.id){current.state=latest;renderState(latest);return}let m=latest.match;if(!m.turn_started_at){window.LigaAsyncEngine?.hydrate(m.snapshot,auth?.user?.id);const timeout=window.LigaAsyncEngine?.prepareTimeout?.(Number(m.turn_sequence||0));if(!timeout)throw new Error('No se pudo preparar el timeout del turno.');const r=await rpc('async_start_turn',{p_match_id:m.id,p_expected_version:Number(m.state_version),p_timeout_snapshot:timeout,p_request_id:id()});m=(Array.isArray(r)?r[0]:r)?.match||m;const s=await getState();m=s.match}window.LigaAsyncEngine?.hydrate(m.snapshot,auth?.user?.id,m.turn_deadline);current.state.match=m;startCombatGuard(m.id,me.id)}catch(e){const m=asyncErrorMessage(e);if(m)alert(m)}}
-function startCombatGuard(matchId,memberId){clearInterval(poll);poll=setInterval(async()=>{try{if(!current||current.matchId!==matchId)return;const s=await getState();if(!s.match)return;const sameTurn=s.match.active_member_id===memberId&&!!s.match.turn_started_at;if(!sameTurn){clearInterval(poll);poll=null;current.state=s;renderState(s);return}current.state=s}catch{}},1500)}
+function startCombatGuard(matchId,memberId){
+  // The server is authoritative, but a transient read must never eject an active
+  // correspondence turn. Leave combat only after authority/version actually advances.
+  clearInterval(poll);
+  const enteredSeq=Number(current?.state?.match?.turn_sequence||0);
+  poll=setInterval(async()=>{try{
+    if(!current||current.matchId!==matchId)return;
+    const s=await getState();if(!s.match)return;
+    const seq=Number(s.match.turn_sequence||0);
+    const lostAuthority=s.match.active_member_id!==memberId;
+    const advanced=seq>enteredSeq;
+    current.state=s;
+    if(advanced||lostAuthority){
+      clearInterval(poll);poll=null;renderState(s);
+    }
+  }catch{}},1500)
+}
 function asyncErrorMessage(e){const m=String(e?.message||e||'Error');if(m==='[object PointerEvent]')return 'Error de interfaz al confirmar la acción.';if(/already initialized|match already initialized/i.test(m))return '';return m}
 async function finish(){if(!current?.state?.match)return;const m=current.state.match;try{const snapshot=window.LigaAsyncEngine?.finalizeTurn(Number(m.turn_sequence||0));if(!snapshot)throw new Error('No se pudo serializar el turno.');const requestId=id();sessionStorage.setItem(PENDING_KEY,JSON.stringify({matchId:m.id,requestId,snapshot,version:m.state_version,hash:m.snapshot_hash}));await rpc('async_finish_turn',{p_match_id:m.id,p_expected_version:Number(m.state_version),p_expected_hash:m.snapshot_hash,p_snapshot:snapshot,p_request_id:requestId});sessionStorage.removeItem(PENDING_KEY);clearInterval(poll);poll=null;await open(m.id)}catch(e){const m=asyncErrorMessage(e);if(m)alert(m)}}
 window.LigaAsyncOnline={show:()=>{if(!configured())return home('Falta configurar el proyecto Supabase Lab.');home()},finish};

@@ -356,12 +356,30 @@ export function restoreState(serialized) {
   return clone(state);
 }
 
-export function swordTargets(state, unitId) {
-  validateSupportedState(state);
-  const unit = unitById(state, unitId);
-  if (state.phase !== 'active' || activeUnit(state).id !== unitId || unit.championId !== 'arfeli' || unit.pa < 2 || (unit.skillUsesThisTurn.sword ?? 0) >= 2) return [];
-  return state.units.filter(target => target.alive && target.team !== unit.team && adjacent(unit, target)).map(target => target.id);
+const ABILITIES = Object.freeze({
+  sword: {championId:'arfeli',cost:2,range:1,damage:10,maxUses:2},
+  shield: {championId:'arfeli',cost:3,range:0,shield:15,maxUses:1},
+  rock: {championId:'coloso',cost:3,range:4,damage:8}
+});
+export function abilityDefinitions(){return clone(ABILITIES);}
+export function clearAbilityLOS(state,a,b){
+  const samples=Math.max(Math.abs(b.x-a.x),Math.abs(b.y-a.y))*16;
+  const cells=new Set();
+  for(let i=1;i<samples;i++){
+    const t=i/samples,x=Math.floor(a.x+.5+(b.x-a.x)*t),y=Math.floor(a.y+.5+(b.y-a.y)*t);
+    if((x!==a.x||y!==a.y)&&(x!==b.x||y!==b.y))cells.add(`${x},${y}`);
+  }
+  const blockers=new Set([...state.board.obstacles,...state.units.filter(u=>u.alive&&u.id!==a.id&&u.id!==b.id&&u.blocksLOS!==false).map(key)]);
+  return [...cells].every(cell=>!blockers.has(cell));
 }
+export function abilityTargets(state,unitId,abilityId){
+  validateSupportedState(state);
+  const u=unitById(state,unitId),a=ABILITIES[abilityId];
+  if(!a||a.championId!==u.championId||state.phase!=='active'||activeUnit(state).id!==unitId||u.pa<a.cost||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
+  if(abilityId==='shield')return [u.id];
+  return state.units.filter(t=>t.alive&&t.team!==u.team&&(abilityId==='sword'?adjacent(u,t):Math.abs(u.x-t.x)+Math.abs(u.y-t.y)<=(u.monolith?5:4)&&clearAbilityLOS(state,u,t))).map(t=>t.id);
+}
+export function swordTargets(state,unitId){return abilityTargets(state,unitId,'sword');}
 
 export function useAbility(state, { unitId, abilityId, targetId }) {
   validateSupportedState(state);
@@ -369,25 +387,36 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
   const unit = unitById(state, unitId);
   if (activeUnit(state).id !== unitId) fail('NOT_ACTIVE_UNIT', 'No es la unidad activa');
   if (unit.status.curseDamage > 0) fail('UNSUPPORTED_MECHANIC', 'Maldición está fuera del alcance de esta etapa');
-  if (abilityId !== 'sword' || unit.championId !== 'arfeli') fail('UNSUPPORTED_ABILITY', 'Sólo Corte con Espada de Arfeli está habilitada');
-  if (unit.pa < 2) fail('INSUFFICIENT_PA', 'Se requieren 2 PA');
-  if ((unit.skillUsesThisTurn.sword ?? 0) >= 2) fail('ABILITY_LIMIT', 'Máximo dos usos por turno');
+  const ability=ABILITIES[abilityId];
+  if (!ability || unit.championId!==ability.championId) fail('UNSUPPORTED_ABILITY','Habilidad no habilitada para este campeón');
+  if (unit.pa < ability.cost) fail('INSUFFICIENT_PA', `Se requieren ${ability.cost} PA`);
+  if (ability.maxUses && (unit.skillUsesThisTurn[abilityId] ?? 0) >= ability.maxUses) fail('ABILITY_LIMIT','Límite de usos por turno');
   const target = unitById(state, targetId);
-  if (!target.alive || target.team === unit.team) fail('INVALID_TARGET', 'Elegí un campeón enemigo vivo');
-  if (!adjacent(unit, target)) fail('OUT_OF_RANGE', 'El objetivo debe estar adyacente ortogonalmente');
+  if(abilityId==='shield'){
+    if(target.id!==unit.id)fail('INVALID_TARGET','Portación de Escudo sólo protege a Arfeli');
+  }else{
+    if(!target.alive||target.team===unit.team)fail('INVALID_TARGET','Elegí un campeón enemigo vivo');
+    if(abilityId==='sword'?!adjacent(unit,target):Math.abs(unit.x-target.x)+Math.abs(unit.y-target.y)>(unit.monolith?5:4))fail('OUT_OF_RANGE','Objetivo fuera del alcance');
+    if(abilityId==='rock'&&!clearAbilityLOS(state,unit,target))fail('BLOCKED_LOS','Línea de visión bloqueada');
+  }
   const next = clone(state), actor = unitById(next, unitId), victim = unitById(next, targetId), events = [];
-  const bonus = actor.arfeliMasteryChain.includes(abilityId) ? 0 : actor.arfeliMasteryChain.length;
-  actor.arfeliMasteryChain = bonus === 0 ? [abilityId] : [...actor.arfeliMasteryChain, abilityId];
-  actor.arfeliMasteryLastBonus = bonus;
-  actor.pa -= 2; actor.skillUsesThisTurn.sword = (actor.skillUsesThisTurn.sword ?? 0) + 1;
-  events.push({ type: 'ability.used', unitId, abilityId, targetId, cost: 2, masteryBonus: bonus });
+  const bonus = actor.championId==='arfeli'&&!actor.arfeliMasteryChain.includes(abilityId) ? actor.arfeliMasteryChain.length : 0;
+  if(actor.championId==='arfeli'){actor.arfeliMasteryChain = bonus === 0 ? [abilityId] : [...actor.arfeliMasteryChain, abilityId];actor.arfeliMasteryLastBonus = bonus;}
+  if(actor.championId==='coloso')actor.colosoCreateWindow=false;
+  actor.pa -= ability.cost; actor.skillUsesThisTurn[abilityId] = (actor.skillUsesThisTurn[abilityId] ?? 0) + 1;
+  events.push({ type: 'ability.used', unitId, abilityId, targetId, cost: ability.cost, masteryBonus: bonus });
   function damage(targetUnit, amount, source) {
     const result = applyDamageToUnit(targetUnit, amount, false);
     events.push({ type: 'damage.applied', targetId: targetUnit.id, amount, ...result, ignoreShield: false, source });
     if (result.killed) events.push({ type: 'unit.died', unitId: targetUnit.id });
   }
   if (actor.status.poison > 0) damage(actor, actor.status.poison, 'poison.ability');
-  if (actor.alive) damage(victim, 10 + bonus, 'ability.sword');
+  if (actor.alive){
+    if(abilityId==='shield'){
+      const amount=ability.shield+bonus;actor.shield.push({amount,sourceId:actor.id});
+      events.push({type:'shield.added',unitId:actor.id,sourceId:actor.id,amount});
+    }else damage(victim,ability.damage+bonus,`ability.${abilityId}`);
+  }
   finishIfNeeded(next, events);
   return { state: next, events };
 }

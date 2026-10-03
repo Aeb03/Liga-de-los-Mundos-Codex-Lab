@@ -57,3 +57,7 @@ Entrada separada `live-v2/index.html`; instrucciones y límites en [CLIENT.md](C
 ## Etapa 3 — primera habilidad
 
 Corte con Espada de Arfeli se implementa según la ficha efectiva de `arfeli-rework-0626.js`: 2 PA, alcance ortogonal 1, 10 daño y máximo 2 usos por turno. La implementación y sus límites están en [SWORD-STAGE.md](SWORD-STAGE.md). Las referencias anteriores a habilidades fuera del alcance describen la etapa inicial; ahora sólo esta habilidad está habilitada.
+
+## Escudo + Roca
+
+Portación de Escudo de Arfeli y Lanzar Roca de Coloso están habilitados junto con Corte. Ver [SHIELD-ROCK-STAGE.md](SHIELD-ROCK-STAGE.md). Los controles de cámara, audio y paralaje permanecen planificados para el final.

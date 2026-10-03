@@ -1,5 +1,5 @@
 // Display metadata from the six effective reworks at base 0b498395.
-// Costs/icons are presentation references; abilities remain disabled.
+// Costs/icons are presentation references; enabled abilities are defined by the isolated core.
 export const catalog = {
   "arfeli": {
     "name": "Arfeli",

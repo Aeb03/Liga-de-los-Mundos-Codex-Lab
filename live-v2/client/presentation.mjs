@@ -1,3 +1,4 @@
+import { spriteSource } from './motion.mjs?v=20261003-motion1';
 import { catalog } from './catalog.mjs?v=20261003-layout1';
 import { movementAvailable } from '../combat-core.mjs';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -37,7 +38,7 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
   const pieces=units.filter(u=>u.alive).sort((a,b)=>(a.x+a.y)-(b.x+b.y)).map(u=>{
     const p=boardPoint(u.x,u.y);
     const indicators=statuses(u), life=u.hp == null ? '' : `<g class="piece-health" aria-label="${escape(catalog[u.championId]?.name)}: ${u.hp}/${u.maxHp} PV${indicators?`, ${escape(indicators)}`:''}"><rect x="${p.x-30}" y="${p.y-68}" width="60" height="12" rx="2"/><rect class="health-fill" x="${p.x-29}" y="${p.y-67}" width="${58*Math.max(0,Math.min(1,u.hp/u.maxHp))}" height="10" rx="1"/><text x="${p.x}" y="${p.y-59}">${u.hp}/${u.maxHp}</text>${indicators?`<text class="piece-status" x="${p.x}" y="${p.y-72}">${escape(indicators)}</text>`:''}</g>`;
-    return `<ellipse class="marker" cx="${p.x}" cy="${p.y}" rx="16" ry="7" stroke="${u.controllerId===actor?'#64c6f2':'#f18b83'}"/><image class="champion-piece" href="../assets/champions/${u.championId}/${u.championId}-combat-down-right.png" x="${p.x-22}" y="${p.y-53}" width="44" height="58"/>${life}`;
+    return `<g data-motion-unit="${escape(u.id)}" data-x="${u.x}" data-y="${u.y}" data-champion="${u.championId}" data-facing="${state.presentation?.facings?.[u.id]??(u.team==='B'?'up-left':'down-right')}"><ellipse class="marker" cx="${p.x}" cy="${p.y}" rx="16" ry="7" stroke="${u.controllerId===actor?'#64c6f2':'#f18b83'}"/><image class="champion-piece" href="${spriteSource(u.championId,state.presentation?.facings?.[u.id]??(u.team==='B'?'up-left':'down-right'))}" x="${p.x-22}" y="${p.y-53}" width="44" height="58"/>${life}</g>`;
   }).join('');
   function roster(mine){
     const slots=Object.values(state.slots).filter(s=>(s.team===own?.team)===mine);

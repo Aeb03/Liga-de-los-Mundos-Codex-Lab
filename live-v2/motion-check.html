@@ -1,18 +1,20 @@
 <!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVE v2 — recorrido y vistas</title><link rel="stylesheet" href="client/ui.css"><link rel="stylesheet" href="client/presentation.css?v=20261003-layout2"><body class="in-arena"><header><h1>Prueba visual · sin sala ni conexión</h1><button id="play">Reproducir las cuatro vistas</button></header><main id="app"></main><script type="module">
-import {renderArena} from './client/presentation.mjs?v=20261003-motion1';
-import {MotionPresenter,spriteSource} from './client/motion.mjs?v=20261003-motion1';
-import {createUnit,initializeCombat,resolvePath} from './combat-core.mjs';
+import {renderArena} from './client/presentation.mjs?v=20261003-motion2';
+import {MotionPresenter,spriteSource} from './client/motion.mjs?v=20261003-motion2';
+import {createUnit,initializeCombat,resolvePath,endTurn} from './combat-core.mjs';
 const slots={A1:{id:'A1',team:'A',controllerId:'demo',championId:'korgan',position:{x:2,y:5},skills:['trap_spikes','trap_mine','grenade','shot']},B1:{id:'B1',team:'B',controllerId:'rival',championId:'coloso',position:{x:9,y:5},skills:['rock','stonearmor','absorb','quake']}};
 const initial=()=>({id:'demo',version:0,phase:'combat',slots,combat:initializeCombat({units:Object.values(slots).map(s=>createUnit({...s,slot:1})),random:.25}).state});
 let state=initial(),collapsed=false;const presenter=new MotionPresenter(),app=document.querySelector('#app');
-const route=[{x:2,y:5},{x:3,y:5},{x:3,y:6},{x:2,y:6},{x:2,y:5}];
+const route=[{x:2,y:5},{x:3,y:5},{x:4,y:5},{x:4,y:6},{x:4,y:7},{x:3,y:7},{x:3,y:6}];
 for(const id of ['korgan','coloso'])for(const dir of ['down-right','down-left','up-right','up-left']){const image=new Image();image.src=spriteSource(id,dir);}
-function render(){app.innerHTML=renderArena({state,actor:'demo',slotId:'A1',preview:{path:route,cost:4,tackleDamage:0},blocked:true,canMove:false,remaining:24,hudCollapsed:collapsed});presenter.paint(app);}
+function render(){app.innerHTML=renderArena({state,actor:'demo',slotId:'A1',preview:{path:route,cost:6,tackleDamage:0},blocked:true,canMove:false,remaining:24,hudCollapsed:collapsed});presenter.paint(app);}
 presenter.receive(state);render();
 document.querySelector('#play').addEventListener('click',()=>{
  state=initial();presenter.timeline.state=null;presenter.timeline.tracks.clear();presenter.receive(state);
- const result=resolvePath(state.combat,'A1',route),event=result.events.find(e=>e.type==='unit.moved');
- state={...state,version:1,combat:result.state,presentation:{facings:{A1:'up-right'},moves:[{version:1,unitId:event.unitId,path:event.path}]}};
+ const first=resolvePath(state.combat,'A1',route.slice(0,5));
+ const advanced=endTurn(endTurn(first.state,{unitId:'A1'}).state,{unitId:'B1'}).state;
+ const result=resolvePath(advanced,'A1',route.slice(4)),event=result.events.find(e=>e.type==='unit.moved');
+ state={...state,version:4,combat:result.state,presentation:{facings:{A1:'up-right'},moves:[{version:1,unitId:'A1',path:first.events.find(e=>e.type==='unit.moved').path},{version:4,unitId:event.unitId,path:event.path}]}};
  presenter.receive(state);for(const track of presenter.timeline.tracks.values())track.stepMs=600;render();
 });
 app.addEventListener('click',e=>{if(e.target.closest('[data-action="toggleHud"]')){collapsed=!collapsed;render();}});

@@ -48,3 +48,11 @@ test('temporizador usa hora del servidor y bloquea acciones al vencer',async()=>
   await game.attach('actor',state());assert.equal(game.remaining(),10);assert.equal(game.canAct(),true);
   game.clock=()=>11000;assert.equal(game.remaining(),0);assert.equal(game.canAct(),false);
 });
+
+// A selection shown by the client must always be accepted by the authority catalog.
+import { catalog } from './catalog.mjs';
+import { EFFECTIVE_SKILLS } from '../server/authoritative-service.mjs';
+test('catálogo visible conserva los IDs efectivos que valida el servidor',()=>{
+  assert.deepEqual(Object.keys(catalog).sort(),Object.keys(EFFECTIVE_SKILLS).sort());
+  for(const [id,champion] of Object.entries(catalog))assert.deepEqual(champion.skills.map(s=>s.id),EFFECTIVE_SKILLS[id]);
+});

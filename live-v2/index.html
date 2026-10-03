@@ -11,6 +11,10 @@
 <main id="app"><section class="panel"><p>Cargando…</p></section></main>
 <div class="toast" id="notice" role="status" aria-live="polite"></div>
 <footer>Prueba de movimiento y turnos · Ataques y habilidades todavía no habilitados</footer>
-<script type="module" src="client/app.mjs"></script>
+<script type="module">
+import('./client/app.mjs').catch(() => {
+  document.querySelector('#app').textContent = 'No se pudo cargar LIVE v2. Revisá la conexión y recargá la página.';
+});
+</script>
 </body>
 </html>

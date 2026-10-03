@@ -45,5 +45,5 @@ function startCombatGuard(matchId,memberId){
 }
 function asyncErrorMessage(e){const m=String(e?.message||e||'Error');if(m==='[object PointerEvent]')return 'Error de interfaz al confirmar la acción.';if(/already initialized|match already initialized/i.test(m))return '';return m}
 async function finish(){if(!current?.state?.match)return;const m=current.state.match;try{const snapshot=window.LigaAsyncEngine?.finalizeTurn(Number(m.turn_sequence||0));if(!snapshot)throw new Error('No se pudo serializar el turno.');const requestId=id();sessionStorage.setItem(PENDING_KEY,JSON.stringify({matchId:m.id,requestId,snapshot,version:m.state_version,hash:m.snapshot_hash}));await rpc('async_finish_turn',{p_match_id:m.id,p_expected_version:Number(m.state_version),p_expected_hash:m.snapshot_hash,p_snapshot:snapshot,p_request_id:requestId});sessionStorage.removeItem(PENDING_KEY);clearInterval(poll);poll=null;await open(m.id)}catch(e){const m=asyncErrorMessage(e);if(m)alert(m)}}
-window.LigaAsyncOnline={show:()=>{if(!configured())return home('Falta configurar el proyecto Supabase Lab.');home()},finish};
+window.LigaAsyncOnline={show:()=>{window.LigaOnline?.stop?.();if(!configured())return home('Falta configurar el proyecto Supabase Lab.');home()},finish};
 })();

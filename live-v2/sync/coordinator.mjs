@@ -51,6 +51,11 @@ export class SyncCoordinator {
     if (this.pending)
       this.pending = { ...this.pending, status: "rejected", error };
   }
+  acknowledgeRejection() {
+    if (this.pending?.status !== "rejected") return false;
+    this.pending = null;
+    return true;
+  }
   retryCommand() {
     if (!this.pending || this.pending.status === "rejected") return null;
     return structuredClone(this.pending.command);

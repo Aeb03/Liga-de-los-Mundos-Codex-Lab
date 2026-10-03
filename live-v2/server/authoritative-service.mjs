@@ -11,7 +11,7 @@ import {
   commandFingerprint,
   stateFingerprint,
 } from "./protocol.mjs";
-const SKILLS = {
+export const EFFECTIVE_SKILLS = {
   arfeli: ["sword", "daggers", "bow", "spear", "shield", "hammer"],
   coloso: ["rock", "stonearmor", "absorb", "quake", "collapse", "magnetism"],
   piplus: [
@@ -163,7 +163,7 @@ export class AuthoritativeService {
         } else if (input.type === "select") {
           if (m.phase !== "preparation" || !slot)
             err("WRONG_PHASE", "Selección no disponible");
-          const valid = SKILLS[input.championId];
+          const valid = EFFECTIVE_SKILLS[input.championId];
           if (
             !valid ||
             !Array.isArray(input.skills) ||

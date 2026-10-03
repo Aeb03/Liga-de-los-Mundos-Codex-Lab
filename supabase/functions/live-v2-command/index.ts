@@ -1,56 +1,47 @@
-const url = Deno.env.get("SUPABASE_URL")!;
-const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-async function request(path: string, init: RequestInit = {}) {
-  const response = await fetch(`${url}${path}`, {
-    ...init,
-    headers: {
-      apikey: serviceKey,
-      authorization: `Bearer ${serviceKey}`,
-      "content-type": "application/json",
-      ...init.headers,
-    },
-  });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.message ?? "Supabase request failed");
-  return body;
-}
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createEdgeHandler } from "../../../live-v2/server/edge-handler.mjs";
+import { AuthoritativeService } from "../../../live-v2/server/authoritative-service.mjs";
+import { SupabaseRepository } from "../../../live-v2/server/supabase-repository.mjs";
+const url = Deno.env.get("SUPABASE_URL")!,
+  key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const client = createClient(url, key, { auth: { persistSession: false } });
+const repository = new SupabaseRepository(client);
+const authority = new AuthoritativeService(repository, {
+  random: () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32,
+});
+const handler = createEdgeHandler({
+  authenticate: async (bearer) => {
+    if (!bearer) return null;
+    const { data } = await client.auth.getUser(
+      bearer.replace(/^Bearer\s+/i, ""),
+    );
+    return data.user?.id ?? null;
+  },
+  rooms: {
+    create: (actor, room) => repository.createRoom(actor, room),
+    join: (actor, id, slot) => repository.joinRoom(actor, id, slot),
+  },
+  authority,
+  backendSecret: Deno.env.get("LIVE_V2_WORKER_SECRET")!,
+});
 Deno.serve(async (req) => {
   try {
-    const bearer = req.headers.get("authorization");
-    if (!bearer) return json({ error: "UNAUTHENTICATED" }, 401);
-    const user = await fetch(`${url}/auth/v1/user`, {
-      headers: { apikey: serviceKey, authorization: bearer },
+    const body = await req.json();
+    const result = await handler({
+      bearer: req.headers.get("authorization"),
+      backendToken: req.headers.get("x-backend-expiry"),
+      body,
     });
-    if (!user.ok) return json({ error: "UNAUTHENTICATED" }, 401);
-    const actor = (await user.json()).id;
-    const input = await req.json();
-    const procedures: Record<string, string> = {
-      create: "live_v2_create_room",
-      join: "live_v2_join_room",
-      snapshot: "live_v2_snapshot",
-      recover: "live_v2_recover_command",
-      command: "live_v2_prepare_command",
-    };
-    const procedure = procedures[input.operation];
-    if (!procedure) return json({ error: "INVALID_OPERATION" }, 400);
-    return json(
-      await request(`/rest/v1/rpc/${procedure}`, {
-        method: "POST",
-        body: JSON.stringify({ p_actor: actor, ...input.args }),
-      }),
-    );
+    return Response.json(result);
   } catch (error) {
-    return json(
+    return Response.json(
       {
-        error: "SERVER_ERROR",
-        message: error instanceof Error ? error.message : "unknown",
+        error:
+          error instanceof Error && "code" in error
+            ? error.code
+            : "SERVER_ERROR",
       },
-      500,
+      { status: 400 },
     );
   }
 });

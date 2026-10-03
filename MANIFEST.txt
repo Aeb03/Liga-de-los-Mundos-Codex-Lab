@@ -1,8 +1,0 @@
-README-CODIGO.txt
-icon-192.png: 192x192 RGBA
-icon-512.png: 512x512 RGBA
-icon-maskable-512.png: 512x512 RGBA
-inicio-boton-referencia.png: 719x123 RGBA
-inicio-composicion-aprobada.png: 1672x941 RGBA
-inicio-hitbox.json
-intro-splash-aprobado.png: 1672x941 RGBA

@@ -1,9 +1,0 @@
-action-button-end-turn.png — 377x181px
-action-button-move.png — 377x170px
-action-button-secondary-gold.png — 377x181px
-bottom-panel-base-horizontal.png — 2155x449px
-bottom-panel-champion-card.png — 410x357px
-bottom-panel-controls-left.png — 257x356px
-skill-slot-disabled.png — 997x930px
-skill-slot-normal.png — 997x930px
-skill-slot-selected.png — 1097x1098px

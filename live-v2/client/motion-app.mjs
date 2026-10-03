@@ -1,15 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261003-motion1';
-import { renderArena } from './presentation.mjs?v=20261003-sword1';
+import { renderArena } from './presentation.mjs?v=20261003-shieldrock1';
 import { catalog } from './catalog.mjs';
 import { LiveSession, newId } from './session.mjs';
-import { championDefinitions, calculatePath, previewPath } from '../combat-core.mjs?v=20261003-sword1';
+import { championDefinitions, calculatePath, previewPath, abilityTargets } from '../combat-core.mjs?v=20261003-shieldrock1';
 
 const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const errors={UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'La sala ya tiene otro participante.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'Se requieren 2 PA.',ABILITY_LIMIT:'Ya usaste Corte dos veces este turno.',OUT_OF_RANGE:'El enemigo debe estar adyacente ortogonalmente.',ABILITY_NOT_SELECTED:'Corte no está en tus cuatro habilidades.',INVALID_TARGET:'Elegí un enemigo vivo.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
+const errors={UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'La sala ya tiene otro participante.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'No tenés suficientes PA.',ABILITY_LIMIT:'Alcanzaste el límite de usos este turno.',BLOCKED_LOS:'La línea de visión está bloqueada.',OUT_OF_RANGE:'El objetivo está fuera del alcance.',ABILITY_NOT_SELECTED:'La habilidad no está en tus cuatro elegidas.',INVALID_TARGET:'Elegí un enemigo vivo.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
 let notifyTimer;function notify(message){notice.textContent=errors[message]??message;notice.style.display='block';clearTimeout(notifyTimer);notifyTimer=setTimeout(()=>notice.style.display='none',6000);}
 let deadlineExpired=false,hudCollapsed=false,abilitySelection=null;
 let actor=null,joining=false,draft=null,slotId=null,lastRendered='',reloading=false;
@@ -68,7 +68,7 @@ function preparation(){
   setupDraft();const s=ownSlot(),locked=Boolean(s?.ready);
   return `<div class="grid"><section class="panel"><h2>Elegí tu campeón</h2>${slotChooser()}<div class="selection">${Object.entries(catalog).map(([id,c])=>{
     const d=championDefinitions()[id];return `<button class="champion ${draft.champion===id?'chosen':''}" data-champion="${id}" ${locked||blocked()?'disabled':''}><img src="../assets/champions/${id}/${id}-avatar.png" alt=""><span>${c.name}<small>${d.hp} PV · ${d.pm} PM · Ini ${d.initiative}</small></span></button>`;
-  }).join('')}</div><p>Elegí cuatro habilidades para la partida. En esta prueba sólo está habilitado Corte con Espada de Arfeli.</p><div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando ambos estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala"></aside></div>`;
+  }).join('')}</div><p>Elegí cuatro habilidades para la partida. En esta prueba están habilitados Corte y Escudo de Arfeli, y Roca de Coloso.</p><div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando ambos estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala"></aside></div>`;
 }
 const key=p=>`${p.x},${p.y}`;
 function blocked(){return joining||game.busy||!game.online||Boolean(game.sync.pendingCommand());}
@@ -94,9 +94,10 @@ async function tapCell(x,y){
   if(!canMove())return;
   const unit=activeUnit(),selected=game.preview;
   if(abilitySelection){
-    const target=game.state.combat.units.find(u=>u.alive&&u.team!==unit.team&&u.x===x&&u.y===y);
-    if(!target || Math.abs(unit.x-x)+Math.abs(unit.y-y)!==1){notify('Elegí un enemigo adyacente ortogonalmente.');return;}
-    if(abilitySelection.targetId===target.id){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:'sword',targetId:target.id});abilitySelection=null;render(true);return;}
+    const id=abilitySelection.abilityId??'sword',valid=abilityTargets(game.state.combat,unit.id,id);
+    const target=game.state.combat.units.find(u=>valid.includes(u.id)&&u.x===x&&u.y===y);
+    if(!target){notify('Elegí una casilla de objetivo marcada.');return;}
+    if(abilitySelection.targetId===target.id){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,targetId:target.id});abilitySelection=null;render(true);return;}
     abilitySelection.targetId=target.id;render(true);return;
   }
   if(selected&&key(selected.path.at(-1))===`${x},${y}`){
@@ -116,7 +117,7 @@ app.addEventListener('click',async event=>{
   if(target.dataset.x!=null){await tapCell(Number(target.dataset.x),Number(target.dataset.y));return;}
   if(target.dataset.champion){draft={slot:slotId,champion:target.dataset.champion,skills:catalog[target.dataset.champion].skills.slice(0,4).map(a=>a.id),dirty:true};render(true);return;}
   switch(target.dataset.action){
-    case 'sword':if(canMove()&&!blocked()){abilitySelection=abilitySelection?null:{unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
+    case 'sword':case 'shield':case 'rock':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId===target.dataset.action?null:{abilityId:target.dataset.action,unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
     case 'moveMode':abilitySelection=null;render(true);break;
     case 'toggleHud':hudCollapsed=!hudCollapsed;render(true);break;
     case 'create':await enter(newId(),true);break;

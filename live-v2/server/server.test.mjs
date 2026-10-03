@@ -307,3 +307,15 @@ test('authoritative sword checks loadout, ownership, stale input, deadline and r
  await assert.rejects(()=>x.svc.command('u1',{...input,id:'missing',expectedVersion:out.version}),e=>e.code==='ABILITY_NOT_SELECTED');
  x.now=live.turnDeadline;await assert.rejects(()=>x.svc.command('u1',{...input,id:'late',expectedVersion:out.version}),e=>e.code==='TURN_EXPIRED');
 });
+
+test('shield and rock persist once, synchronize both members and expire by turn source',async()=>{
+ const x=await ready();await x.svc.command('u1',cmd('shield-start','startCombat',x.v));let m=await x.repo.get('m');m.combat.units[1].x=3;await x.repo.save(m,m.version);
+ let result=await x.svc.command('u1',cmd('shield','ability',m.version,{slotId:'A1',expectedTurn:m.turnSerial,abilityId:'shield',targetId:'A1'}));
+ assert.equal(result.state.combat.units[0].shield[0].amount,15);
+ result=await x.svc.command('u1',cmd('shield-end','endTurn',result.version,{slotId:'A1',expectedTurn:result.turn}));
+ const rock=cmd('rock','ability',result.version,{slotId:'B1',expectedTurn:result.turn,abilityId:'rock',targetId:'A1'});result=await x.svc.command('u2',rock);assert.equal(result.state.combat.units[0].shield[0].amount,7);assert.equal(result.state.combat.units[0].hp,100);
+ assert.deepEqual(await x.svc.command('u2',rock),result);assert.deepEqual((await x.svc.snapshot('u1','m')).combat,result.state.combat);
+ result=await x.svc.command('u2',cmd('rock-end','endTurn',result.version,{slotId:'B1',expectedTurn:result.turn}));assert.deepEqual(result.state.combat.units[0].shield,[]);
+ m=await x.repo.get('m');m.slots.A1.skills=['sword','bow','daggers','hammer'];await x.repo.save(m,m.version);
+ await assert.rejects(()=>x.svc.command('u1',cmd('missing-shield','ability',m.version,{slotId:'A1',expectedTurn:m.turnSerial,abilityId:'shield',targetId:'A1'})),e=>e.code==='ABILITY_NOT_SELECTED');
+});

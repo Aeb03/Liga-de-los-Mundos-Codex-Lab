@@ -1,31 +1,47 @@
-// Selection labels from the effective champion reworks; no skills execute in this vertical.
+// Display metadata from the six effective reworks at base 0b498395.
+// Costs/icons are presentation references; abilities remain disabled.
 export const catalog = {
   "arfeli": {
     "name": "Arfeli",
     "skills": [
       {
         "id": "sword",
-        "name": "Corte con Espada"
+        "name": "Corte con Espada",
+        "icon": "⚔️",
+        "cost": 2,
+        "maxUsesPerTurn": 2
       },
       {
         "id": "daggers",
-        "name": "Dagas Danzantes"
+        "name": "Dagas Danzantes",
+        "icon": "🩸",
+        "cost": 3,
+        "maxUsesPerTurn": 1
       },
       {
         "id": "bow",
-        "name": "Disparo con Arco"
+        "name": "Disparo con Arco",
+        "icon": "🏹",
+        "cost": 3
       },
       {
         "id": "spear",
-        "name": "Arte de la Lanza"
+        "name": "Arte de la Lanza",
+        "icon": "🔱",
+        "cost": 3
       },
       {
         "id": "shield",
-        "name": "Portación de Escudo"
+        "name": "Portación de Escudo",
+        "icon": "🛡️",
+        "cost": 3,
+        "maxUsesPerTurn": 1
       },
       {
         "id": "hammer",
-        "name": "Golpe de Martillo"
+        "name": "Golpe de Martillo",
+        "icon": "🔨",
+        "cost": 4
       }
     ]
   },
@@ -34,27 +50,40 @@ export const catalog = {
     "skills": [
       {
         "id": "rock",
-        "name": "Lanzar Roca"
+        "name": "Lanzar Roca",
+        "icon": "💥",
+        "cost": 3
       },
       {
         "id": "stonearmor",
-        "name": "Armadura de Piedra"
+        "name": "Armadura de Piedra",
+        "icon": "🛡️",
+        "cost": 2,
+        "maxUsesPerTurn": 2
       },
       {
         "id": "absorb",
-        "name": "Absorción Rocosa"
+        "name": "Absorción Rocosa",
+        "icon": "🧲",
+        "cost": 2
       },
       {
         "id": "quake",
-        "name": "Golpe Sísmico"
+        "name": "Golpe Sísmico",
+        "icon": "🌋",
+        "cost": 3
       },
       {
         "id": "collapse",
-        "name": "Colapso"
+        "name": "Colapso",
+        "icon": "🪨",
+        "cost": 3
       },
       {
         "id": "magnetism",
-        "name": "Magnetismo de Pilar"
+        "name": "Magnetismo de Pilar",
+        "icon": "🧲",
+        "cost": 3
       }
     ]
   },
@@ -63,27 +92,40 @@ export const catalog = {
     "skills": [
       {
         "id": "precise",
-        "name": "Flecha de Precisión"
+        "name": "Flecha de Precisión",
+        "icon": "🏹",
+        "cost": 3
       },
       {
         "id": "vector",
-        "name": "Vector"
+        "name": "Vector",
+        "icon": "🧭",
+        "cost": 3
       },
       {
         "id": "impulse",
-        "name": "Impulso"
+        "name": "Impulso",
+        "icon": "💨",
+        "cost": 2,
+        "maxUsesPerTurn": 1
       },
       {
         "id": "interference",
-        "name": "Interferencia"
+        "name": "Interferencia",
+        "icon": "📡",
+        "cost": 2
       },
       {
         "id": "rupture",
-        "name": "Ruptura de Marca"
+        "name": "Ruptura de Marca",
+        "icon": "💥",
+        "cost": 4
       },
       {
         "id": "fixation",
-        "name": "Fijación de Objetivo"
+        "name": "Fijación de Objetivo",
+        "icon": "🔒",
+        "cost": 2
       }
     ]
   },
@@ -92,27 +134,42 @@ export const catalog = {
     "skills": [
       {
         "id": "thorn",
-        "name": "Espina Venenosa"
+        "name": "Espina Venenosa",
+        "icon": "☠️",
+        "cost": 2,
+        "maxUsesPerTurn": 2
       },
       {
         "id": "vines",
-        "name": "Enredaderas"
+        "name": "Enredaderas",
+        "icon": "🌿",
+        "cost": 3
       },
       {
         "id": "sap",
-        "name": "Savia Vital"
+        "name": "Savia Vital",
+        "icon": "💚",
+        "cost": 3,
+        "maxUsesPerTurn": 2
       },
       {
         "id": "spores",
-        "name": "Esporas Tóxicas"
+        "name": "Esporas Tóxicas",
+        "icon": "🌬️",
+        "cost": 4
       },
       {
         "id": "awakening",
-        "name": "Despertar del Bosque"
+        "name": "Despertar del Bosque",
+        "icon": "🌳",
+        "cost": 4
       },
       {
         "id": "reabsorption",
-        "name": "Reabsorción"
+        "name": "Reabsorción",
+        "icon": "♻️",
+        "cost": 0,
+        "maxUsesPerTurn": 1
       }
     ]
   },
@@ -121,27 +178,42 @@ export const catalog = {
     "skills": [
       {
         "id": "trap_spikes",
-        "name": "Trampa de Pinchos"
+        "name": "Trampa de Pinchos",
+        "icon": "🪤",
+        "cost": 2,
+        "maxUsesPerTurn": 2
       },
       {
         "id": "trap_mine",
-        "name": "Mina Eléctrica"
+        "name": "Mina Eléctrica",
+        "icon": "⚡",
+        "cost": 3,
+        "maxUsesPerTurn": 1
       },
       {
         "id": "grenade",
-        "name": "Granada"
+        "name": "Granada",
+        "icon": "💣",
+        "cost": 3
       },
       {
         "id": "shot",
-        "name": "Disparo de Caza"
+        "name": "Disparo de Caza",
+        "icon": "🏹",
+        "cost": 3
       },
       {
         "id": "hook",
-        "name": "Gancho"
+        "name": "Gancho",
+        "icon": "🪝",
+        "cost": 3
       },
       {
         "id": "hunterstep",
-        "name": "Paso del Cazador"
+        "name": "Paso del Cazador",
+        "icon": "🏃",
+        "cost": 1,
+        "maxUsesPerTurn": 1
       }
     ]
   },
@@ -150,19 +222,28 @@ export const catalog = {
     "skills": [
       {
         "id": "needle",
-        "name": "Aguja Vudú"
+        "name": "Aguja Vudú",
+        "icon": "🪡",
+        "cost": 2
       },
       {
         "id": "transfer",
-        "name": "Transferencia"
+        "name": "Transferencia",
+        "icon": "🔄",
+        "cost": 2
       },
       {
         "id": "ritual",
-        "name": "Ritual del Dolor"
+        "name": "Ritual del Dolor",
+        "icon": "👁️",
+        "cost": 4
       },
       {
         "id": "curse",
-        "name": "Maldición"
+        "name": "Maldición",
+        "icon": "☠️",
+        "cost": 3,
+        "maxUsesPerTurn": 1
       }
     ]
   }

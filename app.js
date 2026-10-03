@@ -2379,7 +2379,19 @@ function asyncBattleSnapshot(turnSequence=0){
   battle.selectedAction=null;battle.skillsOpen=false;battle.notice='';
   return window.LigaAsyncSnapshot.create(battle,{engineVersion:641,turnSequence});
 }
-function hydrateAsyncBattle(snapshot,localPlayerId=null){
+function startAsyncDeadlineClock(deadline){
+  clearInterval(timerId);
+  const end=Date.parse(deadline||'');
+  if(!Number.isFinite(end)){if(B)B.timer=30;return}
+  const tick=()=>{
+    if(!B?.asyncMode)return clearInterval(timerId);
+    B.timer=Math.max(0,Math.ceil((end-Date.now())/1000));
+    const t=$('#timer');if(t){t.textContent=B.timer+'s';t.closest('.combat-timer')?.classList.toggle('danger-time',B.timer<=10)}
+    if(B.timer<=0)clearInterval(timerId);
+  };
+  tick();timerId=setInterval(tick,250);
+}
+function hydrateAsyncBattle(snapshot,localPlayerId=null,turnDeadline=null){
   if(!window.LigaAsyncSnapshot)return false;
   window.LigaAsyncSnapshot.validate(snapshot);
   clearInterval(timerId);
@@ -2395,7 +2407,7 @@ function hydrateAsyncBattle(snapshot,localPlayerId=null){
   }
   B.camera={x:0,y:0,rotation:localTeam==='B'?2:0};
   B.selectedUnitId=cur()?.id||local?.id||B.selectedUnitId;
-  renderBattle();return true;
+  renderBattle();if(turnDeadline)startAsyncDeadlineClock(turnDeadline);return true;
 }
 function completeAsyncTurn(){
   if(!B)return;

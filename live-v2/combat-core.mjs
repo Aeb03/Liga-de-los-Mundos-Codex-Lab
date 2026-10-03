@@ -356,8 +356,45 @@ export function restoreState(serialized) {
   return clone(state);
 }
 
+export function swordTargets(state, unitId) {
+  validateSupportedState(state);
+  const unit = unitById(state, unitId);
+  if (state.phase !== 'active' || activeUnit(state).id !== unitId || unit.championId !== 'arfeli' || unit.pa < 2 || (unit.skillUsesThisTurn.sword ?? 0) >= 2) return [];
+  return state.units.filter(target => target.alive && target.team !== unit.team && adjacent(unit, target)).map(target => target.id);
+}
+
+export function useAbility(state, { unitId, abilityId, targetId }) {
+  validateSupportedState(state);
+  if (state.phase !== 'active') fail('COMBAT_ENDED', 'El combate ya terminó');
+  const unit = unitById(state, unitId);
+  if (activeUnit(state).id !== unitId) fail('NOT_ACTIVE_UNIT', 'No es la unidad activa');
+  if (unit.status.curseDamage > 0) fail('UNSUPPORTED_MECHANIC', 'Maldición está fuera del alcance de esta etapa');
+  if (abilityId !== 'sword' || unit.championId !== 'arfeli') fail('UNSUPPORTED_ABILITY', 'Sólo Corte con Espada de Arfeli está habilitada');
+  if (unit.pa < 2) fail('INSUFFICIENT_PA', 'Se requieren 2 PA');
+  if ((unit.skillUsesThisTurn.sword ?? 0) >= 2) fail('ABILITY_LIMIT', 'Máximo dos usos por turno');
+  const target = unitById(state, targetId);
+  if (!target.alive || target.team === unit.team) fail('INVALID_TARGET', 'Elegí un campeón enemigo vivo');
+  if (!adjacent(unit, target)) fail('OUT_OF_RANGE', 'El objetivo debe estar adyacente ortogonalmente');
+  const next = clone(state), actor = unitById(next, unitId), victim = unitById(next, targetId), events = [];
+  const bonus = actor.arfeliMasteryChain.includes(abilityId) ? 0 : actor.arfeliMasteryChain.length;
+  actor.arfeliMasteryChain = bonus === 0 ? [abilityId] : [...actor.arfeliMasteryChain, abilityId];
+  actor.arfeliMasteryLastBonus = bonus;
+  actor.pa -= 2; actor.skillUsesThisTurn.sword = (actor.skillUsesThisTurn.sword ?? 0) + 1;
+  events.push({ type: 'ability.used', unitId, abilityId, targetId, cost: 2, masteryBonus: bonus });
+  function damage(targetUnit, amount, source) {
+    const result = applyDamageToUnit(targetUnit, amount, false);
+    events.push({ type: 'damage.applied', targetId: targetUnit.id, amount, ...result, ignoreShield: false, source });
+    if (result.killed) events.push({ type: 'unit.died', unitId: targetUnit.id });
+  }
+  if (actor.status.poison > 0) damage(actor, actor.status.poison, 'poison.ability');
+  if (actor.alive) damage(victim, 10 + bonus, 'ability.sword');
+  finishIfNeeded(next, events);
+  return { state: next, events };
+}
+
 export function executeCommand(state, command) {
   if (!command || typeof command.type !== 'string') fail('INVALID_COMMAND', 'Comando inválido');
+  if (command.type === 'ability') return useAbility(state, command);
   if (command.type === 'move') return resolvePath(state, command.unitId, command.path);
   if (command.type === 'endTurn') return endTurn(state, { unitId: command.unitId });
   fail('UNSUPPORTED_COMMAND', `Comando fuera de alcance: ${command.type}`);

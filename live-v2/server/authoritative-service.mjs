@@ -126,9 +126,8 @@ export class AuthoritativeService {
       input.id,
       fingerprint,
       identity,
-      async (existing) => {
-        if (existing) return existing;
-        const m = await this.repo.get(input.matchId);
+      async (transaction) => {
+        const m = await transaction.get();
         if (!m) err("MATCH_NOT_FOUND", "Partida inexistente");
         if (m.version !== input.expectedVersion)
           err("VERSION_CONFLICT", "Versión obsoleta");
@@ -285,7 +284,7 @@ export class AuthoritativeService {
           diagnostic,
           confirmed: true,
         };
-        await this.repo.save(m, input.expectedVersion);
+        await transaction.save(m, input.expectedVersion);
         return result;
       },
     );
@@ -335,7 +334,10 @@ export class MemoryRepository {
           err("IDEMPOTENCY_CONFLICT", "ID reutilizado con otro contenido");
         return structuredClone(known.result);
       }
-      const result = await work(null);
+      const result = await work({
+        get: async () => structuredClone(this.matches.get(matchId)),
+        save: async (match, version) => this.save(match, version),
+      });
       this.commands.set(key, {
         fingerprint,
         identity,

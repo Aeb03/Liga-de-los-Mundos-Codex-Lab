@@ -25,7 +25,15 @@ Deno.serve(async (req) => {
         ...headers,
         "x-backend-expiry": Deno.env.get("LIVE_V2_WORKER_SECRET")!,
       },
-      body: JSON.stringify({ operation: "expire", args: job }),
+      body: JSON.stringify({
+        operation: "expire",
+        args: {
+          matchId: job.id,
+          commandId: crypto.randomUUID(),
+          expectedVersion: job.version,
+          expectedTurn: job.turn_serial,
+        },
+      }),
     });
     results.push({ matchId: job.match_id, status: response.status });
   }

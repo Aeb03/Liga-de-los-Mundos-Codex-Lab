@@ -2,7 +2,6 @@ import { ProtocolError } from "./protocol.mjs";
 export class SupabaseRepository {
   constructor(client) {
     this.client = client;
-    this.transaction = null;
   }
   async rpc(name, args) {
     const { data, error } = await this.client.rpc(name, args);
@@ -31,18 +30,7 @@ export class SupabaseRepository {
     });
   }
   async get(matchId) {
-    if (this.transaction?.matchId === matchId)
-      return structuredClone(this.transaction.match);
     return this.rpc("live_v2_backend_match", { p_match: matchId });
-  }
-  async save(match, expectedVersion) {
-    if (
-      !this.transaction ||
-      this.transaction.matchId !== match.id ||
-      this.transaction.expectedVersion !== expectedVersion
-    )
-      throw new ProtocolError("TRANSACTION_REQUIRED", "save fuera de atomic");
-    this.transaction.newMatch = structuredClone(match);
   }
   async atomic(matchId, commandId, fingerprint, identity, work) {
     const prepared = await this.rpc("live_v2_prepare_command", {
@@ -57,15 +45,20 @@ export class SupabaseRepository {
         prepared.error_code,
         "Rechazo previamente confirmado",
       );
-    this.transaction = {
-      matchId,
-      expectedVersion: prepared.match.version,
-      match: prepared.match,
-      newMatch: null,
+    let next = null;
+    const transaction = {
+      get: async () => structuredClone(prepared.match),
+      save: async (match, expectedVersion) => {
+        if (expectedVersion !== prepared.match.version)
+          throw new ProtocolError(
+            "VERSION_CONFLICT",
+            "Versión local inconsistente",
+          );
+        next = structuredClone(match);
+      },
     };
     try {
-      const result = await work(null);
-      const next = this.transaction.newMatch;
+      const result = await work(transaction);
       if (!next) throw new ProtocolError("MISSING_STATE", "Comando sin estado");
       return await this.rpc("live_v2_confirm_command", {
         p_actor: identity,
@@ -85,7 +78,7 @@ export class SupabaseRepository {
       });
     } catch (error) {
       await this.rpc("live_v2_reject_command", {
-        p_actor: identity,
+        p_actor: identity === "backend" ? null : identity,
         p_match: matchId,
         p_command: commandId,
         p_fingerprint: fingerprint,
@@ -94,8 +87,6 @@ export class SupabaseRepository {
         p_error_code: error.code ?? "SERVER_ERROR",
       });
       throw error;
-    } finally {
-      this.transaction = null;
     }
   }
   commandResult(matchId, commandId, identity) {

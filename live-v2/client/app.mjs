@@ -3,7 +3,7 @@ import { labUrl, publishableKey } from './lab-config.mjs';
 import { renderArena } from './presentation.mjs';
 import { catalog } from './catalog.mjs';
 import { LiveSession, newId } from './session.mjs';
-import { championDefinitions, movementAvailable, calculatePath, previewPath } from '../combat-core.mjs';
+import { championDefinitions, calculatePath, previewPath } from '../combat-core.mjs';
 
 const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
@@ -71,7 +71,7 @@ const key=p=>`${p.x},${p.y}`;
 function blocked(){return joining||game.busy||!game.online||Boolean(game.sync.pendingCommand());}
 function arena(){
   setupDraft();
-  return renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudCollapsed});
+  return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudCollapsed});
 }
 function render(force=false){
   document.body.classList.toggle('in-arena',Boolean(game.state&&game.state.phase!=='preparation'));

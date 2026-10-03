@@ -22,7 +22,7 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
     const p=boardPoint(u.x,u.y);return `<ellipse class="marker" cx="${p.x}" cy="${p.y}" rx="16" ry="7" stroke="${u.controllerId===actor?'#64c6f2':'#f18b83'}"/><image class="champion-piece" href="../assets/champions/${u.championId}/${u.championId}-combat-down-right.png" x="${p.x-22}" y="${p.y-53}" width="44" height="58"/>`;
   }).join('');
   function roster(mine){
-    const slots=Object.values(state.slots).filter(s=>(s.controllerId===actor)===mine);
+    const slots=Object.values(state.slots).filter(s=>(s.team===own?.team)===mine);
     return `<aside class="live-roster ${mine?'own':'rival'}" aria-label="${mine?'Tu equipo':'Rivales'}"><h2>${mine?'TU EQUIPO':'RIVALES'}</h2>${slots.map(s=>{
       const u=units.find(u=>u.id===s.id),hp=u?.hp;
       return `<article class="roster-entry ${active?.id===s.id?'active':''}"><img src="../assets/champions/${s.championId}/${s.championId}-avatar.png" alt=""><div><strong>${escape(catalog[s.championId]?.name??'Campeón')}</strong><small>Slot ${escape(s.id)}</small>${hp!=null?`<span>${hp} PV · ${u.pa} PA · ${u.pm} PM</span><meter min="0" max="${u.maxHp}" value="${hp}" aria-label="Vida de ${escape(s.id)}"></meter>`:`<span>${s.confirmed?'Posición confirmada':'Desplegando'}</span>`}</div></article>`;

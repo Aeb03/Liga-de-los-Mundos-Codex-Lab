@@ -2387,7 +2387,7 @@ function startAsyncDeadlineClock(deadline){
     if(!B?.asyncMode)return clearInterval(timerId);
     B.timer=Math.max(0,Math.ceil((end-Date.now())/1000));
     const t=$('#timer');if(t){t.textContent=B.timer+'s';t.closest('.combat-timer')?.classList.toggle('danger-time',B.timer<=10)}
-    if(B.timer<=0)clearInterval(timerId);
+    if(B.timer<=0){clearInterval(timerId);B.asyncDeadlineExpired=true;B.selectedAction=null;renderBattle()}
   };
   tick();timerId=setInterval(tick,250);
 }
@@ -2407,12 +2407,17 @@ function hydrateAsyncBattle(snapshot,localPlayerId=null,turnDeadline=null){
   }
   B.camera={x:0,y:0,rotation:localTeam==='B'?2:0};
   B.selectedUnitId=cur()?.id||local?.id||B.selectedUnitId;
+  // Async is correspondence play: the active unit is human only on its owner's device.
+  // Never inherit LIVE/AI controller behavior from the shared combat engine.
+  const active=cur();
+  if(active)active.controller=active.onlineControllerId===localPlayerId?'human':'remote';
   renderBattle();if(turnDeadline)startAsyncDeadlineClock(turnDeadline);return true;
 }
 function completeAsyncTurn(){
   if(!B)return;
+  // Advance with asyncMode still enabled so beginTurn cannot launch offline AI.
   const wasAsync=!!B.asyncMode;
-  if(wasAsync)B.asyncMode=false;
+  B.asyncMode=true;
   nextTurn();
   if(B?.dollPhase)finishDollPhase();
   clearInterval(timerId);

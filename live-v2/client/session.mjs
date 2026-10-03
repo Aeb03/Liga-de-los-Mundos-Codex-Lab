@@ -1,5 +1,15 @@
 import { SyncCoordinator } from '../sync/coordinator.mjs';
 
+// LAN HTTP on phones may lack randomUUID; getRandomValues remains available.
+export function newId(random = globalThis.crypto) {
+  if (typeof random?.randomUUID === 'function') return random.randomUUID();
+  const bytes = random.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+
 export class LiveSession {
   constructor({ api, storage, onChange = () => {}, onError = () => {}, clock = () => Date.now() }) {
     this.api=api; this.storage=storage; this.onChange=onChange; this.onError=onError; this.clock=clock;
@@ -35,7 +45,7 @@ export class LiveSession {
   }
   async send(type, extra={}) {
     if(this.busy||this.sync.pendingCommand()||!this.online)throw new Error('COMMAND_PENDING');
-    const command={id:crypto.randomUUID(),matchId:this.state.id,type,expectedVersion:this.state.version,...extra};
+    const command={id:newId(),matchId:this.state.id,type,expectedVersion:this.state.version,...extra};
     this.sync.beginCommand(command);this.persistPending();this.preview=null;this.onChange();
     return await this.dispatch(command);
   }

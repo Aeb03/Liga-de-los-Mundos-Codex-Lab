@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
-import { LiveSession } from './session.mjs';
+import { LiveSession, newId } from './session.mjs';
 if (!globalThis.crypto) globalThis.crypto=webcrypto;
 const state=(version=0)=>({id:'room',version,phase:'combat',turnDeadline:31000});
 const storage=()=>{const map=new Map();return {getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)};};
@@ -55,4 +55,11 @@ import { EFFECTIVE_SKILLS } from '../server/authoritative-service.mjs';
 test('catálogo visible conserva los IDs efectivos que valida el servidor',()=>{
   assert.deepEqual(Object.keys(catalog).sort(),Object.keys(EFFECTIVE_SKILLS).sort());
   for(const [id,champion] of Object.entries(catalog))assert.deepEqual(champion.skills.map(s=>s.id),EFFECTIVE_SKILLS[id]);
+});
+
+test('crear sala en HTTP de red local funciona sin crypto.randomUUID',()=>{
+  const random={getRandomValues:bytes=>webcrypto.getRandomValues(bytes)};
+  const ids=new Set(Array.from({length:32},()=>newId(random)));
+  assert.equal(ids.size,32);
+  for(const id of ids)assert.match(id,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 });

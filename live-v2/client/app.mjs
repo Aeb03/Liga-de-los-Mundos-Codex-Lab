@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs';
 import { catalog } from './catalog.mjs';
-import { LiveSession } from './session.mjs';
+import { LiveSession, newId } from './session.mjs';
 import { championDefinitions, movementAvailable, calculatePath, previewPath } from '../combat-core.mjs';
 
 const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
@@ -123,7 +123,7 @@ app.addEventListener('click',async event=>{
   if(target.dataset.x!=null){await tapCell(Number(target.dataset.x),Number(target.dataset.y));return;}
   if(target.dataset.champion){draft={slot:slotId,champion:target.dataset.champion,skills:catalog[target.dataset.champion].skills.slice(0,4).map(a=>a.id),dirty:true};render(true);return;}
   switch(target.dataset.action){
-    case 'create':await enter(crypto.randomUUID(),true);break;
+    case 'create':await enter(newId(),true);break;
     case 'copy':try{await navigator.clipboard.writeText(link());notify('Enlace copiado.');}catch{notify('Copiá el enlace que aparece en la sala.');}break;
     case 'ready':{
       const own=ownSlot();if(own.ready){await send('setReady',{slotId:own.id,ready:false});break;}

@@ -1,5 +1,5 @@
-<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVE v2 — revisión visual</title><link rel="stylesheet" href="client/ui.css"><link rel="stylesheet" href="client/presentation.css?v=20261003-layout2"><body class="in-arena"><header><h1>LIVE v2 · revisión visual</h1><span>Sin sala ni conexión</span></header><main id="app"></main><script type="module">
-import { renderArena } from './client/presentation.mjs?v=20261003-layout2';
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVE v2 — revisión visual</title><link rel="stylesheet" href="client/ui.css"><link rel="stylesheet" href="client/presentation.css?v=20261003-compact1"><body class="in-arena"><header><h1>LIVE v2 · revisión visual</h1><span>Sin sala ni conexión</span></header><main id="app"></main><script type="module">
+import { renderArena } from './client/presentation.mjs?v=20261003-compact1';
 import { createUnit, initializeCombat, calculatePath, previewPath } from './combat-core.mjs';
 const slots={A1:{id:'A1',team:'A',controllerId:'demo',championId:'piplus',position:{x:2,y:5},skills:['precise','vector','impulse','interference'],confirmed:true},B1:{id:'B1',team:'B',controllerId:'rival',championId:'coloso',position:{x:9,y:5},skills:[],confirmed:true}};
 const combat=initializeCombat({units:Object.values(slots).map(s=>createUnit({...s,slot:1})),obstacles:[{x:5,y:4},{x:6,y:4},{x:5,y:7},{x:6,y:7}],random:0.25}).state;

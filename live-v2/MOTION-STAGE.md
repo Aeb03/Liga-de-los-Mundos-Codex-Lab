@@ -13,3 +13,7 @@ Tests cover exact bends, loops, combined moves, duplicate/reordered snapshots, r
 ## Lab deployment verification — 2026-10-03
 Only `live-v2-command` changed, from version 2 to ACTIVE version 3. Bundle SHA256: `83a7522c355b42ec9b24baf4d915c429091461ae20309e7a742f565db5772ab4`. Compared against the previous deployed bundle, only `authoritative-service.mjs` changed. Existing custom Auth.getUser validation, Lab URL guard, CORS clock header and backend authorization remain identical. The expiry worker remains version 1 and preserves the additive presentation field when it advances a turn.
 A live unauthenticated snapshot request returned HTTP 401 `UNAUTHENTICATED`. Member visibility/idempotence and bounded history are tested; PostgreSQL integration passed in CI. No migration, database rows, Auth users, credentials, grants, cron, extensions or Realtime settings were changed for this stage. Browser fixture verified a nonzero SVG transform during motion, then no transform at final position (3,6), with the final upper-right asset. The fixture resolves two core-valid moves with a synthetic intervening turn reset and slows playback for inspection.
+
+## Ajuste de altura del HUD
+
+Adrián validó cuatro vistas y movimiento por casillas en ambos celulares. Se reduce principalmente el alto de la barra inferior y sólo ligeramente su ancho, en ambas orientaciones. Se mantienen avatar, PV, PA, PM, escudo, estados, cuatro habilidades y controles; no cambia el protocolo ni las reglas.

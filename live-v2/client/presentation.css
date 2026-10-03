@@ -27,3 +27,31 @@
 
 /* Disabled skills stay readable; disabled affects input, not the information. */
 .combat-skill:disabled{opacity:.88;color:#f7edcc;filter:saturate(.75)}.skill-meta b{margin-left:auto}.skill-name{color:#fff0cb;text-shadow:0 1px 2px #000}
+
+/* Compact height first; keep the width close to the validated HUD. */
+.live-command{width:min(790px,calc(100% - 40px));padding:2px 6px}
+.active-champion{padding:2px;border-width:4px}.active-champion>img{width:34px;height:34px}
+.combat-skill{min-height:60px;padding:3px 4px}.skill-symbol{font-size:23px}
+.command-feedback{margin-top:1px;gap:5px}.live-command .board-note{line-height:1.1}
+@media(orientation:landscape) and (max-height:500px){
+.live-command{width:min(680px,calc(100% - 30px));padding:1px 4px;border-width:6px}
+.active-champion{padding:1px;border-width:3px}.active-champion>img{width:27px;height:27px}
+.combat-skill{min-height:46px;padding:2px 3px}.skill-symbol{font-size:19px}
+.command-controls{gap:2px}.move-action,.live-action{min-height:27px;border-width:5px}
+}
+@media(orientation:landscape) and (max-height:300px){
+.live-command{width:min(590px,calc(100% - 28px));padding:1px 3px;border-width:5px}
+.active-champion>img{width:23px;height:23px}.combat-skill{min-height:40px;padding:2px}
+.skill-symbol{font-size:16px}.move-action,.live-action{min-height:23px;border-width:4px}
+}
+@media(orientation:portrait){
+.live-command{width:calc(100% - 32px);padding:2px 4px;border-width:7px}
+.command-main{gap:3px}.active-champion{padding:1px 3px;border-width:3px}
+.active-champion>img{width:29px;height:29px}
+.active-details{display:flex;align-items:center;flex-wrap:wrap;column-gap:7px;row-gap:0}
+.active-details>strong{font-size:10px}.active-life{flex:1;min-width:95px}
+.active-resources{gap:7px}.active-details small{font-size:8px}
+.combat-skill{min-height:49px;padding:2px 3px}.skill-symbol{font-size:19px}
+.command-controls{gap:2px}.move-action,.live-action{min-height:32px;border-width:5px}
+.command-feedback{margin-top:1px}.live-command .phase-text{line-height:1.1}
+}

@@ -319,3 +319,20 @@ test('shield and rock persist once, synchronize both members and expire by turn 
  m=await x.repo.get('m');m.slots.A1.skills=['sword','bow','daggers','hammer'];await x.repo.save(m,m.version);
  await assert.rejects(()=>x.svc.command('u1',cmd('missing-shield','ability',m.version,{slotId:'A1',expectedTurn:m.turnSerial,abilityId:'shield',targetId:'A1'})),e=>e.code==='ABILITY_NOT_SELECTED');
 });
+
+test('Dagas persists to both members once; wounded move preserves confirmed route; timeout halves owner wound', async()=>{
+ const x=await ready();await x.svc.command('u1',cmd('daggers-start','startCombat',x.v));let m=await x.repo.get('m');m.combat.units[0].x=2;m.combat.units[0].y=5;m.combat.units[1].x=3;m.combat.units[1].y=5;x.repo.matches.set('m',m);
+ const dagger=cmd('dagger','ability',m.version,{slotId:'A1',expectedTurn:0,abilityId:'daggers',targetId:'B1'});
+ let out=await x.svc.command('u1',dagger);const v=out.version;assert.equal(out.state.combat.units[1].status.wound,2);assert.deepEqual(await x.svc.command('u1',dagger),out);
+ assert.equal((await x.svc.snapshot('u2','m')).combat.units[1].hp,105);
+ out=await x.svc.command('u1',cmd('end-dagger','endTurn',v,{slotId:'A1',expectedTurn:0}));
+ const route=[{x:3,y:5},{x:4,y:5},{x:5,y:5}];out=await x.svc.command('u2',cmd('wounded-move','move',out.version,{slotId:'B1',expectedTurn:1,path:route}));
+ assert.equal(out.state.combat.units[1].hp,99);assert.deepEqual(out.state.presentation.moves.at(-1).path,route);
+ const expiry=cmd('wound-expiry','expireTurn',out.version,{expectedTurn:1});x.now=31000;out=await x.svc.command('backend',expiry);assert.equal(out.state.combat.units[1].status.wound,1);assert.deepEqual(await x.svc.command('backend',expiry),out);assert.equal(out.state.turnSerial,2);
+ assert.deepEqual((await x.svc.snapshot('u1','m')).combat,(await x.svc.snapshot('u2','m')).combat);
+});
+test('death during movement persists shortened animation path and finishes match atomically',async()=>{
+ const x=await ready();await x.svc.command('u1',cmd('daggers-start','startCombat',x.v));let m=await x.repo.get('m');m.combat.units[0].x=2;m.combat.units[0].y=5;m.combat.units[1].x=3;m.combat.units[1].y=5;m.combat.turnIndex=1;m.combat.units[1].hp=5;m.combat.units[1].status.wound=2;x.repo.matches.set('m',m);
+ const route=[{x:3,y:5},{x:4,y:5},{x:5,y:5},{x:6,y:5}],move=cmd('death-move','move',m.version,{slotId:'B1',expectedTurn:0,path:route});const out=await x.svc.command('u2',move);
+ assert.equal(out.state.phase,'finished');assert.equal(out.state.turnDeadline,null);assert.equal(out.state.result.winnerTeam,'A');assert.deepEqual(out.state.presentation.moves.at(-1).path,route.slice(0,3));assert.equal(out.state.combat.units[1].pm,1);assert.deepEqual(await x.svc.command('u2',move),out);
+});

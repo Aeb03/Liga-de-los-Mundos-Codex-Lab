@@ -1,10 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261003-motion1';
-import { renderArena } from './presentation.mjs?v=20261003-shieldrock1';
+import { renderArena } from './presentation.mjs?v=20261003-daggers1';
 import { catalog } from './catalog.mjs';
 import { LiveSession, newId } from './session.mjs';
-import { championDefinitions, calculatePath, previewPath, abilityTargets } from '../combat-core.mjs?v=20261003-shieldrock1';
+import { championDefinitions, calculatePath, previewPath, abilityTargets } from '../combat-core.mjs?v=20261003-daggers1';
 
 const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
@@ -68,7 +68,7 @@ function preparation(){
   setupDraft();const s=ownSlot(),locked=Boolean(s?.ready);
   return `<div class="grid"><section class="panel"><h2>Elegí tu campeón</h2>${slotChooser()}<div class="selection">${Object.entries(catalog).map(([id,c])=>{
     const d=championDefinitions()[id];return `<button class="champion ${draft.champion===id?'chosen':''}" data-champion="${id}" ${locked||blocked()?'disabled':''}><img src="../assets/champions/${id}/${id}-avatar.png" alt=""><span>${c.name}<small>${d.hp} PV · ${d.pm} PM · Ini ${d.initiative}</small></span></button>`;
-  }).join('')}</div><p>Elegí cuatro habilidades para la partida. En esta prueba están habilitados Corte y Escudo de Arfeli, y Roca de Coloso.</p><div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando ambos estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala"></aside></div>`;
+  }).join('')}</div><p>Elegí cuatro habilidades para la partida. En esta prueba están habilitados Corte, Dagas y Escudo de Arfeli, y Roca de Coloso.</p><div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando ambos estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala"></aside></div>`;
 }
 const key=p=>`${p.x},${p.y}`;
 function blocked(){return joining||game.busy||!game.online||Boolean(game.sync.pendingCommand());}
@@ -117,7 +117,7 @@ app.addEventListener('click',async event=>{
   if(target.dataset.x!=null){await tapCell(Number(target.dataset.x),Number(target.dataset.y));return;}
   if(target.dataset.champion){draft={slot:slotId,champion:target.dataset.champion,skills:catalog[target.dataset.champion].skills.slice(0,4).map(a=>a.id),dirty:true};render(true);return;}
   switch(target.dataset.action){
-    case 'sword':case 'shield':case 'rock':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId===target.dataset.action?null:{abilityId:target.dataset.action,unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
+    case 'sword':case 'daggers':case 'shield':case 'rock':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId===target.dataset.action?null:{abilityId:target.dataset.action,unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
     case 'moveMode':abilitySelection=null;render(true);break;
     case 'toggleHud':hudCollapsed=!hudCollapsed;render(true);break;
     case 'create':await enter(newId(),true);break;

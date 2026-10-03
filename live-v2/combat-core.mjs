@@ -88,7 +88,7 @@ function validateSupportedState(state) {
     if (unit.maxHp < 1 || unit.hp > unit.maxHp || unit.pa > unit.maxPa || unit.pm > unit.maxPm || typeof unit.alive !== 'boolean' || unit.alive !== (unit.hp > 0)) fail('INVALID_RESOURCE', 'Vida, recursos o marca alive inconsistentes');
     const statusFields = ['wound', 'poison', 'burn', 'paPenaltyNext', 'pmPenaltyNext'];
     if (!unit.status || statusFields.some(field => !nonNegativeInteger(unit.status[field]))) fail('INVALID_STATUS', 'Estado alterado inválido');
-    if (unit.status.wound > 0) fail('UNSUPPORTED_WOUND', 'Herida activa está fuera de alcance mientras no se resuelva su daño por paso');
+    if (unit.status.wound > 3) fail('INVALID_STATUS', 'Herida no puede superar 3');
     if (!Array.isArray(unit.shield)) fail('INVALID_SHIELD', 'Las pilas de escudo deben ser una lista');
     for (const stack of unit.shield) if (!stack || !Number.isInteger(stack.amount) || stack.amount <= 0 || typeof stack.sourceId !== 'string' || !stack.sourceId) fail('INVALID_SHIELD', 'Pila de escudo inválida');
     const requiredBooleans = [
@@ -236,20 +236,42 @@ export function previewPath(state, unitId, path) {
     if (broken.length) tackle.push({ step: index, enemyIds: broken.map(e => e.id), damage: broken.length * 2 });
   }
   const tackleDamage = tackle.reduce((sum, item) => sum + item.damage, 0);
-  return { path: clone(path), destination: clone(path.at(-1)), cost: path.length - 1, tackle, tackleDamage, lethal: tackleDamage >= unit.hp };
+  const simulated = clone(unit), steps = [];
+  for (let index = 1; index < path.length && simulated.alive; index++) {
+    const tackleAmount = tackle.find(item => item.step === index)?.damage ?? 0;
+    if (tackleAmount) applyDamageToUnit(simulated, tackleAmount, true);
+    if (!simulated.alive) break;
+    simulated.x = path[index].x; simulated.y = path[index].y;
+    const wound = applyDamageToUnit(simulated, simulated.status.wound, false);
+    steps.push({ step: index, position: clone(path[index]), woundDamage: simulated.status.wound, ...wound, hp: simulated.hp });
+  }
+  return { path: clone(path), destination: clone(path.at(-1)), cost: path.length - 1, tackle, tackleDamage,
+    lethal: tackleDamage >= unit.hp, steps, woundDamage: steps.reduce((n, step) => n + step.woundDamage, 0),
+    hpLost: unit.hp - simulated.hp, remainingHp: simulated.hp, diesDuringPath: !simulated.alive,
+    resolvedDestination: { x: simulated.x, y: simulated.y } };
 }
 
 export function resolvePath(state, unitId, path) {
   const preview = previewPath(state, unitId, path);
   if (preview.lethal) fail('LETHAL_TACKLE', 'El placaje acumulado sería mortal; se rechaza el recorrido completo');
-  const next = clone(state), unit = unitById(next, unitId), events = [];
-  for (const item of preview.tackle) {
-    unit.hp -= item.damage;
-    events.push({ type: 'damage.applied', targetId: unit.id, amount: item.damage, source: 'tackle', ignoreShield: true, enemyIds: item.enemyIds });
+  const next = clone(state), unit = unitById(next, unitId), events = [], travelled = [clone(path[0])];
+  function damage(amount, source, step, ignoreShield, enemyIds) {
+    const result = applyDamageToUnit(unit, amount, ignoreShield);
+    events.push({ type: 'damage.applied', targetId: unit.id, amount, ...result, source, step, ignoreShield,
+      ...(enemyIds ? { enemyIds } : {}) });
+    if (result.killed) events.push({ type: 'unit.died', unitId });
   }
-  unit.x = preview.destination.x; unit.y = preview.destination.y; unit.pm -= preview.cost;
+  for (let index = 1; index < path.length && unit.alive; index++) {
+    const tackle = preview.tackle.find(item => item.step === index);
+    if (tackle) damage(tackle.damage, 'tackle', index, true, tackle.enemyIds);
+    if (!unit.alive) break;
+    unit.x = path[index].x; unit.y = path[index].y; unit.pm--;
+    travelled.push(clone(path[index]));
+    if (unit.status.wound) damage(unit.status.wound, 'wound.movement', index, false);
+  }
   if (unit.championId === 'coloso') unit.colosoCreateWindow = false;
-  events.push({ type: 'unit.moved', unitId, path: preview.path, cost: preview.cost, remainingPm: unit.pm });
+  if (travelled.length > 1) events.push({ type: 'unit.moved', unitId, path: travelled, cost: travelled.length - 1, remainingPm: unit.pm });
+  finishIfNeeded(next, events);
   return { state: next, events };
 }
 
@@ -358,6 +380,7 @@ export function restoreState(serialized) {
 
 const ABILITIES = Object.freeze({
   sword: {championId:'arfeli',cost:2,range:1,damage:10,maxUses:2},
+  daggers: {championId:'arfeli',cost:3,range:1,damage:10,wound:2,maxUses:1},
   shield: {championId:'arfeli',cost:3,range:0,shield:15,maxUses:1},
   rock: {championId:'coloso',cost:3,range:4,damage:8}
 });
@@ -377,7 +400,7 @@ export function abilityTargets(state,unitId,abilityId){
   const u=unitById(state,unitId),a=ABILITIES[abilityId];
   if(!a||a.championId!==u.championId||state.phase!=='active'||activeUnit(state).id!==unitId||u.pa<a.cost||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
   if(abilityId==='shield')return [u.id];
-  return state.units.filter(t=>t.alive&&t.team!==u.team&&(abilityId==='sword'?adjacent(u,t):Math.abs(u.x-t.x)+Math.abs(u.y-t.y)<=(u.monolith?5:4)&&clearAbilityLOS(state,u,t))).map(t=>t.id);
+  return state.units.filter(t=>t.alive&&t.team!==u.team&&(a.range===1?adjacent(u,t):Math.abs(u.x-t.x)+Math.abs(u.y-t.y)<=(u.monolith?5:4)&&clearAbilityLOS(state,u,t))).map(t=>t.id);
 }
 export function swordTargets(state,unitId){return abilityTargets(state,unitId,'sword');}
 
@@ -396,7 +419,7 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
     if(target.id!==unit.id)fail('INVALID_TARGET','Portación de Escudo sólo protege a Arfeli');
   }else{
     if(!target.alive||target.team===unit.team)fail('INVALID_TARGET','Elegí un campeón enemigo vivo');
-    if(abilityId==='sword'?!adjacent(unit,target):Math.abs(unit.x-target.x)+Math.abs(unit.y-target.y)>(unit.monolith?5:4))fail('OUT_OF_RANGE','Objetivo fuera del alcance');
+    if(ability.range===1?!adjacent(unit,target):Math.abs(unit.x-target.x)+Math.abs(unit.y-target.y)>(unit.monolith?5:4))fail('OUT_OF_RANGE','Objetivo fuera del alcance');
     if(abilityId==='rock'&&!clearAbilityLOS(state,unit,target))fail('BLOCKED_LOS','Línea de visión bloqueada');
   }
   const next = clone(state), actor = unitById(next, unitId), victim = unitById(next, targetId), events = [];
@@ -415,7 +438,14 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
     if(abilityId==='shield'){
       const amount=ability.shield+bonus;actor.shield.push({amount,sourceId:actor.id});
       events.push({type:'shield.added',unitId:actor.id,sourceId:actor.id,amount});
-    }else damage(victim,ability.damage+bonus,`ability.${abilityId}`);
+    }else {
+      damage(victim,ability.damage+bonus,`ability.${abilityId}`);
+      if (ability.wound && victim.alive) {
+        const before = victim.status.wound;
+        victim.status.wound = Math.min(3, before + ability.wound);
+        events.push({ type: 'status.applied', targetId: victim.id, status: 'wound', amount: victim.status.wound - before, value: victim.status.wound });
+      }
+    }
   }
   finishIfNeeded(next, events);
   return { state: next, events };

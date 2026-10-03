@@ -34,3 +34,10 @@ test('sword targets are marked and action is enabled only for own valid active s
  html=renderArena({...args,canMove:false});assert.match(html,/data-action="sword" disabled/);
  state.combat.units[0].skillUsesThisTurn.sword=2;html=renderArena(args);assert.match(html,/data-action="sword" disabled/);assert.match(html,/2\/2/);
 });
+
+test('Dagas preview names wound and movement preview distinguishes normal wound damage without mutating',()=>{
+ const state=fixture();state.slots.A1.championId='arfeli';state.slots.A1.skills=['sword','daggers','bow','shield'];state.combat=initializeCombat({units:[createUnit({...state.slots.A1,slot:1,position:{x:2,y:5}}),createUnit({...state.slots.B1,slot:1,position:{x:3,y:5}})]}).state;
+ const args={state,actor:'shared',slotId:'A1',remaining:24,blocked:false,canMove:true,abilitySelection:{abilityId:'daggers',targetId:'B1'}};
+ const before=structuredClone(state);let html=renderArena(args);assert.match(html,/Dagas Danzantes: 10 daño \+ Herida 2 · 3 PA/);assert.match(html,/data-action="daggers"  title/);assert.deepEqual(state,before);
+ html=renderArena({...args,abilitySelection:null,preview:{path:[{x:2,y:5},{x:2,y:6}],cost:1,tackleDamage:2,woundDamage:2,remainingHp:0,diesDuringPath:true}});assert.match(html,/Herida: 2 daño · PV final: 0 · MUERTE DURANTE EL RECORRIDO/);
+});

@@ -292,3 +292,18 @@ test('movement history stays bounded and cut-off snapshots remain explicit after
  assert(state.presentation.fromVersion>0);assert(state.presentation.moves.every(m=>m.version>state.presentation.fromVersion));
  assert.deepEqual((await x.svc.snapshot('u2','m')).presentation,state.presentation);
 });
+
+test('authoritative sword checks loadout, ownership, stale input, deadline and retries once',async()=>{
+ const x=await ready();await x.svc.command('u1',cmd('sword-start','startCombat',x.v));
+ const m=await x.repo.get('m');m.combat.units.find(u=>u.id==='B1').x=1;await x.repo.save(m,m.version);
+ let state=await x.svc.snapshot('u1','m');
+ const input=cmd('cut','ability',state.version,{slotId:'A1',expectedTurn:state.turnSerial,abilityId:'sword',targetId:'B1'});
+ const out=await x.svc.command('u1',input);assert.equal(out.confirmed,true);assert.equal(out.state.combat.units[0].pa,4);assert.equal(out.state.combat.units[1].hp,105);
+ assert.deepEqual(await x.svc.command('u1',input),out);
+ assert.deepEqual((await x.svc.snapshot('u2','m')).combat,out.state.combat);
+ await assert.rejects(()=>x.svc.command('u2',{...input,id:'intruder',expectedVersion:out.version}),e=>e.code==='FORBIDDEN');
+ await assert.rejects(()=>x.svc.command('u1',{...input,id:'stale'}),e=>e.code==='VERSION_CONFLICT');
+ const live=await x.repo.get('m');live.slots.A1.skills=['bow','daggers','shield','hammer'];await x.repo.save(live,live.version);
+ await assert.rejects(()=>x.svc.command('u1',{...input,id:'missing',expectedVersion:out.version}),e=>e.code==='ABILITY_NOT_SELECTED');
+ x.now=live.turnDeadline;await assert.rejects(()=>x.svc.command('u1',{...input,id:'late',expectedVersion:out.version}),e=>e.code==='TURN_EXPIRED');
+});

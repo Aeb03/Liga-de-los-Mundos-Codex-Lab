@@ -53,3 +53,7 @@ invocaciones, trampas, fases del Muñeco y 2v2 no se han comparado.
 ## Pantalla de prueba del Lab
 
 Entrada separada `live-v2/index.html`; instrucciones y límites en [CLIENT.md](CLIENT.md). El offline conserva su entrada y archivos originales.
+
+## Etapa 3 — primera habilidad
+
+Corte con Espada de Arfeli se implementa según la ficha efectiva de `arfeli-rework-0626.js`: 2 PA, alcance ortogonal 1, 10 daño y máximo 2 usos por turno. La implementación y sus límites están en [SWORD-STAGE.md](SWORD-STAGE.md). Las referencias anteriores a habilidades fuera del alcance describen la etapa inicial; ahora sólo esta habilidad está habilitada.

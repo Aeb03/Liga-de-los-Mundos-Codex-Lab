@@ -13,6 +13,7 @@ export const commandTypes = [
   "setPosition",
   "confirmPosition",
   "startCombat",
+  "ability",
   "move",
   "endTurn",
   "expireTurn",
@@ -49,7 +50,7 @@ export function validateCommand(c) {
   )
     throw new ProtocolError("INVALID_COMMAND", "Contrato de comando inválido");
   if (
-    ["move", "endTurn"].includes(c.type) &&
+    ["move", "endTurn", "ability"].includes(c.type) &&
     (!Number.isInteger(c.expectedTurn) || c.expectedTurn < 0)
   )
     throw new ProtocolError("INVALID_COMMAND", "Falta turno esperado");

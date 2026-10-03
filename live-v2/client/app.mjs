@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs';
+import { renderArena } from './presentation.mjs';
 import { catalog } from './catalog.mjs';
 import { LiveSession, newId } from './session.mjs';
 import { championDefinitions, movementAvailable, calculatePath, previewPath } from '../combat-core.mjs';
@@ -9,7 +10,7 @@ const app=document.querySelector('#app'),notice=document.querySelector('#notice'
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const errors={UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'La sala ya tiene otro participante.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
 let notifyTimer;function notify(message){notice.textContent=errors[message]??message;notice.style.display='block';clearTimeout(notifyTimer);notifyTimer=setTimeout(()=>notice.style.display='none',6000);}
-let deadlineExpired=false;
+let deadlineExpired=false,hudCollapsed=false;
 let actor=null,joining=false,draft=null,slotId=null,lastRendered='',reloading=false;
 async function ensureAuth(){
   let {data:{session},error}=await client.auth.getSession();if(error)throw error;
@@ -66,34 +67,14 @@ function preparation(){
     const d=championDefinitions()[id];return `<button class="champion ${draft.champion===id?'chosen':''}" data-champion="${id}" ${locked||blocked()?'disabled':''}><img src="../assets/champions/${id}/${id}-avatar.png" alt=""><span>${c.name}<small>${d.hp} PV · ${d.pm} PM · Ini ${d.initiative}</small></span></button>`;
   }).join('')}</div><p>Elegí cuatro habilidades para la partida. En esta prueba se guarda la selección; todavía no se ejecutan.</p><div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando ambos estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala"></aside></div>`;
 }
-const coord=(x,y)=>({x:260+(x-y)*20,y:30+(x+y)*10});
 const key=p=>`${p.x},${p.y}`;
-function board(){
-  const state=game.state,own=ownSlot(),zones={A:['0,3','1,3','0,4','2,5','1,6','2,6'],B:['11,3','10,3','11,4','9,5','10,6','9,6']};
-  let reachable=new Set();if(canMove()){try{reachable=new Set(movementAvailable(state.combat,activeUnit().id).map(key));}catch{}}
-  const route=new Set(game.preview?.path.map(key)??[]),dest=game.preview?.path.at(-1);
-  const obstacles=new Set(state.combat?.board.obstacles??['5,4','6,4','5,7','6,7']);
-  let cells='';for(let y=0;y<12;y++)for(let x=0;x<12;x++){
-    const p=coord(x,y),k=`${x},${y}`,zone=state.phase==='deployment'&&zones[own?.team]?.includes(k);
-    const cls=['tile',obstacles.has(k)?'obstacle':'',zone?'zone':'',reachable.has(k)?'reachable':'',route.has(k)?'route':'',dest&&key(dest)===k?'destination':''].join(' ');
-    cells+=`<polygon class="${cls}" points="${p.x},${p.y-10} ${p.x+20},${p.y} ${p.x},${p.y+10} ${p.x-20},${p.y}" data-x="${x}" data-y="${y}" role="button" tabindex="0" aria-label="Casilla ${x}, ${y}"><title>${x}, ${y}</title></polygon>`;
-  }
-  const trail=game.preview?`<polyline class="trail" points="${game.preview.path.map(p=>{const c=coord(p.x,p.y);return `${c.x},${c.y}`;}).join(' ')}"/>`:'';
-  const units=state.combat?.units??Object.values(state.slots).filter(s=>s.position).map(s=>({...s,x:s.position.x,y:s.position.y,alive:true}));
-  const pieces=units.filter(u=>u.alive).map(u=>{const p=coord(u.x,u.y);return `<ellipse class="marker" cx="${p.x}" cy="${p.y}" rx="16" ry="7" stroke="${u.controllerId===actor?'#64c6f2':'#f18b83'}"/><image class="champion-piece" href="../assets/champions/${u.championId}/${u.championId}-combat-down-right.png" x="${p.x-18}" y="${p.y-43}" width="36" height="48"/>`;}).join('');
-  return `<div class="board-shell"><svg viewBox="0 0 520 280" aria-label="Tablero 12 por 12">${cells}${trail}${pieces}</svg></div>`;
-}
 function blocked(){return joining||game.busy||!game.online||Boolean(game.sync.pendingCommand());}
 function arena(){
-  setupDraft();const deployment=game.state.phase==='deployment',own=ownSlot(),active=activeUnit();
-  const isCreator=game.state.creatorId===actor,allConfirmed=Object.values(game.state.slots).every(s=>s.confirmed);
-  const preview=game.preview;
-  const message=deployment?(own?.position?`Posición ${own.position.x}, ${own.position.y}. Podés cambiarla tocando otra casilla marcada.`:'Tocá una casilla marcada de tu zona.'):
-    preview?`Recorrido: ${preview.cost} PM · Placaje: ${preview.tackleDamage} PV. Tocá de nuevo la misma casilla para mover.`:
-    game.state.phase==='finished'?'Combate finalizado.':active?.controllerId===actor?'Tu turno: tocá una casilla para ver el recorrido.':'Esperando el turno rival.';
-  return `<div class="grid"><section class="panel">${slotChooser()}${board()}<p class="board-note">${message}</p></section><aside class="panel"><h2>${deployment?'Despliegue':game.state.phase==='finished'?'Resultado':'Combate'}</h2>${teams()}${deployment?`<p>La posición rival se revelará al comenzar.</p><button class="primary" data-action="confirmPosition" ${blocked()||!own?.position||own.confirmed?'disabled':''}>${own?.confirmed?'Posición confirmada':'Confirmar posición'}</button>${isCreator?`<button data-action="start" ${blocked()||!allConfirmed?'disabled':''}>Iniciar combate</button>`:'<p>El creador iniciará cuando ambos confirmen.</p>'}`:game.state.phase==='finished'?`<p>Ganó el equipo ${escape(game.state.result?.winnerTeam??'—')}.</p>`:`<div class="turn row spread"><span>Ronda ${game.state.combat.round}</span><strong class="timer" id="timer">${game.remaining()}</strong></div><p>Slot activo: ${escape(active?.id)}</p><button class="primary" data-action="end" ${blocked()||!canMove()?'disabled':''}>Terminar turno</button>`}<input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala"><p class="phase-text" id="pending">${game.sync.pendingCommand()?'Acción pendiente. Esperando confirmación…':!game.online?'Sin conexión. El turno sigue corriendo.':'Estado confirmado'}</p></aside></div>`;
+  setupDraft();
+  return renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudCollapsed});
 }
 function render(force=false){
+  document.body.classList.toggle('in-arena',Boolean(game.state&&game.state.phase!=='preparation'));
   const indicator=document.querySelector('#connection');indicator.textContent=game.state?(game.sync.pendingCommand()?'Acción pendiente':game.online?'Conectado al Lab':'Sin conexión'):'Supabase Lab';indicator.classList.toggle('offline',!game.online);
   const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,draft,slotId]);
   if(!force&&signature===lastRendered){remaining();return;}lastRendered=signature;
@@ -123,6 +104,7 @@ app.addEventListener('click',async event=>{
   if(target.dataset.x!=null){await tapCell(Number(target.dataset.x),Number(target.dataset.y));return;}
   if(target.dataset.champion){draft={slot:slotId,champion:target.dataset.champion,skills:catalog[target.dataset.champion].skills.slice(0,4).map(a=>a.id),dirty:true};render(true);return;}
   switch(target.dataset.action){
+    case 'toggleHud':hudCollapsed=!hudCollapsed;render(true);break;
     case 'create':await enter(newId(),true);break;
     case 'copy':try{await navigator.clipboard.writeText(link());notify('Enlace copiado.');}catch{notify('Copiá el enlace que aparece en la sala.');}break;
     case 'ready':{

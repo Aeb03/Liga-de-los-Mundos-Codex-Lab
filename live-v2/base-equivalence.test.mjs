@@ -41,6 +41,14 @@ function constObject(source, name) {
   return vm.runInNewContext(`(${balancedFrom(source, brace)})`);
 }
 
+function assignedFunction(source, assignment) {
+  const start = source.indexOf(`${assignment}=function`);
+  if (start < 0) throw new Error(`No se encontró wrapper ${assignment} en la base`);
+  const functionStart = source.indexOf('function', start);
+  const brace = source.indexOf('{', functionStart);
+  return source.slice(functionStart, brace) + balancedFrom(source, brace);
+}
+
 const make = (championId, id, team, position) => createUnit({ championId, id, team, slot: 0, controllerId: team, position });
 
 test('las fichas coinciden con las definiciones efectivas de los seis reworks de la base', () => {
@@ -110,4 +118,43 @@ test('Quemadura y escudo al inicio y cierre coinciden con la cadena efectiva bas
   const coreEnd = endTurn(coreState, { unitId: coreState.order[0] }); coreState = coreEnd.state;
   const burnEvent = coreEnd.events.find(event => event.source === 'burn.end');
   assert.deepEqual([coreState.units[0].hp, burnEvent.absorbed, coreState.units[0].status.burn], [baseEnd.context.B.units[0].hp, 10 - baseEnd.context.B.units[0].shieldStacks[0].amount, baseEnd.context.B.units[0].status.burn]);
+});
+
+test('los resets pertinentes de los seis campeones coinciden con los wrappers efectivos', () => {
+  const balanceSource = baseFile('balance-playtest.js');
+  const configs = {
+    arfeli: { file: 'arfeli-rework-0626.js', idName: 'ARFELI_ID', helper: 'resetMastery', baseName: '_arfeliBaseBeginTurn', fields: ['arfeliMasteryChain', 'arfeliMasteryLastBonus'] },
+    coloso: { file: 'coloso-rework-0627.js', idName: 'COLOSO_ID', predicate: 'isColoso', baseName: '_colosoBaseBeginTurn', fields: ['colosoTurnSerial', 'colosoCreateWindow', 'colosoPillarCreatedThisTurn', 'colosoRecycleUsed', 'stoneArmorTargetsUsed'] },
+    piplus: { file: 'piplus-rework-0628.js', idName: 'PIPLUS_ID', predicate: 'isPiplus', baseName: '_piplusBaseBeginTurn', fields: ['piplusMarkUsedThisTurn', 'piplusMarkBlockedThisTurn', 'piplusFixationTargetId', 'piplusInterferenceTargets'] },
+    onod: { file: 'onod-rework-0629.js', idName: 'ONOD_ID', predicate: 'isOnod', baseName: '_onodBaseBeginTurn', fields: ['onodTurnSerial', 'onodGerminateUses', 'onodWitherUsedThisTurn', 'onodGerminateBlockedThisTurn'] },
+    korgan: { file: 'korgan-rework-0630.js', idName: 'KORGAN_ID', predicate: 'isKorgan', baseName: '_korganBaseBeginTurn', fields: ['korganTurnSerial', 'korganDisarmUsedThisTurn'] },
+    houngan: { fields: [] }
+  };
+  for (const [championId, config] of Object.entries(configs)) {
+    const active = make(championId, 'a', 'red', { x: 0, y: 0 }); active.initiative = 99;
+    Object.assign(active, {
+      sproutRemovedThisTurn: true, trapRemovedThisTurn: true,
+      arfeliMasteryChain: ['sword'], arfeliMasteryLastBonus: 4,
+      colosoTurnSerial: 7, colosoCreateWindow: false, colosoPillarCreatedThisTurn: true, colosoRecycleUsed: true, stoneArmorTargetsUsed: ['x'],
+      piplusMarkUsedThisTurn: true, piplusMarkBlockedThisTurn: true, piplusFixationTargetId: 'x', piplusInterferenceTargets: ['x'],
+      onodTurnSerial: 7, onodGerminateUses: 2, onodWitherUsedThisTurn: true, onodGerminateBlockedThisTurn: true,
+      korganTurnSerial: 7, korganDisarmUsedThisTurn: true
+    });
+    const expected = structuredClone(active), context = {
+      B: {}, cur: () => expected, _beginTurn() {},
+      [config.baseName || '_unused']() {}
+    };
+    vm.createContext(context);
+    vm.runInContext(`(${assignedFunction(balanceSource, 'beginTurn')})()`, context);
+    if (config.file) {
+      const source = baseFile(config.file);
+      context[config.idName] = championId;
+      if (config.predicate) context[config.predicate] = unit => unit?.championId === championId;
+      if (config.helper) vm.runInContext(functionSource(source, config.helper), context);
+      vm.runInContext(`(${assignedFunction(source, 'beginTurn')})()`, context);
+    }
+    const actual = initializeCombat({ units: [active, make(championId === 'piplus' ? 'coloso' : 'piplus', 'b', 'blue', { x: 11, y: 11 })], random: 0 }).state.units[0];
+    const fields = ['sproutRemovedThisTurn', 'trapRemovedThisTurn', ...config.fields];
+    assert.equal(JSON.stringify(Object.fromEntries(fields.map(field => [field, actual[field]]))), JSON.stringify(Object.fromEntries(fields.map(field => [field, expected[field]]))), championId);
+  }
 });

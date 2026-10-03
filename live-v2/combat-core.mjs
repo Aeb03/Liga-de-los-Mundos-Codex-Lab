@@ -49,10 +49,10 @@ export function createUnit({ championId, id, team, slot, controllerId, position 
     skillUsesThisTurn: {}, stoneArmorTargetsUsed: [], symbiosisUsed: false,
     sproutRemovedThisTurn: false, trapRemovedThisTurn: false,
     monolith: false, monolithStoredPm: 0, exitedMonolithThisTurn: false, monolithPillarGainUsed: false,
-    masteryChain: [], masteryBonus: 0,
+    arfeliMasteryChain: [], arfeliMasteryLastBonus: 0,
     colosoTurnSerial: 0, colosoCreateWindow: false, colosoPillarCreatedThisTurn: false, colosoRecycleUsed: false,
     piplusMarkUsedThisTurn: false, piplusMarkBlockedThisTurn: false, piplusFixationTargetId: null, piplusInterferenceTargets: [],
-    onodTurnSerial: 0, onodGerminateUses: 0, onodWitherUsedThisTurn: false, onodReabsorptionUsedThisTurn: false,
+    onodTurnSerial: 0, onodGerminateUses: 0, onodWitherUsedThisTurn: false, onodGerminateBlockedThisTurn: false, onodReabsorptionUsedThisTurn: false,
     korganTurnSerial: 0, korganDisarmUsedThisTurn: false,
     houganPainTransfer: null, houganDance: null
   };
@@ -91,6 +91,19 @@ function validateSupportedState(state) {
     if (unit.status.wound > 0) fail('UNSUPPORTED_WOUND', 'Herida activa está fuera de alcance mientras no se resuelva su daño por paso');
     if (!Array.isArray(unit.shield)) fail('INVALID_SHIELD', 'Las pilas de escudo deben ser una lista');
     for (const stack of unit.shield) if (!stack || !Number.isInteger(stack.amount) || stack.amount <= 0 || typeof stack.sourceId !== 'string' || !stack.sourceId) fail('INVALID_SHIELD', 'Pila de escudo inválida');
+    const requiredBooleans = [
+      'monolith', 'exitedMonolithThisTurn', 'monolithPillarGainUsed', 'symbiosisUsed',
+      'sproutRemovedThisTurn', 'trapRemovedThisTurn', 'colosoCreateWindow',
+      'colosoPillarCreatedThisTurn', 'colosoRecycleUsed', 'piplusMarkUsedThisTurn',
+      'piplusMarkBlockedThisTurn', 'onodWitherUsedThisTurn',
+      'onodGerminateBlockedThisTurn', 'onodReabsorptionUsedThisTurn', 'korganDisarmUsedThisTurn'
+    ];
+    if (requiredBooleans.some(field => typeof unit[field] !== 'boolean')) fail('INVALID_CHAMPION_STATE', 'Falta un indicador requerido del campeón');
+    const requiredCounters = ['monolithStoredPm', 'arfeliMasteryLastBonus', 'colosoTurnSerial', 'onodTurnSerial', 'onodGerminateUses', 'korganTurnSerial'];
+    if (requiredCounters.some(field => !nonNegativeInteger(unit[field]))) fail('INVALID_CHAMPION_STATE', 'Falta un contador requerido del campeón');
+    if (!Array.isArray(unit.arfeliMasteryChain) || !Array.isArray(unit.stoneArmorTargetsUsed) || !Array.isArray(unit.piplusInterferenceTargets) || !unit.skillUsesThisTurn || typeof unit.skillUsesThisTurn !== 'object' || Array.isArray(unit.skillUsesThisTurn)) fail('INVALID_CHAMPION_STATE', 'Colecciones de turno del campeón inválidas');
+    if (Object.values(unit.skillUsesThisTurn).some(value => !nonNegativeInteger(value))) fail('INVALID_CHAMPION_STATE', 'Contador de habilidad inválido');
+    if (unit.piplusFixationTargetId !== null && typeof unit.piplusFixationTargetId !== 'string') fail('INVALID_CHAMPION_STATE', 'Objetivo de fijación inválido');
     ids.add(unit.id); positions.add(key(unit)); teams.add(unit.team); teamSlots.add(teamSlot);
   }
   if (teams.size !== 2) fail('UNSUPPORTED_FORMAT', 'El estado 1v1 requiere dos equipos distintos');
@@ -255,7 +268,7 @@ function applyDamageToUnit(target, amount, ignoreShield) {
 
 export function applyDamage(state, { targetId, amount, ignoreShield = false, source = 'external' }) {
   validateSupportedState(state);
-  if (!Number.isFinite(amount) || amount < 0) fail('INVALID_DAMAGE', 'El daño debe ser un número no negativo');
+  if (!Number.isInteger(amount) || amount < 0) fail('INVALID_DAMAGE', 'El daño debe ser un entero no negativo');
   const next = clone(state), target = unitById(next, targetId);
   if (!target.alive) fail('UNIT_DEAD', 'No se puede dañar una unidad muerta');
   const result = applyDamageToUnit(target, amount, ignoreShield);
@@ -281,10 +294,10 @@ function beginTurn(state) {
   unit.pm = unit.monolith ? 0 : Math.max(0, unit.maxPm - pmPenalty); unit.status.pmPenaltyNext = 0;
   if (unit.monolith) unit.monolithStoredPm = unit.maxPm;
   Object.assign(unit, { exitedMonolithThisTurn: false, monolithPillarGainUsed: false, stoneArmorTargetsUsed: [], skillUsesThisTurn: {}, symbiosisUsed: false, sproutRemovedThisTurn: false, trapRemovedThisTurn: false });
-  if (unit.championId === 'arfeli') Object.assign(unit, { masteryChain: [], masteryBonus: 0 });
+  if (unit.championId === 'arfeli') Object.assign(unit, { arfeliMasteryChain: [], arfeliMasteryLastBonus: 0 });
   if (unit.championId === 'coloso') Object.assign(unit, { colosoTurnSerial: unit.colosoTurnSerial + 1, colosoCreateWindow: true, colosoPillarCreatedThisTurn: false, colosoRecycleUsed: false });
   if (unit.championId === 'piplus') Object.assign(unit, { piplusMarkUsedThisTurn: false, piplusMarkBlockedThisTurn: false, piplusFixationTargetId: null, piplusInterferenceTargets: [] });
-  if (unit.championId === 'onod') Object.assign(unit, { onodTurnSerial: unit.onodTurnSerial + 1, onodGerminateUses: 0, onodWitherUsedThisTurn: false, onodReabsorptionUsedThisTurn: false });
+  if (unit.championId === 'onod') Object.assign(unit, { onodTurnSerial: unit.onodTurnSerial + 1, onodGerminateUses: 0, onodWitherUsedThisTurn: false, onodGerminateBlockedThisTurn: false, onodReabsorptionUsedThisTurn: false });
   if (unit.championId === 'korgan') Object.assign(unit, { korganTurnSerial: unit.korganTurnSerial + 1, korganDisarmUsedThisTurn: false });
   if (unit.status.burn > 0) {
     const damage = unit.status.burn, result = applyDamageToUnit(unit, damage, false);
@@ -317,7 +330,7 @@ export function endTurn(state, { unitId } = {}) {
     if (result.killed) events.push({ type: 'unit.died', unitId: unit.id });
   }
   for (const status of ['wound', 'poison', 'burn']) unit.status[status] = Math.floor(Math.max(0, unit.status[status] || 0) / 2);
-  if (unit.championId === 'arfeli') Object.assign(unit, { masteryChain: [], masteryBonus: 0 });
+  if (unit.championId === 'arfeli') Object.assign(unit, { arfeliMasteryChain: [], arfeliMasteryLastBonus: 0 });
   if (unit.championId === 'piplus') Object.assign(unit, { piplusFixationTargetId: null, piplusInterferenceTargets: [] });
   events.push({ type: 'turn.ended', unitId: unit.id, round: next.round });
   if (finishIfNeeded(next, events)) return { state: next, events };

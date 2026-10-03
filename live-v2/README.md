@@ -30,9 +30,11 @@ La API pública está en `combat-core.mjs`: construcción e inicialización 1v1,
 `0b4983953a37fca0a60867f1007f78c67b263683` mediante `git show` y ejecuta las
 definiciones finales de los seis reworks, `movementMap`, `gridPath`,
 `beginTurn`, `endTurnEffects` y `applyDamage` en un contexto aislado. Compara
-fichas, recorridos y Quemadura/Escudo con el núcleo nuevo. Iniciativa empatada
-y Placaje se excluyen de la equivalencia porque son las dos diferencias
-aprobadas. Habilidades, invocaciones, trampas y 2v2 no se han comparado.
+fichas, recorridos, Quemadura/Escudo y los resets efectivos de inicio de turno
+de los seis campeones (incluidos los wrappers de balance y de cada rework) con
+el núcleo nuevo. Iniciativa empatada y Placaje se excluyen de la equivalencia
+porque son las dos diferencias aprobadas. Ejecución de habilidades,
+invocaciones, trampas, fases del Muñeco y 2v2 no se han comparado.
 
 `index.html` confirma el orden relevante: `app.js` → balance → seis reworks → Hougan avanzado → presentación/IA → audio → `combat-core-0625.js` → `hougan-damage-0632.js`. Por eso los reworks, y no sólo `app.js`, son la fuente de las fichas efectivas.
 
@@ -44,5 +46,6 @@ aprobadas. Habilidades, invocaciones, trampas y 2v2 no se han comparado.
 - Trampas, pilares, brotes, muñecos, invocaciones, ataques y habilidades producen errores tipados de “fuera de alcance”; no se simulan parcialmente.
 - Herida durante desplazamiento, veneno al usar habilidades, trampas ocultas, movimientos forzados y fases del Muñeco quedan diferidos junto con la ejecución de habilidades. Mientras su daño por paso no esté implementado, cualquier estado con Herida activa se rechaza explícitamente; no se simula de forma parcial. El rechazo mortal de placaje no intenta anticipar las demás fuentes.
 - Todo punto de entrada valida el estado 1v1 completo: tablero, colecciones, identidades, equipos/slots, posiciones, recursos, estados, escudos, orden, turno, ronda, fase y ganador.
+- Daño y contadores son enteros: valores fraccionarios se rechazan antes de mutar. Los campos de turno usados por el núcleo también son obligatorios, evitando `NaN` y pérdidas durante el round-trip JSON.
 - Los resets de campos de campeón se conservan para dar forma estable al estado, pero no se afirma equivalencia de habilidades. Tampoco se afirma equivalencia 2v2, que se rechaza.
 - La muerte por daño, quemadura o placaje no ejecuta animaciones. El final se decide cuando queda un solo equipo vivo; el orden omite muertos.

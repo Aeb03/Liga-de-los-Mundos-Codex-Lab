@@ -76,11 +76,11 @@ test('recorrido con placaje mortal se rechaza sin ninguna mutación', () => {
 });
 
 test('cierre e inicio aplican resets, estados y ronda', () => {
-  const a = unit('arfeli', 'a', 'red', { x: 0, y: 0 }); a.initiative = 10; a.status.burn = 2; a.masteryChain = ['sword'];
+  const a = unit('arfeli', 'a', 'red', { x: 0, y: 0 }); a.initiative = 10; a.status.burn = 2; a.arfeliMasteryChain = ['sword'];
   const b = unit('houngan', 'b', 'blue', { x: 11, y: 11 });
   let state = combat(a, b); state.units[1].status.pmPenaltyNext = 1;
   ({ state } = endTurn(state, { unitId: 'a' }));
-  assert.equal(state.units[0].status.burn, 1); assert.deepEqual(state.units[0].masteryChain, []);
+  assert.equal(state.units[0].status.burn, 1); assert.deepEqual(state.units[0].arfeliMasteryChain, []);
   assert.equal(state.order[state.turnIndex], 'b'); assert.equal(state.units[1].pm, 2);
   ({ state } = endTurn(state, { unitId: 'b' }));
   assert.equal(state.round, 2); assert.equal(state.order[state.turnIndex], 'a');
@@ -155,11 +155,33 @@ test('daño resuelve escudo, muerte y final de combate', () => {
   assert(result.events.some(event => event.type === 'unit.died'));
 });
 
+test('daño fraccionario se rechaza sin mutar el estado', () => {
+  const state = combat(unit('piplus', 'a', 'red', { x: 0, y: 0 }), unit('coloso', 'b', 'blue', { x: 11, y: 11 }));
+  const before = structuredClone(state);
+  errorCode(() => applyDamage(state, { targetId: 'b', amount: 0.5 }), 'INVALID_DAMAGE');
+  assert.deepEqual(state, before);
+});
+
+test('restoreState exige contadores de campeón usados por el ciclo de turnos', () => {
+  const state = combat(unit('coloso', 'a', 'red', { x: 0, y: 0 }), unit('piplus', 'b', 'blue', { x: 11, y: 11 }));
+  delete state.units.find(candidate => candidate.championId === 'coloso').colosoTurnSerial;
+  errorCode(() => restoreState(JSON.stringify(state)), 'INVALID_CHAMPION_STATE');
+});
+
 test('serialización y entradas iguales producen resultados idénticos', () => {
   const make = () => combat(unit('arfeli', 'a', 'red', { x: 0, y: 0 }), unit('houngan', 'b', 'blue', { x: 11, y: 11 }));
   assert.equal(serializeState(make()), serializeState(make()));
   const state = make(), command = { type: 'move', unitId: 'a', path: [{ x: 0, y: 0 }, { x: 1, y: 0 }] };
   assert.deepEqual(executeCommand(state, command), executeCommand(restoreState(serializeState(state)), command));
+});
+
+test('cada operación soportada produce estados con round-trip sin pérdida', () => {
+  let state = combat(unit('korgan', 'a', 'red', { x: 0, y: 0 }), unit('onod', 'b', 'blue', { x: 11, y: 11 }));
+  const outputs = [state];
+  ({ state } = resolvePath(state, 'a', [{ x: 0, y: 0 }, { x: 1, y: 0 }])); outputs.push(state);
+  ({ state } = applyDamage(state, { targetId: 'b', amount: 3 })); outputs.push(state);
+  ({ state } = endTurn(state, { unitId: 'a' })); outputs.push(state);
+  for (const output of outputs) assert.deepEqual(restoreState(serializeState(output)), output);
 });
 
 test('estados, formatos y comandos fuera de alcance se rechazan explícitamente', () => {

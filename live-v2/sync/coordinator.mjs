@@ -1,1 +1,61 @@
-export class SyncCoordinator{constructor({applySnapshot}){this.version=-1;this.applySnapshot=applySnapshot;this.pending=null;this.preview=null;this.connected=true;}previewPath(path){this.preview=structuredClone(path);}disconnect(){this.connected=false;this.preview=null;}reconnect(){this.connected=true;}beginCommand(command){if(this.pending)throw new Error('COMMAND_PENDING');this.pending=structuredClone(command);return this.pending;}receive(envelope){if(!envelope||!Number.isInteger(envelope.version))throw new Error('INVALID_ENVELOPE');if(envelope.version<this.version)return false;if(envelope.version===this.version){if(this.pending?.id===envelope.commandId&&envelope.confirmed)this.pending=null;return false;}this.version=envelope.version;this.applySnapshot(structuredClone(envelope.state));if(this.pending?.id===envelope.commandId&&envelope.confirmed)this.pending=null;return true;}pendingCommand(){return structuredClone(this.pending);}}
+export class SyncCoordinator {
+  constructor({ applySnapshot }) {
+    this.applySnapshot = applySnapshot;
+    this.version = -1;
+    this.pending = null;
+    this.preview = null;
+    this.connected = true;
+  }
+  previewPath(path) {
+    this.preview = structuredClone(path);
+  }
+  disconnect() {
+    this.connected = false;
+    this.preview = null;
+  }
+  reconnect() {
+    this.connected = true;
+  }
+  beginCommand(command) {
+    if (this.pending) throw new Error("COMMAND_PENDING");
+    this.pending = {
+      command: structuredClone(command),
+      status: "awaiting-confirmation",
+    };
+  }
+  applyEnvelope(envelope) {
+    if (!Number.isInteger(envelope?.version))
+      throw new Error("INVALID_ENVELOPE");
+    const isPending = this.pending?.command.id === envelope.commandId;
+    if (isPending && envelope.confirmed) this.pending = null;
+    if (isPending && envelope.rejected)
+      this.pending = {
+        ...this.pending,
+        status: "rejected",
+        error: envelope.error,
+      };
+    if (envelope.version <= this.version) return false;
+    this.version = envelope.version;
+    this.applySnapshot(structuredClone(envelope.state));
+    return true;
+  }
+  recover(result) {
+    if (!this.pending) return "none";
+    if (result) {
+      this.applyEnvelope(result);
+      return "confirmed";
+    }
+    return "retry-original";
+  }
+  rejectPending(error) {
+    if (this.pending)
+      this.pending = { ...this.pending, status: "rejected", error };
+  }
+  retryCommand() {
+    if (!this.pending || this.pending.status === "rejected") return null;
+    return structuredClone(this.pending.command);
+  }
+  pendingCommand() {
+    return structuredClone(this.pending);
+  }
+}

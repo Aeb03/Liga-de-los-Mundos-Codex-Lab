@@ -16,3 +16,9 @@ Cubren fases, permisos, ocultamiento, inicio, idempotencia, conflicto, CAS, relo
 
 ## Pendiente tras revisión
 Aplicar la migración al Lab, implementar autenticación/SupabaseRepository real en el adaptador, desplegar Edge Function, instalar cron/worker de vencimientos y validar RLS/Realtime en staging. Realtime debe publicar vistas autorizadas, nunca la fila privada completa durante despliegue.
+
+Las zonas de despliegue no son nuevas: se extrajeron de `PLAYER_DEPLOY` y `ENEMY_DEPLOY` de la base (`A`: 0,3; 1,3; 0,4; 2,5; 1,6; 2,6; `B`: 11,3; 10,3; 11,4; 9,5; 10,6; 9,6) y los obstáculos efectivos son 5,4; 6,4; 5,7; 6,7. No se definieron zonas para A2–A3/B2–B3: habilitarlas queda pendiente de reglas aprobadas.
+
+La verificación PostgreSQL local queda separada de la suite Node. Ejecutar la migración dentro de una transacción en un PostgreSQL/Supabase local y probar dos sesiones concurrentes contra `live_v2.confirm_command`. Este entorno no incluye `psql`/`postgres`, por lo que esa verificación y todas las verificaciones remotas permanecen pendientes; no se afirma que hayan pasado.
+
+El adaptador HTTP autentica sesiones y prepara creación, unión, snapshot, recuperación y comandos vía RPC; la confirmación calculada usa `SupabaseRepository.confirm`. Antes de desplegar debe empaquetarse el núcleo ESM para Deno y conectarse esa fase de cálculo al endpoint `command`; por diseño el stub no se despliega hasta esa revisión.

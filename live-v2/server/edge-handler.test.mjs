@@ -71,3 +71,15 @@ test("rechazo definitivo puede reconocerse y desbloquea comandos posteriores", (
   c.beginCommand({ id: "next" });
   assert.equal(c.pendingCommand().command.id, "next");
 });
+
+test('worker uses async backend verification and rejects an absent credential', async () => {
+  let calls=0;
+  const handler=createEdgeHandler({authenticate:async()=>null,rooms:{},
+    authority:{command:async()=>{calls++;return {confirmed:true};}},
+    authenticateBackend:async token=>token==='verified-worker'});
+  const body={operation:'expire',args:{matchId:'m',commandId:'c',expectedVersion:1,expectedTurn:0}};
+  await assert.rejects(()=>handler({body}),e=>e.code==='FORBIDDEN');
+  assert.equal(calls,0);
+  assert.equal((await handler({body,backendToken:'verified-worker'})).confirmed,true);
+  assert.equal(calls,1);
+});

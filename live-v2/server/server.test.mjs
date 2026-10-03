@@ -265,3 +265,17 @@ test("confirmación atrasada resuelve pendiente sin aplicar snapshot antiguo", (
   assert.equal(coordinator.pendingCommand(), null);
   assert.deepEqual(applied, [{ version: 5 }]);
 });
+
+test('confirmed movement history and facing reach both members once; retries do not append twice',async()=>{
+ const x=await ready();await x.svc.command('u1',cmd('start-motion','startCombat',x.v));
+ const before=await x.svc.snapshot('u2','m');
+ const input=cmd('move-motion','move',before.version,{slotId:'A1',expectedTurn:before.turnSerial,path:[{x:0,y:3},{x:1,y:3},{x:1,y:4}]});
+ const accepted=await x.svc.command('u1',input);
+ const rival=await x.svc.snapshot('u2','m');
+ assert.deepEqual(rival.presentation,accepted.state.presentation);
+ assert.deepEqual(rival.presentation.moves[0].path,input.path);
+ assert.equal(rival.presentation.facings.A1,'down-left');
+ const deadline=rival.turnDeadline;await x.svc.command('u1',input);
+ const retry=await x.svc.snapshot('u2','m');assert.equal(retry.presentation.moves.length,1);assert.equal(retry.turnDeadline,deadline);
+ await assert.rejects(()=>x.svc.snapshot('intruder','m'),e=>e.code==='FORBIDDEN');
+});

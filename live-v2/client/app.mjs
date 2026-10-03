@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs';
-import { renderArena } from './presentation.mjs';
+import { MotionPresenter, spriteSource } from './motion.mjs?v=20261003-motion1';
+import { renderArena } from './presentation.mjs?v=20261003-motion1';
 import { catalog } from './catalog.mjs';
 import { LiveSession, newId } from './session.mjs';
 import { championDefinitions, calculatePath, previewPath } from '../combat-core.mjs';
@@ -26,6 +27,8 @@ async function api(operation,args){
     return {data,serverTime:serverTime>0?serverTime:null};
   }finally{clearTimeout(timer);}
 }
+const motion=new MotionPresenter();
+for(const id of Object.keys(catalog))for(const direction of ['down-right','down-left','up-right','up-left']){const image=new Image();image.src=spriteSource(id,direction);}
 const game=new LiveSession({api,storage:localStorage,onChange:()=>render(),onError:notify});
 const ownSlots=()=>Object.values(game.state?.slots??{}).filter(s=>s.controllerId===actor);
 const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
@@ -74,12 +77,14 @@ function arena(){
   return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudCollapsed});
 }
 function render(force=false){
+  motion.receive(game.state,{connected:game.online,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches});
   document.body.classList.toggle('in-arena',Boolean(game.state&&game.state.phase!=='preparation'));
   const indicator=document.querySelector('#connection');indicator.textContent=game.state?(game.sync.pendingCommand()?'Acción pendiente':game.online?'Conectado al Lab':'Sin conexión'):'Supabase Lab';indicator.classList.toggle('offline',!game.online);
   const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,draft,slotId]);
   if(!force&&signature===lastRendered){remaining();return;}lastRendered=signature;
   if(!game.state){app.innerHTML=`<section class="panel welcome"><span class="tag">Prueba LIVE v2 · 1v1</span><h2>Dos celulares, una partida</h2><p>Creá una sala y compartí su enlace. Cada celular controlará un campeón.</p><button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><form class="join-form" id="join"><input type="text" id="room" placeholder="Pegá el enlace o identificador de sala" aria-label="Enlace de sala"><button ${joining?'disabled':''}>Unirme</button></form><p class="phase-text">Se conserva tu sesión en este navegador para reconectar.</p></section>`;return;}
   app.innerHTML=roomBar()+(game.state.phase==='preparation'?preparation():arena());
+  motion.paint(app);
 }
 async function send(type,args){try{const confirmed=await game.send(type,args);await game.refresh();return confirmed;}catch(error){notify(error.message);return false;}}
 async function tapCell(x,y){

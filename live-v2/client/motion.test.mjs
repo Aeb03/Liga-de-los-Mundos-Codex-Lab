@@ -1,0 +1,33 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {confirmedRoutes,MotionTimeline,spriteSource,stepDirection} from './motion.mjs';
+const state=(version,x,y,moves=[])=>({id:'m',version,combat:{units:[{id:'A1',alive:true,x,y}]},presentation:{moves}});
+const path=[{x:1,y:1},{x:1,y:2},{x:2,y:2}];
+const batch={version:2,unitId:'A1',path};
+test('both viewers animate accepted exact bends, never a newly calculated shortest path',()=>{
+ const previous=state(1,1,1),next=state(2,2,2,[batch]);const before=structuredClone(next);
+ assert.deepEqual(confirmedRoutes(previous,next),[{unitId:'A1',path}]);assert.deepEqual(next,before);
+ assert.deepEqual(confirmedRoutes(previous,state(2,2,2)),[]);
+ assert.deepEqual(confirmedRoutes(previous,state(2,2,2,[{...batch,path:[{x:1,y:1},{x:2,y:2}]}])),[]);
+});
+test('timeline follows cells, survives equal snapshots and finishes without changing confirmed state',()=>{
+ const t=new MotionTimeline();t.receive(state(1,1,1),0);assert.equal(t.sample('A1',0),null);
+ t.receive(state(2,2,2,[batch]),100);assert.deepEqual(t.sample('A1',180),{x:1,y:1.5,direction:'down-left'});
+ t.receive(state(2,2,2,[batch]),200);assert.deepEqual(t.sample('A1',340),{x:1.5,y:2,direction:'down-right'});
+ assert.equal(t.sample('A1',420),null);
+});
+test('refresh, reconnect, reduced motion, old snapshots and truncated history do not replay',()=>{
+ const t=new MotionTimeline();t.receive(state(2,2,2,[batch]),0);assert.equal(t.tracks.size,0);
+ t.receive(state(1,1,1),1);assert.equal(t.tracks.size,0);
+ t.receive(state(1,1,1),2,{connected:false});t.receive(state(2,2,2,[batch]),3);assert.equal(t.tracks.size,0);
+ const next=state(2,2,2,[batch]);next.presentation.fromVersion=2;assert.deepEqual(confirmedRoutes(state(1,1,1),next),[]);
+ const reduced=new MotionTimeline();reduced.receive(state(1,1,1),0);reduced.receive(state(2,2,2,[batch]),1,{reducedMotion:true});assert.equal(reduced.tracks.size,0);
+});
+test('consecutive accepted moves and closed loops preserve exact steps',()=>{
+ const second={version:3,unitId:'A1',path:[{x:2,y:2},{x:2,y:1},{x:1,y:1}]};
+ assert.deepEqual(confirmedRoutes(state(1,1,1),state(3,1,1,[batch,second]))[0].path,[...path,...second.path.slice(1)]);
+});
+test('four views use effective offline asset mapping including Coloso upper-view exception',()=>{
+ assert.equal(stepDirection({x:0,y:0},{x:1,y:0}),'down-right');assert.equal(stepDirection({x:1,y:0},{x:0,y:0}),'up-left');
+ assert.equal(stepDirection({x:0,y:0},{x:0,y:1}),'down-left');assert.equal(stepDirection({x:0,y:1},{x:0,y:0}),'up-right');
+ assert.match(spriteSource('arfeli','down-right'),/combat-down-left.png$/);assert.match(spriteSource('coloso','up-right'),/combat-up-right.png$/);
+});

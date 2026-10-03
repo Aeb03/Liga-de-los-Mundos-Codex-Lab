@@ -265,6 +265,21 @@ export class AuthoritativeService {
           ];
         } else err("UNSUPPORTED_COMMAND", "Comando no soportado");
         m.version++;
+        // Accepted, bounded visual history is visible to both current members.
+        // It contains no hidden deployment data and is never used for authority.
+        const moves = events.filter(event => event.type === "unit.moved");
+        if (moves.length) {
+          const presentation = m.presentation ?? { moves: [], facings: {} };
+          for (const event of moves) {
+            const path = structuredClone(event.path);
+            presentation.moves.push({ version: m.version, unitId: event.unitId, path });
+            const a = path.at(-2), b = path.at(-1);
+            presentation.facings[event.unitId] = b.x > a.x ? "down-right" : b.x < a.x ? "up-left" : b.y > a.y ? "down-left" : "up-right";
+          }
+          if (presentation.moves.length > 32) presentation.fromVersion = presentation.moves.at(-33).version;
+          presentation.moves = presentation.moves.slice(-32);
+          m.presentation = presentation;
+        }
         const diagnostic = {
           commandId: input.id,
           type: input.type,

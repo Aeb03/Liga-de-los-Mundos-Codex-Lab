@@ -1,6 +1,6 @@
 import { spriteSource } from './motion.mjs?v=20261003-motion1';
 import { catalog } from './catalog.mjs?v=20261003-layout1';
-import { movementAvailable, abilityTargets, abilityDefinitions } from '../combat-core.mjs?v=20261003-shieldrock1';
+import { movementAvailable, abilityTargets, abilityDefinitions } from '../combat-core.mjs?v=20261003-daggers1';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=p=>`${p.x},${p.y}`;
 export const boardPoint=(x,y)=>({x:260+(x-y)*20,y:30+(x+y)*10});
@@ -53,10 +53,10 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
   const selectedAbilityId=abilitySelection?.abilityId??'sword',selectedDefinition=abilityDefinitions()[selectedAbilityId];
   const masteryBonus=active?.championId==='arfeli'&&!active.arfeliMasteryChain?.includes(selectedAbilityId)?(active.arfeliMasteryChain?.length??0):0;
   const selectedName=catalog[active?.championId]?.skills.find(s=>s.id===selectedAbilityId)?.name;
-  const effect=selectedAbilityId==='shield'?`${15+masteryBonus} escudo`:`${selectedDefinition?.damage+masteryBonus} daño`;
+  const effect=selectedAbilityId==='shield'?`${15+masteryBonus} escudo`:`${selectedDefinition?.damage+masteryBonus} daño${selectedDefinition?.wound?` + Herida ${selectedDefinition.wound}`:""}`;
   const note=abilitySelection?(selectedTarget?`${selectedName}: ${effect} · ${selectedDefinition.cost} PA. Tocá de nuevo la misma casilla para confirmar.`:`${selectedName}: elegí un objetivo marcado. Tocá MOVER para cancelar.`):
     deployment?(own?.position?`Posición ${own.position.x}, ${own.position.y}. Tocá otra casilla marcada para cambiarla.`:'Tocá una casilla marcada de tu zona.'):
-    preview?`Recorrido: ${preview.cost} PM · Placaje: ${preview.tackleDamage} PV. Tocá de nuevo la misma casilla para mover.`:
+    preview?`Recorrido: ${preview.cost} PM · Placaje: ${preview.tackleDamage} PV${preview.woundDamage?` · Herida: ${preview.woundDamage} daño · PV final: ${preview.remainingHp}${preview.diesDuringPath?" · MUERTE DURANTE EL RECORRIDO":""}`:""}. Tocá de nuevo la misma casilla para mover.`:
     finished?`Ganó el equipo ${escape(state.result?.winnerTeam??'—')}.`:active?.controllerId===actor?'Tu turno: tocá una casilla para ver el recorrido.':'Esperando el turno rival.';
   const allConfirmed=Object.values(state.slots).every(s=>s.confirmed);
   const controls=deployment?`<button class="live-action" data-action="confirmPosition" ${blocked||!own?.position||own.confirmed?'disabled':''}>${own?.confirmed?'Confirmado':'Confirmar posición'}</button>${state.creatorId===actor?`<button class="live-action end-action" data-action="start" ${blocked||!allConfirmed?'disabled':''}>Iniciar combate</button>`:'<span>El creador iniciará cuando ambos confirmen.</span>'}`:

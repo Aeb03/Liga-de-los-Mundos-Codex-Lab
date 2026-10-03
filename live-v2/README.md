@@ -7,7 +7,7 @@ Este directorio es un módulo JavaScript independiente del navegador. **No está
 Requiere Node.js 18 o posterior:
 
 ```sh
-node --test live-v2/combat-core.test.mjs
+node --test live-v2/*.test.mjs
 ```
 
 La API pública está en `combat-core.mjs`: construcción e inicialización 1v1, consulta y cálculo de movimiento, preview y confirmación exacta del recorrido, daño, cierre/inicio de turno, serialización/restauración y despacho limitado de comandos.
@@ -26,6 +26,14 @@ La API pública está en `combat-core.mjs`: construcción e inicialización 1v1,
 | Iniciativa 1v1 | `app.js` ordenaba por iniciativa y después por id | **Diferencia aprobada:** empate mediante azar explícito; valor, candidatos y ganador quedan persistidos. |
 | Placaje | `balance-playtest.js` cobraba 2 por enemigo adyacente antes de cada paso | **Diferencia aprobada:** sólo campeón enemigo vivo y sólo al romper adyacencia ortogonal; suma por campeón, ignora escudo y pre-rechaza todo el recorrido si sería mortal. |
 
+`base-equivalence.test.mjs` obtiene los archivos directamente del commit base
+`0b4983953a37fca0a60867f1007f78c67b263683` mediante `git show` y ejecuta las
+definiciones finales de los seis reworks, `movementMap`, `gridPath`,
+`beginTurn`, `endTurnEffects` y `applyDamage` en un contexto aislado. Compara
+fichas, recorridos y Quemadura/Escudo con el núcleo nuevo. Iniciativa empatada
+y Placaje se excluyen de la equivalencia porque son las dos diferencias
+aprobadas. Habilidades, invocaciones, trampas y 2v2 no se han comparado.
+
 `index.html` confirma el orden relevante: `app.js` → balance → seis reworks → Hougan avanzado → presentación/IA → audio → `combat-core-0625.js` → `hougan-damage-0632.js`. Por eso los reworks, y no sólo `app.js`, son la fuente de las fichas efectivas.
 
 ## Contrato y límites explícitos
@@ -34,6 +42,7 @@ La API pública está en `combat-core.mjs`: construcción e inicialización 1v1,
 - El azar de desempate y la lectura de reloj (`clock`, sólo auditoría) son entradas. No se invocan `Math.random`, `Date.now`, temporizadores ni esperas.
 - Las rutas confirmadas se validan casilla por casilla. Nunca se recalcula o sustituye silenciosamente una ruta presentada.
 - Trampas, pilares, brotes, muñecos, invocaciones, ataques y habilidades producen errores tipados de “fuera de alcance”; no se simulan parcialmente.
-- Herida durante desplazamiento, veneno al usar habilidades, trampas ocultas, movimientos forzados y fases del Muñeco quedan diferidos junto con la ejecución de habilidades. El rechazo mortal de placaje no intenta anticipar esas fuentes.
+- Herida durante desplazamiento, veneno al usar habilidades, trampas ocultas, movimientos forzados y fases del Muñeco quedan diferidos junto con la ejecución de habilidades. Mientras su daño por paso no esté implementado, cualquier estado con Herida activa se rechaza explícitamente; no se simula de forma parcial. El rechazo mortal de placaje no intenta anticipar las demás fuentes.
+- Todo punto de entrada valida el estado 1v1 completo: tablero, colecciones, identidades, equipos/slots, posiciones, recursos, estados, escudos, orden, turno, ronda, fase y ganador.
 - Los resets de campos de campeón se conservan para dar forma estable al estado, pero no se afirma equivalencia de habilidades. Tampoco se afirma equivalencia 2v2, que se rechaza.
 - La muerte por daño, quemadura o placaje no ejecuta animaciones. El final se decide cuando queda un solo equipo vivo; el orden omite muertos.

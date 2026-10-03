@@ -58,14 +58,50 @@ export function createUnit({ championId, id, team, slot, controllerId, position 
   };
 }
 
+function nonNegativeInteger(value) { return Number.isInteger(value) && value >= 0; }
 function validateSupportedState(state) {
-  if (!state || state.schemaVersion !== CORE_VERSION) fail('UNSUPPORTED_STATE_VERSION', 'Versión de estado no soportada');
-  if (state.traps?.length || state.summons?.length || state.objects?.length) {
+  if (!state || typeof state !== 'object' || state.schemaVersion !== CORE_VERSION) fail('UNSUPPORTED_STATE_VERSION', 'Versión de estado no soportada');
+  if (!state.board || state.board.width !== BOARD_SIZE || state.board.height !== BOARD_SIZE || !Array.isArray(state.board.obstacles)) {
+    fail('INVALID_BOARD', 'El tablero debe ser 12×12 y contener una lista de obstáculos');
+  }
+  const obstacleSet = new Set();
+  for (const obstacle of state.board.obstacles) {
+    if (typeof obstacle !== 'string' || !/^\d+,\d+$/.test(obstacle)) fail('INVALID_BOARD', 'Formato de obstáculo inválido');
+    const [x, y] = obstacle.split(',').map(Number);
+    if (!inside({ x, y }) || obstacleSet.has(obstacle)) fail('INVALID_BOARD', 'Obstáculo fuera del tablero o repetido');
+    obstacleSet.add(obstacle);
+  }
+  if (!Array.isArray(state.objects) || !Array.isArray(state.traps) || !Array.isArray(state.summons)) fail('INVALID_STATE', 'Faltan colecciones de entidades');
+  if (state.traps.length || state.summons.length || state.objects.length) {
     fail('UNSUPPORTED_MECHANIC', 'Trampas, invocaciones y objetos de combate están fuera de alcance en esta etapa');
   }
-  if (!Array.isArray(state.units) || state.units.some(u => u.kind !== 'champion')) {
-    fail('UNSUPPORTED_ENTITY', 'Sólo se admiten campeones en esta etapa');
+  if (!Array.isArray(state.units) || state.units.length !== 2) fail('UNSUPPORTED_FORMAT', 'El estado soportado es exactamente 1v1');
+  const ids = new Set(), positions = new Set(), teams = new Set(), teamSlots = new Set();
+  for (const unit of state.units) {
+    if (!unit || unit.kind !== 'champion' || !DEFINITIONS[unit.championId]) fail('UNSUPPORTED_ENTITY', 'Sólo se admiten los seis campeones efectivos');
+    if (typeof unit.id !== 'string' || !unit.id || ids.has(unit.id)) fail('INVALID_UNIT_IDENTITY', 'Los IDs de unidad deben ser únicos y no vacíos');
+    if (typeof unit.team !== 'string' || !unit.team || !nonNegativeInteger(unit.slot) || typeof unit.controllerId !== 'string' || !unit.controllerId) fail('INVALID_UNIT_IDENTITY', 'Equipo, slot y controlador inválidos');
+    const teamSlot = `${unit.team}\0${unit.slot}`;
+    if (teamSlots.has(teamSlot)) fail('INVALID_UNIT_IDENTITY', 'El slot debe ser único dentro del equipo');
+    if (!inside(unit) || positions.has(key(unit)) || obstacleSet.has(key(unit))) fail('INVALID_POSITION', 'Posición de unidad inválida, repetida u obstruida');
+    for (const field of ['hp', 'maxHp', 'pa', 'maxPa', 'pm', 'maxPm', 'initiative']) if (!nonNegativeInteger(unit[field])) fail('INVALID_RESOURCE', `Recurso inválido: ${field}`);
+    if (unit.maxHp < 1 || unit.hp > unit.maxHp || unit.pa > unit.maxPa || unit.pm > unit.maxPm || typeof unit.alive !== 'boolean' || unit.alive !== (unit.hp > 0)) fail('INVALID_RESOURCE', 'Vida, recursos o marca alive inconsistentes');
+    const statusFields = ['wound', 'poison', 'burn', 'paPenaltyNext', 'pmPenaltyNext'];
+    if (!unit.status || statusFields.some(field => !nonNegativeInteger(unit.status[field]))) fail('INVALID_STATUS', 'Estado alterado inválido');
+    if (unit.status.wound > 0) fail('UNSUPPORTED_WOUND', 'Herida activa está fuera de alcance mientras no se resuelva su daño por paso');
+    if (!Array.isArray(unit.shield)) fail('INVALID_SHIELD', 'Las pilas de escudo deben ser una lista');
+    for (const stack of unit.shield) if (!stack || !Number.isInteger(stack.amount) || stack.amount <= 0 || typeof stack.sourceId !== 'string' || !stack.sourceId) fail('INVALID_SHIELD', 'Pila de escudo inválida');
+    ids.add(unit.id); positions.add(key(unit)); teams.add(unit.team); teamSlots.add(teamSlot);
   }
+  if (teams.size !== 2) fail('UNSUPPORTED_FORMAT', 'El estado 1v1 requiere dos equipos distintos');
+  for (const unit of state.units) for (const stack of unit.shield) if (!ids.has(stack.sourceId)) fail('INVALID_SHIELD', 'El generador del escudo no existe');
+  if (!Array.isArray(state.order) || state.order.length !== 2 || new Set(state.order).size !== 2 || state.order.some(id => !ids.has(id))) fail('INVALID_ORDER', 'El orden debe ser una permutación de las dos unidades');
+  if (!Number.isInteger(state.turnIndex) || state.turnIndex < 0 || state.turnIndex >= state.order.length || !Number.isInteger(state.round) || state.round < 1) fail('INVALID_TURN', 'Índice de turno o ronda inválidos');
+  if (!['active', 'ended'].includes(state.phase)) fail('INVALID_PHASE', 'Fase de combate inválida');
+  const aliveTeams = new Set(state.units.filter(unit => unit.alive).map(unit => unit.team));
+  if (state.phase === 'active' && (aliveTeams.size !== 2 || state.winnerTeam !== null)) fail('INVALID_PHASE', 'Un combate activo necesita ambos equipos vivos y ningún ganador');
+  const expectedWinner = aliveTeams.size === 1 ? [...aliveTeams][0] : null;
+  if (state.phase === 'ended' && (aliveTeams.size > 1 || state.winnerTeam !== expectedWinner)) fail('INVALID_PHASE', 'Ganador o fase final inconsistentes');
 }
 
 function chooseTie(units, random) {
@@ -105,6 +141,7 @@ export function initializeCombat({ units, obstacles = [], random, clock }) {
     round: 1, phase: 'active', winnerTeam: null, tieBreak,
     audit: { initializedAt: clock ?? null }
   };
+  validateSupportedState(state);
   const begun = beginTurn(state);
   return { state: begun.state, events: [{ type: 'combat.initialized', order: state.order, tieBreak }, ...begun.events] };
 }
@@ -203,20 +240,27 @@ export function resolvePath(state, unitId, path) {
   return { state: next, events };
 }
 
+function applyDamageToUnit(target, amount, ignoreShield) {
+  let remaining = amount, absorbed = 0;
+  if (!ignoreShield) for (const stack of target.shield) {
+    const used = Math.min(stack.amount, remaining); stack.amount -= used; remaining -= used; absorbed += used;
+    if (remaining === 0) break;
+  }
+  target.shield = target.shield.filter(stack => stack.amount > 0);
+  const hpLost = Math.min(target.hp, remaining);
+  target.hp -= hpLost;
+  if (target.hp === 0) target.alive = false;
+  return { absorbed, hpLost, killed: !target.alive };
+}
+
 export function applyDamage(state, { targetId, amount, ignoreShield = false, source = 'external' }) {
   validateSupportedState(state);
   if (!Number.isFinite(amount) || amount < 0) fail('INVALID_DAMAGE', 'El daño debe ser un número no negativo');
   const next = clone(state), target = unitById(next, targetId);
   if (!target.alive) fail('UNIT_DEAD', 'No se puede dañar una unidad muerta');
-  let remaining = amount, absorbed = 0;
-  if (!ignoreShield) for (const stack of target.shield) {
-    const used = Math.min(stack.amount, remaining); stack.amount -= used; remaining -= used; absorbed += used;
-  }
-  target.shield = target.shield.filter(stack => stack.amount > 0);
-  const hpLost = Math.min(target.hp, remaining); target.hp -= hpLost;
-  if (target.hp === 0) target.alive = false;
-  const events = [{ type: 'damage.applied', targetId, amount, absorbed, hpLost, ignoreShield, source }];
-  if (!target.alive) events.push({ type: 'unit.died', unitId: targetId });
+  const result = applyDamageToUnit(target, amount, ignoreShield);
+  const events = [{ type: 'damage.applied', targetId, amount, absorbed: result.absorbed, hpLost: result.hpLost, ignoreShield, source }];
+  if (result.killed) events.push({ type: 'unit.died', unitId: targetId });
   finishIfNeeded(next, events);
   return { state: next, events };
 }
@@ -243,8 +287,9 @@ function beginTurn(state) {
   if (unit.championId === 'onod') Object.assign(unit, { onodTurnSerial: unit.onodTurnSerial + 1, onodGerminateUses: 0, onodWitherUsedThisTurn: false, onodReabsorptionUsedThisTurn: false });
   if (unit.championId === 'korgan') Object.assign(unit, { korganTurnSerial: unit.korganTurnSerial + 1, korganDisarmUsedThisTurn: false });
   if (unit.status.burn > 0) {
-    const damage = unit.status.burn; unit.hp = Math.max(0, unit.hp - damage); unit.alive = unit.hp > 0;
-    events.push({ type: 'damage.applied', targetId: unit.id, amount: damage, hpLost: damage, source: 'burn.start' });
+    const damage = unit.status.burn, result = applyDamageToUnit(unit, damage, false);
+    events.push({ type: 'damage.applied', targetId: unit.id, amount: damage, absorbed: result.absorbed, hpLost: result.hpLost, ignoreShield: false, source: 'burn.start' });
+    if (result.killed) events.push({ type: 'unit.died', unitId: unit.id });
   }
   events.push({ type: 'turn.started', unitId: unit.id, round: next.round, pa: unit.pa, pm: unit.pm });
   finishIfNeeded(next, events);
@@ -267,8 +312,9 @@ export function endTurn(state, { unitId } = {}) {
   const next = clone(state), events = [], unit = activeUnit(next);
   if (unitId && unitId !== unit.id) fail('NOT_ACTIVE_UNIT', 'La orden de cierre no corresponde a la unidad activa');
   if (unit.status.burn > 0) {
-    const damage = Math.min(unit.hp, unit.status.burn); unit.hp -= damage; unit.alive = unit.hp > 0;
-    events.push({ type: 'damage.applied', targetId: unit.id, amount: unit.status.burn, hpLost: damage, source: 'burn.end' });
+    const damage = unit.status.burn, result = applyDamageToUnit(unit, damage, false);
+    events.push({ type: 'damage.applied', targetId: unit.id, amount: damage, absorbed: result.absorbed, hpLost: result.hpLost, ignoreShield: false, source: 'burn.end' });
+    if (result.killed) events.push({ type: 'unit.died', unitId: unit.id });
   }
   for (const status of ['wound', 'poison', 'burn']) unit.status[status] = Math.floor(Math.max(0, unit.status[status] || 0) / 2);
   if (unit.championId === 'arfeli') Object.assign(unit, { masteryChain: [], masteryBonus: 0 });

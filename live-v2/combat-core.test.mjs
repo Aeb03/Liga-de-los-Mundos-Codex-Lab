@@ -54,15 +54,14 @@ test('placaje sólo ocurre al romper adyacencia y suma campeones vivos', () => {
   errorCode(() => previewPath(state, 'm', [{ x: 1, y: 1 }, { x: 2, y: 1 }]), 'INVALID_PATH');
 });
 
-test('placaje múltiple ignora escudo; diagonales e invocaciones no cuentan', () => {
+test('placaje ignora escudo; diagonales e invocaciones no cuentan', () => {
   const mover = unit('korgan', 'm', 'red', { x: 1, y: 1 }); mover.initiative = 99; mover.shield = [{ amount: 20, sourceId: 'e' }];
   const enemy = unit('onod', 'e', 'blue', { x: 2, y: 1 });
   let state = combat(mover, enemy);
-  const second = unit('arfeli', 'e2', 'blue', { x: 1, y: 0 });
-  state.units.push(second); state.order.push('e2');
   const result = resolvePath(state, 'm', [{ x: 1, y: 1 }, { x: 1, y: 2 }]);
-  assert.equal(result.state.units[0].hp, 96); assert.equal(result.state.units[0].shield[0].amount, 20);
-  state = combat(mover, unit('onod', 'd', 'blue', { x: 2, y: 2 }));
+  assert.equal(result.state.units[0].hp, 98); assert.equal(result.state.units[0].shield[0].amount, 20);
+  const diagonalMover = unit('korgan', 'm', 'red', { x: 1, y: 1 }); diagonalMover.initiative = 99;
+  state = combat(diagonalMover, unit('onod', 'd', 'blue', { x: 2, y: 2 }));
   assert.equal(previewPath(state, 'm', [{ x: 1, y: 1 }, { x: 1, y: 2 }]).tackleDamage, 0);
   state.summons = [{ id: 'doll', x: 2, y: 1 }];
   errorCode(() => previewPath(state, 'm', [{ x: 1, y: 1 }, { x: 1, y: 2 }]), 'UNSUPPORTED_MECHANIC');
@@ -76,15 +75,74 @@ test('recorrido con placaje mortal se rechaza sin ninguna mutación', () => {
   assert.equal(serializeState(state), before);
 });
 
-test('cierre e inicio aplican resets, estados, ronda y omiten muertos', () => {
-  const a = unit('arfeli', 'a', 'red', { x: 0, y: 0 }); a.initiative = 10; a.status.burn = 2; a.status.wound = 3; a.masteryChain = ['sword'];
+test('cierre e inicio aplican resets, estados y ronda', () => {
+  const a = unit('arfeli', 'a', 'red', { x: 0, y: 0 }); a.initiative = 10; a.status.burn = 2; a.masteryChain = ['sword'];
   const b = unit('houngan', 'b', 'blue', { x: 11, y: 11 });
   let state = combat(a, b); state.units[1].status.pmPenaltyNext = 1;
   ({ state } = endTurn(state, { unitId: 'a' }));
-  assert.equal(state.units[0].status.burn, 1); assert.equal(state.units[0].status.wound, 1); assert.deepEqual(state.units[0].masteryChain, []);
+  assert.equal(state.units[0].status.burn, 1); assert.deepEqual(state.units[0].masteryChain, []);
   assert.equal(state.order[state.turnIndex], 'b'); assert.equal(state.units[1].pm, 2);
   ({ state } = endTurn(state, { unitId: 'b' }));
   assert.equal(state.round, 2); assert.equal(state.order[state.turnIndex], 'a');
+});
+
+test('quemadura al inicio y cierre consume escudo como applyDamage normal', () => {
+  const a = unit('arfeli', 'a', 'red', { x: 0, y: 0 }); a.initiative = 10; a.status.burn = 3; a.shield = [{ amount: 10, sourceId: 'b' }];
+  const initialized = initializeCombat({ units: [a, unit('houngan', 'b', 'blue', { x: 11, y: 11 })], random: 0 });
+  let state = initialized.state;
+  assert.equal(state.units[0].hp, 100); assert.equal(state.units[0].shield[0].amount, 7);
+  const startDamage = initialized.events.find(event => event.source === 'burn.start');
+  assert.deepEqual({ absorbed: startDamage.absorbed, hpLost: startDamage.hpLost, ignoreShield: startDamage.ignoreShield }, { absorbed: 3, hpLost: 0, ignoreShield: false });
+  const closed = endTurn(state, { unitId: 'a' }); state = closed.state;
+  assert.equal(state.units[0].hp, 100); assert.equal(state.units[0].shield.length, 0, 'el remanente expira al comenzar el turno de su generador');
+  assert.equal(closed.events.find(event => event.source === 'burn.end').absorbed, 3);
+});
+
+test('quemadura puede matar y emite daño, muerte y final de combate', () => {
+  const a = unit('arfeli', 'a', 'red', { x: 0, y: 0 }); a.initiative = 10; a.hp = 2; a.status.burn = 3; a.shield = [{ amount: 1, sourceId: 'b' }];
+  const result = initializeCombat({ units: [a, unit('houngan', 'b', 'blue', { x: 11, y: 11 })], random: 0 });
+  assert.equal(result.state.phase, 'ended'); assert.equal(result.state.winnerTeam, 'blue');
+  assert.deepEqual(result.events.filter(event => ['damage.applied', 'unit.died', 'combat.ended'].includes(event.type)).map(event => event.type), ['damage.applied', 'unit.died', 'combat.ended']);
+
+  let closingState = combat(unit('piplus', 'p', 'red', { x: 0, y: 0 }), unit('coloso', 'c', 'blue', { x: 11, y: 11 }));
+  const active = closingState.units.find(candidate => candidate.id === closingState.order[closingState.turnIndex]);
+  active.hp = 2; active.status.burn = 3; active.shield = [{ amount: 1, sourceId: closingState.units.find(candidate => candidate.id !== active.id).id }];
+  const closed = endTurn(closingState, { unitId: active.id });
+  assert.equal(closed.state.phase, 'ended');
+  assert.deepEqual(closed.events.filter(event => ['damage.applied', 'unit.died', 'combat.ended'].includes(event.type)).map(event => event.type), ['damage.applied', 'unit.died', 'combat.ended']);
+});
+
+test('Herida activa se rechaza sin mutar en entradas de reglas y restauración', () => {
+  const state = combat(unit('piplus', 'a', 'red', { x: 0, y: 0 }), unit('coloso', 'b', 'blue', { x: 11, y: 11 }));
+  state.units[0].status.wound = 3;
+  const snapshot = structuredClone(state);
+  errorCode(() => movementAvailable(state, 'a'), 'UNSUPPORTED_WOUND');
+  errorCode(() => restoreState(JSON.stringify(state)), 'UNSUPPORTED_WOUND');
+  assert.deepEqual(state, snapshot);
+});
+
+test('restoreState valida estructura e invariantes completas sin mutaciones', () => {
+  const valid = combat(unit('piplus', 'a', 'red', { x: 0, y: 0 }), unit('coloso', 'b', 'blue', { x: 11, y: 11 }));
+  const cases = [
+    [{ schemaVersion: 1, units: [] }, 'INVALID_BOARD'],
+    [{ ...structuredClone(valid), units: [] }, 'UNSUPPORTED_FORMAT'],
+    [Object.assign(structuredClone(valid), { order: ['a', 'a'] }), 'INVALID_ORDER'],
+    [Object.assign(structuredClone(valid), { turnIndex: 2 }), 'INVALID_TURN'],
+    [Object.assign(structuredClone(valid), { round: 0 }), 'INVALID_TURN']
+  ];
+  const duplicateId = structuredClone(valid); duplicateId.units[1].id = 'a'; cases.push([duplicateId, 'INVALID_UNIT_IDENTITY']);
+  const sameTeam = structuredClone(valid); sameTeam.units[1].team = 'red'; sameTeam.units[1].slot = 1; cases.push([sameTeam, 'UNSUPPORTED_FORMAT']);
+  const badSlot = structuredClone(valid); badSlot.units[0].slot = -1; cases.push([badSlot, 'INVALID_UNIT_IDENTITY']);
+  const occupied = structuredClone(valid); occupied.units[1].x = 0; occupied.units[1].y = 0; cases.push([occupied, 'INVALID_POSITION']);
+  const badResource = structuredClone(valid); badResource.units[0].pm = -1; cases.push([badResource, 'INVALID_RESOURCE']);
+  const badStatus = structuredClone(valid); badStatus.units[0].status.poison = -1; cases.push([badStatus, 'INVALID_STATUS']);
+  const badShield = structuredClone(valid); badShield.units[0].shield = [{ amount: 2, sourceId: 'missing' }]; cases.push([badShield, 'INVALID_SHIELD']);
+  const badPhase = structuredClone(valid); badPhase.phase = 'ended'; cases.push([badPhase, 'INVALID_PHASE']);
+  for (const [candidate, code] of cases) {
+    const before = structuredClone(candidate);
+    errorCode(() => restoreState(JSON.stringify(candidate)), code);
+    assert.deepEqual(candidate, before);
+  }
 });
 
 test('daño resuelve escudo, muerte y final de combate', () => {

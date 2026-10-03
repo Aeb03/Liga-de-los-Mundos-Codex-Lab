@@ -49,3 +49,7 @@ invocaciones, trampas, fases del Muñeco y 2v2 no se han comparado.
 - Daño y contadores son enteros: valores fraccionarios se rechazan antes de mutar. Los campos de turno usados por el núcleo también son obligatorios, evitando `NaN` y pérdidas durante el round-trip JSON.
 - Los resets de campos de campeón se conservan para dar forma estable al estado, pero no se afirma equivalencia de habilidades. Tampoco se afirma equivalencia 2v2, que se rechaza.
 - La muerte por daño, quemadura o placaje no ejecuta animaciones. El final se decide cuando queda un solo equipo vivo; el orden omite muertos.
+
+## Pantalla de prueba del Lab
+
+Entrada separada `live-v2/index.html`; instrucciones y límites en [CLIENT.md](CLIENT.md). El offline conserva su entrada y archivos originales.

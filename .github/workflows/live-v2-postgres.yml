@@ -24,4 +24,4 @@ jobs:
       - run: psql -h localhost -U postgres -c "create role anon; create role authenticated; create role service_role;"
       - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610030001_live_v2_authority.sql
       - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f live-v2/server/sql/postgres-contract.test.sql
-      - run: node --test live-v2/*.test.mjs live-v2/server/*.test.mjs
+      - run: node --test live-v2/*.test.mjs live-v2/server/*.test.mjs live-v2/client/*.test.mjs

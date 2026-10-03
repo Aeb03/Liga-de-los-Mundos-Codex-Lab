@@ -2396,7 +2396,7 @@ function hydrateAsyncBattle(snapshot,localPlayerId=null,turnDeadline=null){
   window.LigaAsyncSnapshot.validate(snapshot);
   clearInterval(timerId);
   B=window.LigaAsyncSnapshot.clone(snapshot).battle;
-  B.mode='async1v1';B.asyncMode=true;B.onlineMode=false;B.onlinePreview=false;
+  B.mode='async1v1';B.asyncMode=true;B.onlineMode=false;B.onlinePreview=false;B.onlineDesync=false;B.onlineActionPending=false;B.onlineLocalHasAuthority=false;B.onlinePhase='';
   B.timer=30;B.busy=false;B.pendingTimeout=false;B.selectedAction=null;B.skillsOpen=false;
   const local=B.units.find(u=>u.onlineControllerId===localPlayerId);
   const localTeam=local?.onlineTeam||'A';
@@ -2432,7 +2432,7 @@ function buildAsyncInitialSnapshot(cfg={}){
   }));
   if(!startOnlineDeployment({participants,localTeam:'A',localPlayerId:participants[0]?.playerId,roomCode:cfg.roomCode||cfg.room_code||''}))return null;
   if(!startOnlineRoundReady({participants,roomCode:cfg.roomCode||cfg.room_code||''}))return null;
-  B.asyncMode=true;B.onlineMode=false;B.onlinePreview=false;
+  B.asyncMode=true;B.onlineMode=false;B.onlinePreview=false;B.onlineDesync=false;B.onlineActionPending=false;B.onlineLocalHasAuthority=false;
   const active=cur();if(active)onlineTurnReset(active);
   return asyncBattleSnapshot(0);
 }

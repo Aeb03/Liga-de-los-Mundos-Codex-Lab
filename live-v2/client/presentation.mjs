@@ -1,6 +1,6 @@
 import { spriteSource } from './motion.mjs?v=20261003-motion1';
 import { catalog } from './catalog.mjs?v=20261003-layout1';
-import { movementAvailable } from '../combat-core.mjs';
+import { movementAvailable, swordTargets } from '../combat-core.mjs?v=20261003-sword1';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=p=>`${p.x},${p.y}`;
 export const boardPoint=(x,y)=>({x:260+(x-y)*20,y:30+(x+y)*10});
@@ -21,16 +21,18 @@ export function turnSequence(combat) {
   const ordered = [...combat.order.slice(combat.turnIndex), ...combat.order.slice(0,combat.turnIndex)];
   return ordered.map(id=>combat.units.find(u=>u.id===id)).filter(u=>u?.alive);
 }
-export function renderArena({state,actor,slotId,preview,blocked,canMove,remaining,hudCollapsed=false}) {
+export function renderArena({state,actor,slotId,preview,blocked,canMove,remaining,hudCollapsed=false,abilitySelection=null}) {
   const own=state.slots[slotId]??Object.values(state.slots).find(s=>s.controllerId===actor);
   const active=state.combat?.units.find(u=>u.id===state.combat.order[state.combat.turnIndex]);
   const deployment=state.phase==='deployment',finished=state.phase==='finished';
-  const reachable=canMove?new Set(movementAvailable(state.combat,active.id).map(key)):new Set();
+  const validTargets=abilitySelection&&state.combat?new Set(swordTargets(state.combat,active.id)):new Set();
+  const targetCells=new Set((state.combat?.units??[]).filter(u=>validTargets.has(u.id)).map(key));
+  const reachable=canMove&&!abilitySelection?new Set(movementAvailable(state.combat,active.id).map(key)):new Set();
   const route=new Set(preview?.path.map(key)??[]),dest=preview?.path.at(-1);
   const obstacles=new Set(state.combat?.board.obstacles??['5,4','6,4','5,7','6,7']);
   let cells='';for(let y=0;y<12;y++)for(let x=0;x<12;x++){
     const p=boardPoint(x,y),k=`${x},${y}`,zone=deployment&&zones[own?.team]?.includes(k);
-    const cls=['tile',obstacles.has(k)?'obstacle':'',zone?'zone':'',reachable.has(k)?'reachable':'',route.has(k)?'route':'',dest&&key(dest)===k?'destination':''].join(' ');
+    const cls=['tile',targetCells.has(k)?'ability-target':'',abilitySelection?.targetId&&abilitySelection.targetId===state.combat?.units.find(u=>key(u)===k)?.id?'ability-selected':'',obstacles.has(k)?'obstacle':'',zone?'zone':'',reachable.has(k)?'reachable':'',route.has(k)?'route':'',dest&&key(dest)===k?'destination':''].join(' ');
     cells+=`<polygon class="${cls}" points="${p.x},${p.y-10} ${p.x+20},${p.y} ${p.x},${p.y+10} ${p.x-20},${p.y}" data-x="${x}" data-y="${y}" role="button" tabindex="0" aria-label="Casilla ${x}, ${y}"><title>${x}, ${y}</title></polygon>`;
   }
   const trail=preview?`<polyline class="trail" points="${preview.path.map(p=>{const c=boardPoint(p.x,p.y);return `${c.x},${c.y}`;}).join(' ')}"/>`:'';
@@ -47,15 +49,18 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
       return `<article class="roster-entry ${active?.id===s.id?'active':''}"><img src="../assets/champions/${s.championId}/${s.championId}-avatar.png" alt=""><div><strong>${escape(catalog[s.championId]?.name??'Campeón')}</strong><small>Slot ${escape(s.id)}</small>${hp!=null?`<span>${hp} PV · ${u.pa} PA · ${u.pm} PM</span><meter min="0" max="${u.maxHp}" value="${hp}" aria-label="Vida de ${escape(s.id)}"></meter>`:`<span>${s.confirmed?'Posición confirmada':'Desplegando'}</span>`}</div></article>`;
     }).join('')}</aside>`;
   }
-  const note=deployment?(own?.position?`Posición ${own.position.x}, ${own.position.y}. Tocá otra casilla marcada para cambiarla.`:'Tocá una casilla marcada de tu zona.'):
+  const selectedTarget=state.combat?.units.find(u=>u.id===abilitySelection?.targetId);
+  const swordBonus=active?.arfeliMasteryChain?.includes('sword')?0:(active?.arfeliMasteryChain?.length??0);
+  const note=abilitySelection?(selectedTarget?`Corte: ${10+swordBonus} daño · 2 PA. Tocá de nuevo el objetivo para atacar.`:'Corte: elegí un enemigo adyacente. Tocá MOVER para cancelar.'):
+    deployment?(own?.position?`Posición ${own.position.x}, ${own.position.y}. Tocá otra casilla marcada para cambiarla.`:'Tocá una casilla marcada de tu zona.'):
     preview?`Recorrido: ${preview.cost} PM · Placaje: ${preview.tackleDamage} PV. Tocá de nuevo la misma casilla para mover.`:
     finished?`Ganó el equipo ${escape(state.result?.winnerTeam??'—')}.`:active?.controllerId===actor?'Tu turno: tocá una casilla para ver el recorrido.':'Esperando el turno rival.';
   const allConfirmed=Object.values(state.slots).every(s=>s.confirmed);
   const controls=deployment?`<button class="live-action" data-action="confirmPosition" ${blocked||!own?.position||own.confirmed?'disabled':''}>${own?.confirmed?'Confirmado':'Confirmar posición'}</button>${state.creatorId===actor?`<button class="live-action end-action" data-action="start" ${blocked||!allConfirmed?'disabled':''}>Iniciar combate</button>`:'<span>El creador iniciará cuando ambos confirmen.</span>'}`:
-    finished?'<span>Combate finalizado</span>':`<div class="move-action" aria-label="Movimiento">MOVER<span>${active?.controllerId===actor?active.pm:'—'} PM</span></div><button class="live-action end-action" data-action="end" ${blocked||!canMove?'disabled':''}>Terminar turno</button>`;
+    finished?'<span>Combate finalizado</span>':`<div class="move-action" data-action="moveMode" role="button" tabindex="0" aria-label="Movimiento">MOVER<span>${active?.controllerId===actor?active.pm:'—'} PM</span></div><button class="live-action end-action" data-action="end" ${blocked||!canMove?'disabled':''}>Terminar turno</button>`;
   const turnOrder=state.combat?`<ol class="turn-order" aria-label="Orden de turnos">${turnSequence(state.combat).map((u,i)=>`<li class="${i===0?'current':''}" ${i===0?'aria-current="step"':''} title="${escape(catalog[u.championId]?.name)} · ${escape(u.id)}"><img src="../assets/champions/${u.championId}/${u.championId}-avatar.png" alt="${escape(catalog[u.championId]?.name)}"><span>${i+1} · ${escape(catalog[u.championId]?.name)}<small>${escape(u.id)}</small></span></li>`).join('')}</ol>`:'';
   const championCard=active?`<div class="active-champion" aria-label="Campeón activo"><img src="../assets/champions/${active.championId}/${active.championId}-avatar.png" alt=""><div class="active-details"><strong>${escape(catalog[active.championId]?.name)} · ${escape(active.id)}</strong><div class="active-life"><meter min="0" max="${active.maxHp}" value="${active.hp}" aria-label="Vida del campeón activo"></meter><span>${active.hp}/${active.maxHp} PV</span></div><div class="active-resources"><span>${active.pa} PA</span><span>${active.pm} PM</span><span>Escudo ${(active.shield??[]).reduce((n,s)=>n+s.amount,0)}</span></div>${unitIndicators(active).filter(([label])=>label!=='Escudo').length?`<small>${escape(unitIndicators(active).filter(([label])=>label!=='Escudo').map(([label,value])=>`${label} ${value}`).join(' · '))}</small>`:''}</div></div>`:'';
-  const skillButtons=active?`<div class="combat-skills" aria-label="Habilidades seleccionadas">${(state.slots[active.id]?.skills??[]).map(id=>{const skill=catalog[active.championId]?.skills.find(s=>s.id===id);return `<button class="combat-skill" disabled title="Todavía no disponible. Coste de referencia de la ficha base." aria-label="${escape(skill?.name??id)}: todavía no disponible"><span class="skill-meta">${skill?.maxUsesPerTurn?`Máx. ${skill.maxUsesPerTurn}`:""}<b>${skill?.cost??"—"} PA</b></span><span class="skill-symbol" aria-hidden="true">${escape(skill?.icon??"✦")}</span><span class="skill-name">${escape(skill?.name??id)}</span></button>`;}).join('')}</div>`:'';
+  const skillButtons=active?`<div class="combat-skills" aria-label="Habilidades seleccionadas">${(state.slots[active.id]?.skills??[]).map(id=>{const skill=catalog[active.championId]?.skills.find(s=>s.id===id);const enabled=state.phase==='combat'&&active.championId==='arfeli'&&id==='sword';const uses=active.skillUsesThisTurn?.[id]??0;return `<button class="combat-skill ${enabled&&abilitySelection?'selected-skill':''}" ${enabled?'data-action="sword"':''} ${!enabled||blocked||!canMove||active.pa<2||uses>=2?'disabled':''} title="${enabled?'2 PA · Alcance 1 · 10 daño · Máximo 2 usos':'Todavía no disponible'}" aria-label="${escape(skill?.name??id)}${enabled?'':': todavía no disponible'}" ${enabled?`aria-pressed="${Boolean(abilitySelection)}"`:''}><span class="skill-meta">${enabled?`${uses}/2`:skill?.maxUsesPerTurn?`Máx. ${skill.maxUsesPerTurn}`:""}<b>${skill?.cost??"—"} PA</b></span><span class="skill-symbol" aria-hidden="true">${escape(skill?.icon??"✦")}</span><span class="skill-name">${escape(skill?.name??id)}</span></button>`;}).join('')}</div>`:'';
   const pending=blocked?'Esperando confirmación o conexión…':'Estado confirmado';
   return `<section class="live-battle" aria-label="Arena Central"><div class="arena-stage"><img class="arena-platform" src="../assets/arenas/central/arena-central-base.png" alt=""><svg class="live-board" viewBox="0 0 520 280" aria-label="Tablero 12 por 12">${cells}${trail}${pieces}</svg></div>
     <div class="live-round"><div class="round-summary"><span>${deployment?'DESPLIEGUE':finished?'RESULTADO':`RONDA ${state.combat.round}`}</span><strong>${active?escape(catalog[active.championId]?.name):'Arena Central'}</strong>${!deployment&&!finished?`<span class="timer" id="timer">${remaining}</span>`:''}</div>${turnOrder}</div>

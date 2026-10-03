@@ -55,3 +55,5 @@
 .command-controls{gap:2px}.move-action,.live-action{min-height:32px;border-width:5px}
 .command-feedback{margin-top:1px}.live-command .phase-text{line-height:1.1}
 }
+
+.live-board .tile.ability-target{fill:#ad443b99;stroke:#ffc18b;stroke-width:2}.live-board .tile.ability-selected{fill:#ed9844bb;stroke:#fff0bc;stroke-width:2.5}.combat-skill.selected-skill{outline:2px solid #ffdc77;outline-offset:-3px}.move-action[role=button]{cursor:pointer}

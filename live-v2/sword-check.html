@@ -1,0 +1,14 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVE v2 — prueba de Corte</title><link rel="stylesheet" href="client/ui.css"><link rel="stylesheet" href="client/presentation.css?v=20261003-sword1"><body class="in-arena"><header><h1>Corte con Espada · prueba visual</h1><span>Sin sala ni conexión</span></header><main id="app"></main><script type="module">
+import { renderArena } from './client/presentation.mjs?v=20261003-sword1';
+import { createUnit, initializeCombat, useAbility } from './combat-core.mjs?v=20261003-sword1';
+const slots={A1:{id:'A1',team:'A',controllerId:'demo',championId:'arfeli',position:{x:5,y:5},skills:['sword','daggers','bow','shield']},B1:{id:'B1',team:'B',controllerId:'rival',championId:'coloso',position:{x:6,y:5},skills:[]}};
+const combat=initializeCombat({units:Object.values(slots).map(s=>createUnit({...s,slot:1}))}).state;
+const state={id:'demo',version:0,phase:'combat',slots,combat};let abilitySelection=null,hudCollapsed=false;
+function render(){document.querySelector('#app').innerHTML=renderArena({state,actor:'demo',slotId:'A1',blocked:false,canMove:true,remaining:24,hudCollapsed,abilitySelection});}
+document.querySelector('#app').addEventListener('click',e=>{const t=e.target.closest('[data-action],[data-x]');if(!t||t.disabled)return;
+if(t.dataset.action==='toggleHud'){hudCollapsed=!hudCollapsed;render();return;}
+if(t.dataset.action==='sword'){abilitySelection=abilitySelection?null:{targetId:null};render();return;}
+if(t.dataset.action==='moveMode'){abilitySelection=null;render();return;}
+if(abilitySelection&&t.dataset.x==='6'&&t.dataset.y==='5'){if(abilitySelection.targetId==='B1'){state.combat=useAbility(state.combat,{unitId:'A1',abilityId:'sword',targetId:'B1'}).state;state.version++;abilitySelection=null;}else abilitySelection.targetId='B1';render();}
+});render();
+</script></body></html>

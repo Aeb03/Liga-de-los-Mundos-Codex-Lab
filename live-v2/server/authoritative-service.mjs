@@ -2,6 +2,7 @@ import {
   createUnit,
   initializeCombat,
   resolvePath,
+  useAbility,
   endTurn,
 } from "../combat-core.mjs";
 import {
@@ -134,7 +135,7 @@ export class AuthoritativeService {
         const slot = input.slotId ? m.slots[input.slotId] : null;
         if (slot && slot.controllerId !== identity)
           err("FORBIDDEN", "El slot pertenece a otro controlador");
-        if (["move", "endTurn"].includes(input.type)) {
+        if (["move", "endTurn", "ability"].includes(input.type)) {
           if (m.phase !== "combat") err("WRONG_PHASE", "No está en combate");
           if (input.expectedTurn !== m.turnSerial)
             err("TURN_CONFLICT", "Turno obsoleto");
@@ -142,8 +143,11 @@ export class AuthoritativeService {
           const active = m.combat.order[m.combat.turnIndex];
           if (!slot || slot.id !== active || slot.controllerId !== identity)
             err("FORBIDDEN", "Sólo controla el slot activo");
+          if (input.type === "ability" && !slot.skills.includes(input.abilityId)) err("ABILITY_NOT_SELECTED", "La habilidad no está en tu selección");
           const out =
-            input.type === "move"
+            input.type === "ability"
+              ? useAbility(m.combat, {unitId:slot.id,abilityId:input.abilityId,targetId:input.targetId})
+              : input.type === "move"
               ? resolvePath(m.combat, slot.id, input.path)
               : endTurn(m.combat, { unitId: slot.id });
           m.combat = out.state;

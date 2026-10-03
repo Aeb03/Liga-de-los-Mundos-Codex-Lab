@@ -12,7 +12,7 @@ test('HUD uses authoritative resources without mutating state or charging previe
  const before=structuredClone(state);
  const html=renderArena({state,actor:'shared',slotId:'A1',remaining:24,canMove:true,blocked:false,preview:{path:[{x:2,y:5},{x:3,y:5}],cost:1,tackleDamage:2}});
  assert.match(html,/78\/90 PV/);assert.match(html,/4 PA/);assert.match(html,/2 PM/);assert.match(html,/Escudo 12/);
- assert.equal((html.match(/class="combat-skill" disabled/g)??[]).length,4);
+ assert.equal((html.match(/<button class="combat-skill[^"]*"[^>]* disabled/g)??[]).length,4);
  assert.match(html,/Flecha de Precisión/);assert.deepEqual(state,before);
 });
 test('turn queue rotates from active slot, excludes dead units and preserves independent identities',()=>{
@@ -25,4 +25,12 @@ test('status display sums shields and reads positive confirmed values without in
  const u=fixture().combat.units[0];assert.deepEqual(unitIndicators(u),[]);
  u.status={wound:3,poison:2,burn:1};u.shield=[{amount:4},{amount:6}];
  assert.deepEqual(unitIndicators(u),[['Escudo',10],['Herida',3],['Veneno',2],['Quemadura',1]]);
+});
+
+test('sword targets are marked and action is enabled only for own valid active slot',()=>{
+ const state=fixture();state.slots.A1.championId='arfeli';state.slots.A1.skills=['sword','daggers','bow','shield'];state.combat=initializeCombat({units:[createUnit({...state.slots.A1,slot:1,position:{x:2,y:5}}),createUnit({...state.slots.B1,slot:1,position:{x:3,y:5}})]}).state;
+ const args={state,actor:'shared',slotId:'A1',remaining:24,blocked:false,canMove:true,abilitySelection:{targetId:'B1'}};
+ const before=structuredClone(state);let html=renderArena(args);assert.match(html,/data-action="sword"  title/);assert.match(html,/ability-target ability-selected/);assert.match(html,/Corte: 10 daño · 2 PA/);assert.match(html,/0\/2/);assert.deepEqual(state,before);
+ html=renderArena({...args,canMove:false});assert.match(html,/data-action="sword" disabled/);
+ state.combat.units[0].skillUsesThisTurn.sword=2;html=renderArena(args);assert.match(html,/data-action="sword" disabled/);assert.match(html,/2\/2/);
 });

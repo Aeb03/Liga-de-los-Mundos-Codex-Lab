@@ -279,3 +279,16 @@ test('confirmed movement history and facing reach both members once; retries do 
  const retry=await x.svc.snapshot('u2','m');assert.equal(retry.presentation.moves.length,1);assert.equal(retry.turnDeadline,deadline);
  await assert.rejects(()=>x.svc.snapshot('intruder','m'),e=>e.code==='FORBIDDEN');
 });
+
+test('movement history stays bounded and cut-off snapshots remain explicit after many turns',async()=>{
+ const x=await ready();let state=(await x.svc.command('u1',cmd('history-start','startCombat',x.v))).state;
+ for(let i=0;i<35;i++){
+  const u=state.combat.units.find(u=>u.id==='A1');
+  state=(await x.svc.command('u1',cmd(`history-move-${i}`,'move',state.version,{slotId:'A1',expectedTurn:state.turnSerial,path:[{x:u.x,y:u.y},{x:u.x===0?1:0,y:u.y}]}))).state;
+  state=(await x.svc.command('u1',cmd(`history-a-${i}`,'endTurn',state.version,{slotId:'A1',expectedTurn:state.turnSerial}))).state;
+  state=(await x.svc.command('u2',cmd(`history-b-${i}`,'endTurn',state.version,{slotId:'B1',expectedTurn:state.turnSerial}))).state;
+ }
+ assert.equal(state.presentation.moves.length,32);
+ assert(state.presentation.fromVersion>0);assert(state.presentation.moves.every(m=>m.version>state.presentation.fromVersion));
+ assert.deepEqual((await x.svc.snapshot('u2','m')).presentation,state.presentation);
+});

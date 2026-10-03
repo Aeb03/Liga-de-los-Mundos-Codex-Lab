@@ -44,7 +44,7 @@ invocaciones, trampas, fases del Muñeco y 2v2 no se han comparado.
 - El azar de desempate y la lectura de reloj (`clock`, sólo auditoría) son entradas. No se invocan `Math.random`, `Date.now`, temporizadores ni esperas.
 - Las rutas confirmadas se validan casilla por casilla. Nunca se recalcula o sustituye silenciosamente una ruta presentada.
 - Trampas, pilares, brotes, muñecos, invocaciones, ataques y habilidades producen errores tipados de “fuera de alcance”; no se simulan parcialmente.
-- Herida durante desplazamiento, veneno al usar habilidades, trampas ocultas, movimientos forzados y fases del Muñeco quedan diferidos junto con la ejecución de habilidades. Mientras su daño por paso no esté implementado, cualquier estado con Herida activa se rechaza explícitamente; no se simula de forma parcial. El rechazo mortal de placaje no intenta anticipar las demás fuentes.
+- Herida activa (máximo 3) se resuelve por casilla realmente recorrida, con absorción de escudo y detención al morir. El preview informa daño y posible muerte. El rechazo previo de placaje mortal se conserva. Movimientos forzados, trampas y fases del Muñeco siguen fuera de alcance. Veneno al usar las habilidades habilitadas ya se resuelve.
 - Todo punto de entrada valida el estado 1v1 completo: tablero, colecciones, identidades, equipos/slots, posiciones, recursos, estados, escudos, orden, turno, ronda, fase y ganador.
 - Daño y contadores son enteros: valores fraccionarios se rechazan antes de mutar. Los campos de turno usados por el núcleo también son obligatorios, evitando `NaN` y pérdidas durante el round-trip JSON.
 - Los resets de campos de campeón se conservan para dar forma estable al estado, pero no se afirma equivalencia de habilidades. Tampoco se afirma equivalencia 2v2, que se rechaza.
@@ -61,3 +61,5 @@ Corte con Espada de Arfeli se implementa según la ficha efectiva de `arfeli-rew
 ## Escudo + Roca
 
 Portación de Escudo de Arfeli y Lanzar Roca de Coloso están habilitados junto con Corte. Ver [SHIELD-ROCK-STAGE.md](SHIELD-ROCK-STAGE.md). Los controles de cámara, audio y paralaje permanecen planificados para el final.
+
+Dagas y Herida: ver `DAGGERS-WOUND-STAGE.md`.

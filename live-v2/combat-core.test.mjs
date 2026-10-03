@@ -112,12 +112,14 @@ test('quemadura puede matar y emite daño, muerte y final de combate', () => {
   assert.deepEqual(closed.events.filter(event => ['damage.applied', 'unit.died', 'combat.ended'].includes(event.type)).map(event => event.type), ['damage.applied', 'unit.died', 'combat.ended']);
 });
 
-test('Herida activa se rechaza sin mutar en entradas de reglas y restauración', () => {
+test('Herida válida se restaura y su consulta no muta el estado', () => {
   const state = combat(unit('piplus', 'a', 'red', { x: 0, y: 0 }), unit('coloso', 'b', 'blue', { x: 11, y: 11 }));
   state.units[0].status.wound = 3;
   const snapshot = structuredClone(state);
-  errorCode(() => movementAvailable(state, 'a'), 'UNSUPPORTED_WOUND');
-  errorCode(() => restoreState(JSON.stringify(state)), 'UNSUPPORTED_WOUND');
+  assert(movementAvailable(state, 'a').length > 0);
+  assert.equal(restoreState(JSON.stringify(state)).units[0].status.wound, 3);
+  const invalid = structuredClone(state); invalid.units[0].status.wound = 4;
+  errorCode(() => restoreState(JSON.stringify(invalid)), 'INVALID_STATUS');
   assert.deepEqual(state, snapshot);
 });
 

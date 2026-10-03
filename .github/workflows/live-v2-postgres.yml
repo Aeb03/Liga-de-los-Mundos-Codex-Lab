@@ -20,4 +20,11 @@ jobs:
       - run: psql -h localhost -U postgres -c "create role anon; create role authenticated; create role service_role;"
       - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610030001_live_v2_authority.sql
       - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f live-v2/server/sql/postgres-contract.test.sql
+      - name: Concurrent CAS (exactly one succeeds)
+        run: |
+          set +e
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f live-v2/server/sql/confirm-a.sql & a=$!
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f live-v2/server/sql/confirm-b.sql & b=$!
+          wait $a; ra=$?; wait $b; rb=$?
+          test $((ra + rb)) -eq 1
       - run: node --test live-v2/*.test.mjs live-v2/server/*.test.mjs

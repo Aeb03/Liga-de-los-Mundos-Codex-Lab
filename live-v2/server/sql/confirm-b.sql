@@ -1,0 +1,1 @@
+select set_config('request.jwt.claim.role','service_role',false);select public.live_v2_confirm_command('00000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002','b',0,null,'preparation','preparation',0,null,(select state from live_v2.matches where id='10000000-0000-0000-0000-000000000001'),'{}','h',false);

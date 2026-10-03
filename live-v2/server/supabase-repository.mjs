@@ -10,7 +10,10 @@ export class SupabaseRepository {
     return data;
   }
   createRoom(actorId, room) {
-    return this.rpc("live_v2_create_room", { p_actor: actorId, p_room: room });
+    return this.rpc("live_v2_create_room", {
+      p_actor: actorId,
+      p_match: room.id,
+    });
   }
   joinRoom(actorId, matchId, slotId) {
     return this.rpc("live_v2_join_room", {
@@ -38,6 +41,7 @@ export class SupabaseRepository {
       p_match: matchId,
       p_command: commandId,
       p_fingerprint: fingerprint,
+      p_automatic: identity === "backend",
     });
     if (prepared.status === "confirmed") return prepared.result;
     if (prepared.status === "rejected")
@@ -85,6 +89,7 @@ export class SupabaseRepository {
         p_expected_version: prepared.match.version,
         p_expected_turn: prepared.match.turnSerial,
         p_error_code: error.code ?? "SERVER_ERROR",
+        p_automatic: identity === "backend",
       });
       throw error;
     }

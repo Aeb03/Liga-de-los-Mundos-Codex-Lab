@@ -28,10 +28,10 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         operation: "expire",
         args: {
-          matchId: job.id,
-          commandId: crypto.randomUUID(),
-          expectedVersion: job.version,
-          expectedTurn: job.turn_serial,
+          matchId: job.match_id,
+          commandId: job.command_id,
+          expectedVersion: job.expected_version,
+          expectedTurn: job.expected_turn,
         },
       }),
     });

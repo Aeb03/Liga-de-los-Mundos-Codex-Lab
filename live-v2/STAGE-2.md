@@ -26,3 +26,5 @@ El adaptador HTTP autentica sesiones y prepara creación, unión, snapshot, recu
 La migración expone las RPC `live_v2_create_room`, `live_v2_join_room`, `live_v2_snapshot`, `live_v2_recover_command`, `live_v2_prepare_command`, `live_v2_confirm_command`, `live_v2_reject_command`, `live_v2_backend_match` y `live_v2_claim_expired`. El cierre automático usa `p_automatic`, conserva CAS de versión/turno y omite únicamente las restricciones de miembro/plazo que impedirían al worker cerrar el turno ya vencido.
 
 CI fija Node 22 y checkout completo para equivalencia histórica. Las RPC públicas revocan `PUBLIC`/`anon`/`authenticated` y conceden sólo `service_role`. La ejecución PostgreSQL conductual sigue siendo el criterio de aceptación: no debe declararse la etapa completa si ese job no pasa.
+
+La prueba PostgreSQL ahora ejecuta creación/unión, apropiación rechazada, proyección de despliegue, permisos RPC, rechazo durable, recuperación ausente y CAS concurrente en dos sesiones; CI exige que exactamente una confirmación gane.

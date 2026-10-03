@@ -1,84 +1,23 @@
 -- REVIEW ONLY. Future target: Lab szueqtkjclsumoadnien.
+create extension if not exists pgcrypto;
 create schema if not exists live_v2;
-create table live_v2.matches (
-  id uuid primary key, creator_id uuid not null, version bigint not null default 0,
-  phase text not null check (phase in ('preparation','deployment','combat','finished')),
-  turn_serial bigint not null default 0, turn_deadline timestamptz, state jsonb not null,
-  updated_at timestamptz not null default clock_timestamp()
-);
-create table live_v2.members (
-  match_id uuid references live_v2.matches on delete cascade, actor_id uuid not null,
-  slot_id text not null check (slot_id ~ '^[AB][1-3]$'), team text not null check (team in ('A','B')),
-  slot smallint not null check (slot between 1 and 3), primary key(match_id,slot_id), unique(match_id,team,slot),
-  check (slot_id = team || slot::text)
-);
-create table live_v2.commands (
-  match_id uuid references live_v2.matches on delete cascade, command_id uuid not null,
-  actor_id uuid not null, fingerprint text not null, accepted boolean not null,
-  expected_version bigint not null, expected_turn bigint, result jsonb, error_code text,
-  server_time timestamptz not null default clock_timestamp(), state_hash text,
-  primary key(match_id,command_id)
-);
-alter table live_v2.matches enable row level security;
-alter table live_v2.members enable row level security;
-alter table live_v2.commands enable row level security;
+create table live_v2.matches(id uuid primary key,creator_id uuid not null,version bigint not null default 0,phase text not null check(phase in('preparation','deployment','combat','finished')),turn_serial bigint not null default 0,turn_deadline timestamptz,state jsonb not null,updated_at timestamptz not null default clock_timestamp());
+create table live_v2.members(match_id uuid references live_v2.matches on delete cascade,actor_id uuid not null,slot_id text not null check(slot_id~'^[AB][1-3]$'),team text not null,slot smallint not null,primary key(match_id,slot_id),unique(match_id,team,slot),check(slot_id=team||slot::text));
+create table live_v2.commands(match_id uuid references live_v2.matches on delete cascade,command_id uuid not null,actor_id uuid,fingerprint text not null,accepted boolean not null,expected_version bigint not null,expected_turn bigint,result jsonb,error_code text,server_time timestamptz not null default clock_timestamp(),state_hash text,automatic boolean not null default false,primary key(match_id,command_id));
+alter table live_v2.matches enable row level security;alter table live_v2.members enable row level security;alter table live_v2.commands enable row level security;
 
-create or replace function public.live_v2_confirm_command(
-  p_actor uuid, p_match uuid, p_command uuid, p_fingerprint text,
-  p_expected_version bigint, p_expected_turn bigint, p_expected_phase text,
-  p_new_phase text, p_new_turn bigint, p_new_deadline timestamptz,
-  p_new_state jsonb, p_result jsonb, p_state_hash text, p_automatic boolean default false
-) returns jsonb language plpgsql security definer set search_path='' as $$
-declare m live_v2.matches; c live_v2.commands;
-begin
-  if current_setting('request.jwt.claim.role',true) is distinct from 'service_role' then raise exception 'backend_only' using errcode='42501'; end if;
-  select * into m from live_v2.matches where id=p_match for update;
-  if not found then raise exception 'match_not_found' using errcode='P0002'; end if;
-  select * into c from live_v2.commands where match_id=p_match and command_id=p_command;
-  if found then
-    if c.actor_id<>p_actor then raise exception 'private_result' using errcode='42501'; end if;
-    if c.fingerprint<>p_fingerprint then raise exception 'idempotency_conflict' using errcode='P0001'; end if;
-    return c.result;
-  end if;
-  if not p_automatic and not exists(select 1 from live_v2.members where match_id=p_match and actor_id=p_actor) then raise exception 'not_member' using errcode='42501'; end if;
-  if m.version<>p_expected_version or m.phase<>p_expected_phase or (p_expected_turn is not null and m.turn_serial<>p_expected_turn) then raise exception 'stale_conditions' using errcode='40001'; end if;
-  if not p_automatic and m.phase='combat' and p_expected_turn is not null and clock_timestamp()>=m.turn_deadline then raise exception 'turn_expired' using errcode='P0001'; end if;
-  if p_new_phase='combat' and p_new_deadline is null then raise exception 'deadline_required' using errcode='P0001'; end if;
-  if p_new_phase='finished' and p_new_deadline is not null then raise exception 'finished_has_deadline' using errcode='P0001'; end if;
-  update live_v2.matches set state=p_new_state, phase=p_new_phase, turn_serial=p_new_turn,
-    turn_deadline=p_new_deadline, version=version+1, updated_at=clock_timestamp() where id=p_match;
-  insert into live_v2.commands values(p_match,p_command,p_actor,p_fingerprint,true,p_expected_version,p_expected_turn,p_result,null,clock_timestamp(),p_state_hash);
-  return p_result;
-exception when others then
-  if sqlstate not in ('40001','42501') then
-    insert into live_v2.commands(match_id,command_id,actor_id,fingerprint,accepted,expected_version,expected_turn,error_code,state_hash)
-      values(p_match,p_command,p_actor,p_fingerprint,false,p_expected_version,p_expected_turn,sqlerrm,p_state_hash)
-      on conflict(match_id,command_id) do nothing;
-  end if;
-  raise;
-end$$;
-
-create or replace function public.live_v2_backend_match(p_match uuid) returns jsonb language sql security definer set search_path='' as $$ select state from live_v2.matches where id=p_match $$;
-create or replace function public.live_v2_prepare_command(p_actor uuid,p_match uuid,p_command uuid,p_fingerprint text) returns jsonb language plpgsql security definer set search_path='' as $$ declare c live_v2.commands;m live_v2.matches;begin select * into c from live_v2.commands where match_id=p_match and command_id=p_command;if found then if c.actor_id<>p_actor then raise exception 'private_result' using errcode='42501';end if;if c.fingerprint<>p_fingerprint then raise exception 'idempotency_conflict' using errcode='P0001';end if;return jsonb_build_object('status',case when c.accepted then 'confirmed' else 'rejected' end,'result',c.result,'error_code',c.error_code);end if;select * into m from live_v2.matches where id=p_match;if not exists(select 1 from live_v2.members where match_id=p_match and actor_id=p_actor) then raise exception 'not_member' using errcode='42501';end if;return jsonb_build_object('status','new','match',m.state);end$$;
-create or replace function public.live_v2_create_room(p_actor uuid,p_room jsonb) returns jsonb language plpgsql security definer set search_path='' as $$ begin insert into live_v2.matches(id,creator_id,phase,state) values((p_room->>'id')::uuid,p_actor,'preparation',p_room);return p_room;end$$;
-create or replace function public.live_v2_join_room(p_actor uuid,p_match uuid,p_slot text) returns jsonb language plpgsql security definer set search_path='' as $$ declare t text:=left(p_slot,1);n smallint:=substring(p_slot,2)::smallint;begin insert into live_v2.members values(p_match,p_actor,p_slot,t,n);return public.live_v2_snapshot(p_actor,p_match);end$$;
-create or replace function public.live_v2_reject_command(p_actor uuid,p_match uuid,p_command uuid,p_fingerprint text,p_expected_version bigint,p_expected_turn bigint,p_error_code text) returns void language sql security definer set search_path='' as $$ insert into live_v2.commands(match_id,command_id,actor_id,fingerprint,accepted,expected_version,expected_turn,error_code) values(p_match,p_command,p_actor,p_fingerprint,false,p_expected_version,p_expected_turn,p_error_code) on conflict do nothing $$;
-create or replace function public.live_v2_recover_command(p_actor uuid,p_match uuid,p_command uuid) returns jsonb language plpgsql security definer set search_path='' as $$ declare c live_v2.commands; begin select * into c from live_v2.commands where match_id=p_match and command_id=p_command; if not found then return jsonb_build_object('status','not_registered','commandId',p_command); end if; if c.actor_id is distinct from p_actor then raise exception 'private_result' using errcode='42501'; end if; return case when c.accepted then c.result else jsonb_build_object('rejected',true,'error_code',c.error_code) end; end $$;
-create or replace function public.live_v2_snapshot(p_actor uuid,p_match uuid) returns jsonb language plpgsql security definer set search_path='' as $$ begin if not exists(select 1 from live_v2.members where match_id=p_match and actor_id=p_actor) then raise exception 'not_member' using errcode='42501'; end if; return (select state from live_v2.matches where id=p_match); end $$;
-create or replace function public.live_v2_claim_expired(p_limit integer) returns setof live_v2.matches language sql security definer set search_path='' as $$ select * from live_v2.matches where phase='combat' and turn_deadline<=clock_timestamp() order by turn_deadline for update skip locked limit p_limit $$;
-
-revoke all on schema live_v2 from anon,authenticated;
-revoke all on all tables in schema live_v2 from anon,authenticated;
-revoke all on all functions in schema live_v2 from public,anon,authenticated;
-
--- Public RPCs are callable only through the service-role backend.
-revoke execute on function public.live_v2_backend_match(uuid) from public, anon, authenticated;
-revoke execute on function public.live_v2_prepare_command(uuid,uuid,uuid,text) from public, anon, authenticated;
-revoke execute on function public.live_v2_create_room(uuid,jsonb) from public, anon, authenticated;
-revoke execute on function public.live_v2_join_room(uuid,uuid,text) from public, anon, authenticated;
-revoke execute on function public.live_v2_reject_command(uuid,uuid,uuid,text,bigint,bigint,text) from public, anon, authenticated;
-revoke execute on function public.live_v2_recover_command(uuid,uuid,uuid) from public, anon, authenticated;
-revoke execute on function public.live_v2_snapshot(uuid,uuid) from public, anon, authenticated;
-revoke execute on function public.live_v2_claim_expired(integer) from public, anon, authenticated;
-revoke execute on function public.live_v2_confirm_command(uuid,uuid,uuid,text,bigint,bigint,text,text,bigint,timestamptz,jsonb,jsonb,text,boolean) from public, anon, authenticated;
-grant execute on function public.live_v2_backend_match(uuid), public.live_v2_prepare_command(uuid,uuid,uuid,text), public.live_v2_create_room(uuid,jsonb), public.live_v2_join_room(uuid,uuid,text), public.live_v2_reject_command(uuid,uuid,uuid,text,bigint,bigint,text), public.live_v2_recover_command(uuid,uuid,uuid), public.live_v2_snapshot(uuid,uuid), public.live_v2_claim_expired(integer), public.live_v2_confirm_command(uuid,uuid,uuid,text,bigint,bigint,text,text,bigint,timestamptz,jsonb,jsonb,text,boolean) to service_role;
+create function public.live_v2_create_room(p_actor uuid,p_match uuid) returns jsonb language plpgsql security definer set search_path='' as $$declare s jsonb;begin
+ s=jsonb_build_object('id',p_match,'creatorId',p_actor,'phase','preparation','version',0,'turnSerial',0,'turnDeadline',null,'combat',null,'result',null,'diagnostics',jsonb_build_array(),'slots',jsonb_build_object('A1',jsonb_build_object('id','A1','team','A','slot',1,'controllerId',p_actor,'championId',null,'skills',jsonb_build_array(),'ready',false,'position',null,'confirmed',false),'B1',jsonb_build_object('id','B1','team','B','slot',1,'controllerId',null,'championId',null,'skills',jsonb_build_array(),'ready',false,'position',null,'confirmed',false)));
+ insert into live_v2.matches(id,creator_id,phase,state)values(p_match,p_actor,'preparation',s);insert into live_v2.members values(p_match,p_actor,'A1','A',1);return s;end$$;
+create function public.live_v2_join_room(p_actor uuid,p_match uuid,p_slot text) returns jsonb language plpgsql security definer set search_path='' as $$declare m live_v2.matches;begin select * into m from live_v2.matches where id=p_match for update;if not found then raise exception 'match_not_found';end if;if m.phase<>'preparation' then raise exception 'join_closed';end if;if p_slot<>'B1' then raise exception 'slot_unavailable';end if;if exists(select 1 from live_v2.members where match_id=p_match and slot_id=p_slot)then raise exception 'slot_taken';end if;insert into live_v2.members values(p_match,p_actor,'B1','B',1);m.state=jsonb_set(m.state,'{slots,B1,controllerId}',to_jsonb(p_actor));update live_v2.matches set state=m.state where id=p_match;return m.state;end$$;
+create function public.live_v2_project_state(p_state jsonb,p_actor uuid) returns jsonb language sql immutable set search_path='' as $$select case when p_state->>'phase'='deployment' then jsonb_set(p_state,'{slots}',(select jsonb_object_agg(k,case when v->>'controllerId'=p_actor::text then v else jsonb_set(v,'{position}','null'::jsonb) end)from jsonb_each(p_state->'slots')e(k,v)))else p_state end$$;
+create function public.live_v2_snapshot(p_actor uuid,p_match uuid) returns jsonb language plpgsql security definer set search_path='' as $$declare s jsonb;begin if not exists(select 1 from live_v2.members where match_id=p_match and actor_id=p_actor)then raise exception 'not_member' using errcode='42501';end if;select state into s from live_v2.matches where id=p_match;return public.live_v2_project_state(s,p_actor);end$$;
+create function public.live_v2_backend_match(p_match uuid) returns jsonb language sql security definer set search_path='' as $$select state from live_v2.matches where id=p_match$$;
+create function public.live_v2_prepare_command(p_actor uuid,p_match uuid,p_command uuid,p_fingerprint text,p_automatic boolean default false) returns jsonb language plpgsql security definer set search_path='' as $$declare c live_v2.commands;m live_v2.matches;begin select * into c from live_v2.commands where match_id=p_match and command_id=p_command;if found then if not p_automatic and c.actor_id is distinct from p_actor then raise exception 'private_result' using errcode='42501';end if;if c.fingerprint<>p_fingerprint then raise exception 'idempotency_conflict';end if;return jsonb_build_object('status',case when c.accepted then 'confirmed' else 'rejected' end,'commandId',p_command,'result',c.result,'error_code',c.error_code);end if;select * into m from live_v2.matches where id=p_match;if not found then raise exception 'match_not_found';end if;if not p_automatic and not exists(select 1 from live_v2.members where match_id=p_match and actor_id=p_actor)then raise exception 'not_member' using errcode='42501';end if;return jsonb_build_object('status','new','match',m.state);end$$;
+create function public.live_v2_confirm_command(p_actor uuid,p_match uuid,p_command uuid,p_fingerprint text,p_expected_version bigint,p_expected_turn bigint,p_expected_phase text,p_new_phase text,p_new_turn bigint,p_new_deadline timestamptz,p_new_state jsonb,p_result jsonb,p_state_hash text,p_automatic boolean default false) returns jsonb language plpgsql security definer set search_path='' as $$declare m live_v2.matches;c live_v2.commands;begin select * into m from live_v2.matches where id=p_match for update;select * into c from live_v2.commands where match_id=p_match and command_id=p_command;if found then if c.fingerprint<>p_fingerprint then raise exception'idempotency_conflict';end if;return c.result;end if;if not p_automatic and not exists(select 1 from live_v2.members where match_id=p_match and actor_id=p_actor)then raise exception'not_member';end if;if m.version<>p_expected_version or m.phase<>p_expected_phase or(p_expected_turn is not null and m.turn_serial<>p_expected_turn)then raise exception'stale_conditions' using errcode='40001';end if;if not p_automatic and m.phase='combat' and p_expected_turn is not null and clock_timestamp()>=m.turn_deadline then raise exception'turn_expired';end if;if p_automatic and(m.phase<>'combat'or clock_timestamp()<m.turn_deadline)then raise exception'not_expired';end if;update live_v2.matches set state=p_new_state,phase=p_new_phase,turn_serial=p_new_turn,turn_deadline=p_new_deadline,version=version+1,updated_at=clock_timestamp()where id=p_match;insert into live_v2.commands values(p_match,p_command,p_actor,p_fingerprint,true,p_expected_version,p_expected_turn,p_result,null,clock_timestamp(),p_state_hash,p_automatic);return p_result;end$$;
+create function public.live_v2_reject_command(p_actor uuid,p_match uuid,p_command uuid,p_fingerprint text,p_expected_version bigint,p_expected_turn bigint,p_error_code text,p_automatic boolean default false)returns jsonb language plpgsql security definer set search_path='' as $$begin insert into live_v2.commands(match_id,command_id,actor_id,fingerprint,accepted,expected_version,expected_turn,error_code,automatic)values(p_match,p_command,p_actor,p_fingerprint,false,p_expected_version,p_expected_turn,p_error_code,p_automatic)on conflict do nothing;return jsonb_build_object('status','rejected','commandId',p_command,'error_code',p_error_code);end$$;
+create function public.live_v2_recover_command(p_actor uuid,p_match uuid,p_command uuid)returns jsonb language plpgsql security definer set search_path='' as $$declare c live_v2.commands;begin select * into c from live_v2.commands where match_id=p_match and command_id=p_command;if not found then return jsonb_build_object('status','not_registered','commandId',p_command);end if;if c.actor_id is distinct from p_actor then raise exception'private_result' using errcode='42501';end if;return jsonb_build_object('status',case when c.accepted then'confirmed'else'rejected'end,'commandId',p_command,'result',c.result,'error_code',c.error_code);end$$;
+create function public.live_v2_claim_expired(p_limit integer)returns table(match_id uuid,command_id uuid,expected_version bigint,expected_turn bigint)language sql security definer set search_path='' as $$select id,gen_random_uuid(),version,turn_serial from live_v2.matches where phase='combat'and turn_deadline<=clock_timestamp()order by turn_deadline for update skip locked limit p_limit$$;
+revoke all on schema live_v2 from anon,authenticated;revoke all on all tables in schema live_v2 from anon,authenticated;
+revoke execute on function public.live_v2_create_room(uuid,uuid),public.live_v2_join_room(uuid,uuid,text),public.live_v2_project_state(jsonb,uuid),public.live_v2_snapshot(uuid,uuid),public.live_v2_backend_match(uuid),public.live_v2_prepare_command(uuid,uuid,uuid,text,boolean),public.live_v2_confirm_command(uuid,uuid,uuid,text,bigint,bigint,text,text,bigint,timestamptz,jsonb,jsonb,text,boolean),public.live_v2_reject_command(uuid,uuid,uuid,text,bigint,bigint,text,boolean),public.live_v2_recover_command(uuid,uuid,uuid),public.live_v2_claim_expired(integer)from public,anon,authenticated;
+grant execute on function public.live_v2_create_room(uuid,uuid),public.live_v2_join_room(uuid,uuid,text),public.live_v2_project_state(jsonb,uuid),public.live_v2_snapshot(uuid,uuid),public.live_v2_backend_match(uuid),public.live_v2_prepare_command(uuid,uuid,uuid,text,boolean),public.live_v2_confirm_command(uuid,uuid,uuid,text,bigint,bigint,text,text,bigint,timestamptz,jsonb,jsonb,text,boolean),public.live_v2_reject_command(uuid,uuid,uuid,text,bigint,bigint,text,boolean),public.live_v2_recover_command(uuid,uuid,uuid),public.live_v2_claim_expired(integer)to service_role;

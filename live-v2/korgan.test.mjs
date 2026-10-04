@@ -12,16 +12,17 @@ import {createMatch, AuthoritativeService, MemoryRepository} from './server/auth
 const make=(enemy='piplus',enemyPos={x:8,y:5},kPos={x:5,y:5})=>{
   const k=createUnit({championId:'korgan',id:'k',team:'A',slot:1,controllerId:'a',position:kPos});
   k.initiative=99;
-  return initializeCombat({units:[k,createUnit({championId:enemy,id:'e',team:'B',slot:1,controllerId:'b',position:enemyPos)]}).state;
+  return initializeCombat({units:[k,createUnit({championId:enemy,id:'e',team:'B',slot:1,controllerId:'b',position:enemyPos})]}).state;
 };
 const cast=(s,abilityId,extra={})=>useAbility(s,{unitId:'k',abilityId,...extra});
 const cycle=s=>endTurn(endTurn(s,{unitId:'k'}).state,{unitId:'e'}).state;
 const atomic=(s,fn,code)=>{const before=serializeState(s);assert.throws(fn,e=>e.code===code);assert.equal(serializeState(s),before);};
 
 test('Korgan usa stats y seis habilidades del rework congelado',()=>{
- const s=make(),k=s.units[0];
- assert.deepEqual({hp:k.hp,pa:k.pa,pm:k.pm,initiative:k.initiative},{hp:100,pa:6,pm:4,initiative:99});
- assert.deepEqual(['trap_spikes','trap_mine','grenade','shot','hook','hunterstep'].map(id=>Boolean(abilityTargets(s,'k',id)||[])),[true,true,true,true,true,true]);
+ const base=createUnit({championId:'korgan',id:'base',team:'A',slot:1,controllerId:'a',position:{x:1,y:1}});
+ assert.deepEqual({hp:base.hp,pa:base.pa,pm:base.pm,initiative:base.initiative},{hp:100,pa:6,pm:4,initiative:4});
+ const s=make();
+ for(const id of ['trap_spikes','trap_mine','grenade','shot','hook','hunterstep'])assert.doesNotThrow(()=>abilityTargets(s,'k',id));
 });
 
 test('Trampas: colocación LOS/rango, límites por turno, máximo tres y persistencia',()=>{

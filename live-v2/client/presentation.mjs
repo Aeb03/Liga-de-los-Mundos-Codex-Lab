@@ -1,4 +1,4 @@
-import { abilityOverlay } from './ability-overlay.mjs?v=20261004-korgan2';
+import { abilityOverlay } from './ability-overlay.mjs?v=20261004-hougan1';
 import { spriteSource } from './motion.mjs?v=20261004-onod1';
 import { catalog } from './catalog.mjs?v=20261003-layout1';
 import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets, houganDollDestinations } from '../combat-core.mjs?v=20261004-hougan1';

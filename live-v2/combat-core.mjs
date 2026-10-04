@@ -111,11 +111,11 @@ function validateSupportedState(state) {
     const owner=state.units.find(u=>u.id===object.ownerId);
     if (!owner || owner.championId!=='coloso' || object.team!==owner.team || object.id!==`pillar${object.number}` || ids.has(object.id)) fail('INVALID_OBJECT','Identidad o propietario del Pilar inválido');
     if (!inside(object) || !nonNegativeInteger(object.hp) || object.maxHp!==15 || object.hp>15 || object.alive!==(object.hp>0) || !Number.isInteger(object.number) || object.number<1 || object.blocksLOS!==true || !nonNegativeInteger(object.createdByColosoTurn)) fail('INVALID_OBJECT','Pilar inválido');
-    if (!Array.isArray(object.shield) || object.shield.length) fail('INVALID_OBJECT','El escudo de Pilares aún no está habilitado');
+    if (!Array.isArray(object.shield) || object.shield.some(t=>!t||!Number.isInteger(t.amount)||t.amount<=0||!state.units.some(u=>u.id===t.sourceId))) fail('INVALID_OBJECT','Escudo de Pilar inválido');
     if (object.alive && (positions.has(key(object)) || obstacleSet.has(key(object)))) fail('INVALID_POSITION','Pilar en casilla ocupada');
     if(object.alive)positions.add(key(object));ids.add(object.id);
   }
-  for(const owner of state.units)if(state.objects.filter(o=>o.alive&&o.ownerId===owner.id).length>2)fail('INVALID_OBJECT','Máximo dos Pilares activos');
+  for(const owner of state.units)if(state.objects.filter(o=>o.alive&&o.ownerId===owner.id).length>3)fail('INVALID_OBJECT','Máximo tres Pilares activos');
   if (state.nextPillarId!==undefined && (!Number.isInteger(state.nextPillarId) || state.nextPillarId<1 || state.objects.some(o=>o.number>=state.nextPillarId))) fail('INVALID_OBJECT','Secuencia de Pilar inválida');
   if (teams.size !== 2) fail('UNSUPPORTED_FORMAT', 'El estado 1v1 requiere dos equipos distintos');
   for (const unit of state.units) for (const stack of unit.shield) if (!ids.has(stack.sourceId)) fail('INVALID_SHIELD', 'El generador del escudo no existe');
@@ -314,7 +314,7 @@ export function applyDamage(state, { targetId, amount, ignoreShield = false, sou
 }
 
 function expireSourceShields(state, sourceId, events) {
-  for (const target of state.units) {
+  for (const target of entities(state)) {
     const expired = target.shield.filter(s => s.sourceId === sourceId).reduce((sum, s) => sum + s.amount, 0);
     target.shield = target.shield.filter(s => s.sourceId !== sourceId && state.units.some(u => u.id === s.sourceId && u.alive));
     if (expired) events.push({ type: 'shield.expired', sourceId, targetId: target.id, amount: expired });
@@ -392,6 +392,11 @@ export function restoreState(serialized) {
 }
 
 const ABILITIES = Object.freeze({
+  bow: {championId:'arfeli',cost:3,range:4,damage:8,los:true},
+  stonearmor: {championId:'coloso',cost:2,range:3,shield:10,los:true,maxUses:2},
+  absorb: {championId:'coloso',cost:2,range:3,los:true},
+  collapse: {championId:'coloso',cost:3,range:3,los:true},
+  magnetism: {championId:'coloso',cost:3,range:3,los:true},
   sword: {championId:'arfeli',cost:2,range:1,damage:10,maxUses:2},
   daggers: {championId:'arfeli',cost:3,range:1,damage:10,wound:2,maxUses:1},
   shield: {championId:'arfeli',cost:3,range:0,shield:15,maxUses:1},
@@ -415,8 +420,9 @@ export function abilityRangeContains(unit, abilityId, target) {
   const a = ABILITIES[abilityId];
   if (!a) return false;
   const dx = Math.abs(unit.x-target.x), dy = Math.abs(unit.y-target.y);
+  if (abilityId==='stonearmor'&&dx+dy===0)return true;
   if (a.geometry === 'adjacent8') return Math.max(dx,dy) === 1;
-  const radius = abilityId === 'rock' && unit.monolith ? 5 : a.range;
+  const radius = ['rock','collapse','magnetism'].includes(abilityId) && unit.monolith ? 5 : a.range;
   return radius === 0 ? dx+dy === 0 : dx+dy > 0 && dx+dy <= radius;
 }
 export function forcedDirection(source, target, away = true) {
@@ -424,16 +430,37 @@ export function forcedDirection(source, target, away = true) {
   if(Math.abs(dx)>=Math.abs(dy)&&dx!==0)return [sign*Math.sign(dx),0];
   return dy!==0?[0,sign*Math.sign(dy)]:[0,0];
 }
+function ownPillars(state,u){return state.objects.filter(p=>p.alive&&p.ownerId===u.id).sort((a,b)=>a.number-b.number);}
+function distance(a,b){return Math.abs(a.x-b.x)+Math.abs(a.y-b.y);}
+function adjacent8(a,b){return Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y))===1;}
+function quakeOrigin(state,u,target){return adjacent8(u,target)?u:u.monolith?ownPillars(state,u).find(p=>adjacent8(p,target)):null;}
 export function abilityTargets(state,unitId,abilityId){
   validateSupportedState(state);
   const u=unitById(state,unitId),a=ABILITIES[abilityId];
-  if(!a||a.championId!==u.championId||state.phase!=='active'||activeUnit(state).id!==unitId||u.pa<a.cost||(abilityId==='quake'&&u.monolith)||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
+  if(!a||a.championId!==u.championId||state.phase!=='active'||activeUnit(state).id!==unitId||u.pa<a.cost||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
   if(abilityId==='shield')return [u.id];
-  return entities(state).filter(t=>t.alive&&t.team!==u.team&&abilityRangeContains(u,abilityId,t)&&(!a.los||clearAbilityLOS(state,u,t))&&(!a.jump||hammerLanding(state,u,t))).map(t=>t.id);
+  return entities(state).filter(t=>{
+    if(!t.alive)return false;
+    if(abilityId==='quake')return t.team!==u.team&&quakeOrigin(state,u,t);
+    if(abilityId==='stonearmor')return !u.stoneArmorTargetsUsed.includes(t.id)&&(t.kind==='champion'?t.team===u.team:t.ownerId===u.id)&&(t.id===u.id||distance(u,t)<=3&&clearAbilityLOS(state,u,t));
+    if(['absorb','collapse','magnetism'].includes(abilityId))return t.type==='pillar'&&t.ownerId===u.id&&abilityRangeContains(u,abilityId,t)&&clearAbilityLOS(state,u,t)&&(abilityId!=='absorb'||t.createdByColosoTurn!==u.colosoTurnSerial&&u.hp<u.maxHp);
+    return t.team!==u.team&&abilityRangeContains(u,abilityId,t)&&(!a.los||clearAbilityLOS(state,u,t))&&(!a.jump||hammerLanding(state,u,t));
+  }).map(t=>t.id);
+}
+export function collapseCells(pillar,direction){
+  if(!direction||!Number.isInteger(direction.x)||!Number.isInteger(direction.y)||Math.abs(direction.x)+Math.abs(direction.y)!==1)fail('INVALID_DIRECTION','Elegí una dirección cardinal');
+  const {x:dx,y:dy}=direction, cells=[];
+  for(const [band,step,offsets] of [['near',1,[-1,0,1]],['middle',2,[-1,1]],['far',3,[0]]])for(const off of offsets){const p={x:pillar.x+dx*step-dy*off,y:pillar.y+dy*step+dx*off,band};if(inside(p))cells.push(p);}
+  return cells;
+}
+export function magnetismTargets(state,unitId,pillarId){
+  if(!abilityTargets(state,unitId,'magnetism').includes(pillarId))return [];
+  const u=unitById(state,unitId),p=entityById(state,pillarId);
+  return state.units.filter(t=>t.alive&&distance(p,t)>=1&&distance(p,t)<=5&&!(u.monolith&&t.id===u.id)).map(t=>t.id);
 }
 export function swordTargets(state,unitId){return abilityTargets(state,unitId,'sword');}
 
-export function useAbility(state, { unitId, abilityId, targetId }) {
+export function useAbility(state, { unitId, abilityId, targetId, direction, secondaryTargetId }) {
   validateSupportedState(state);
   if (state.phase !== 'active') fail('COMBAT_ENDED', 'El combate ya terminó');
   const unit = unitById(state, unitId);
@@ -441,18 +468,19 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
   if (unit.status.curseDamage > 0) fail('UNSUPPORTED_MECHANIC', 'Maldición está fuera del alcance de esta etapa');
   const ability=ABILITIES[abilityId];
   if (!ability || unit.championId!==ability.championId) fail('UNSUPPORTED_ABILITY','Habilidad no habilitada para este campeón');
-  if (abilityId === 'quake' && unit.monolith) fail('UNSUPPORTED_MECHANIC', 'Sísmico en Monolito y sus réplicas requieren la etapa de Pilares');
   if (unit.pa < ability.cost) fail('INSUFFICIENT_PA', `Se requieren ${ability.cost} PA`);
   if (ability.maxUses && (unit.skillUsesThisTurn[abilityId] ?? 0) >= ability.maxUses) fail('ABILITY_LIMIT','Límite de usos por turno');
   const target = entityById(state, targetId);
-  if(abilityId==='shield'){
-    if(target.id!==unit.id)fail('INVALID_TARGET','Portación de Escudo sólo protege a Arfeli');
-  }else{
-    if(!target.alive||target.team===unit.team)fail('INVALID_TARGET','Elegí un campeón enemigo vivo');
-    if(!abilityRangeContains(unit,abilityId,target))fail('OUT_OF_RANGE','Objetivo fuera del alcance');
+  if(!abilityTargets(state,unitId,abilityId).includes(target.id)){
+    if(['stonearmor','absorb','collapse','magnetism','shield'].includes(abilityId))fail('INVALID_TARGET','Objetivo inválido para esta habilidad');
+    if(!target.alive||target.team===unit.team)fail('INVALID_TARGET','Elegí una entidad enemiga viva');
+    if(abilityId==='quake'?!quakeOrigin(state,unit,target):!abilityRangeContains(unit,abilityId,target))fail('OUT_OF_RANGE','Objetivo fuera del alcance');
     if(ability.los&&!clearAbilityLOS(state,unit,target))fail('BLOCKED_LOS','Línea de visión bloqueada');
-    if(ability.jump&&!hammerLanding(state,unit,target))fail('NO_LANDING','No hay una casilla cardinal libre para aterrizar');
+    if(ability.jump)fail('NO_LANDING','No hay una casilla cardinal libre para aterrizar');
+    fail('INVALID_TARGET','Objetivo inválido');
   }
+  if(abilityId==='collapse')collapseCells(target,direction);
+  if(abilityId==='magnetism'&&!magnetismTargets(state,unitId,targetId).includes(secondaryTargetId))fail('INVALID_TARGET','Combatiente inválido para Magnetismo');
   const next = clone(state), actor = unitById(next, unitId), victim = entityById(next, targetId), events = [];
   const bonus = actor.championId==='arfeli'&&!actor.arfeliMasteryChain.includes(abilityId) ? actor.arfeliMasteryChain.length : 0;
   if(actor.championId==='arfeli'){actor.arfeliMasteryChain = bonus === 0 ? [abilityId] : [...actor.arfeliMasteryChain, abilityId];actor.arfeliMasteryLastBonus = bonus;}
@@ -466,7 +494,9 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
   }
   if (actor.status.poison > 0) damage(actor, actor.status.poison, 'poison.ability');
   if (actor.alive){
-    if(abilityId==='shield'){
+    if(['stonearmor','absorb','collapse','magnetism','quake'].includes(abilityId)){
+      resolveColosoSkill(next,actor,victim,abilityId,{direction,secondaryTargetId},events,damage);
+    }else     if(abilityId==='shield'){
       const amount=ability.shield+bonus;actor.shield.push({amount,sourceId:actor.id});
       events.push({type:'shield.added',unitId:actor.id,sourceId:actor.id,amount});
     }else {
@@ -514,7 +544,7 @@ export function hammerLanding(state, actor, target) {
 }
 export function pillarAvailable(state,unitId) {
   validateSupportedState(state);const u=unitById(state,unitId);
-  if(state.phase!=='active'||activeUnit(state).id!==unitId||u.championId!=='coloso'||u.monolith||!u.colosoCreateWindow||u.colosoPillarCreatedThisTurn||state.objects.filter(o=>o.alive&&o.ownerId===u.id).length>=2)return [];
+  if(state.phase!=='active'||activeUnit(state).id!==unitId||u.championId!=='coloso'||!u.colosoCreateWindow||u.colosoPillarCreatedThisTurn||state.objects.filter(o=>o.alive&&o.ownerId===u.id).length>=(u.monolith?3:2))return [];
   const occupied=occupiedKeys(state,unitId),cells=[];
   for(let y=0;y<12;y++)for(let x=0;x<12;x++){const p={x,y},d=Math.abs(u.x-x)+Math.abs(u.y-y);if(d>0&&d<=5&&!occupied.has(key(p))&&!state.board.obstacles.includes(key(p))&&clearAbilityLOS(state,u,p))cells.push(p);}
   return cells;
@@ -532,7 +562,7 @@ export function createPillar(state,{unitId,position}) {
 export function previewAbility(state, command) {
   const resolved = useAbility(state, command);
   return {
-    effect: [{x:entityById(state,command.targetId).x,y:entityById(state,command.targetId).y}],
+    effect: command.abilityId==='collapse'?collapseCells(entityById(state,command.targetId),command.direction):[{x:entityById(state,command.targetId).x,y:entityById(state,command.targetId).y}],
     moves: resolved.events.filter(e=>e.type==='unit.moved'),
     blocked: resolved.events.filter(e=>e.type==='movement.blocked'),
     damage: resolved.events.filter(e=>e.type==='damage.applied'),
@@ -542,9 +572,72 @@ export function previewAbility(state, command) {
 
 export function executeCommand(state, command) {
   if (!command || typeof command.type !== 'string') fail('INVALID_COMMAND', 'Comando inválido');
+  if (command.type === 'colosoAction') return colosoAction(state,command);
   if (command.type === 'createPillar') return createPillar(state,command);
   if (command.type === 'ability') return useAbility(state, command);
   if (command.type === 'move') return resolvePath(state, command.unitId, command.path);
   if (command.type === 'endTurn') return endTurn(state, { unitId: command.unitId });
   fail('UNSUPPORTED_COMMAND', `Comando fuera de alcance: ${command.type}`);
+}
+
+function consumePillar(p,events,source){p.hp=0;p.alive=false;p.shield=[];events.push({type:'object.destroyed',objectId:p.id,source});}
+function pushOrPull(state,target,source,steps,away,collisionExtra,events,damage,label){
+  if(target.kind!=='champion'||!target.alive)return;
+  const [dx,dy]=forcedDirection(source,target,away);
+  for(let i=0;i<steps&&target.alive;i++){
+    const from={x:target.x,y:target.y},dest={x:target.x+dx,y:target.y+dy};
+    const blocker=entities(state).find(e=>e.alive&&e.id!==target.id&&key(e)===key(dest));
+    if(!inside(dest)||state.board.obstacles.includes(key(dest))||blocker){
+      const amount=2*(steps-i)+collisionExtra;
+      events.push({type:'movement.blocked',unitId:target.id,from,destination:dest,blockerId:blocker?.id??null,source:label});
+      damage(target,amount,`collision.${label}`);if(blocker)damage(blocker,Math.floor(amount/2),`collision.${label}`);break;
+    }
+    target.x=dest.x;target.y=dest.y;
+    events.push({type:'unit.moved',unitId:target.id,path:[from,dest],cost:0,remainingPm:target.pm,forced:true,source:label});
+    if(target.status.wound)damage(target,target.status.wound,'wound.forced');
+  }
+}
+function resolveColosoSkill(state,u,target,id,context,events,damage){
+  if(id==='stonearmor'){
+    u.stoneArmorTargetsUsed.push(target.id);target.shield.push({amount:10,sourceId:u.id});events.push({type:'shield.added',unitId:target.id,sourceId:u.id,amount:10});
+  }else if(id==='absorb'){
+    consumePillar(target,events,id);const amount=Math.min(15,u.maxHp-u.hp);u.hp+=amount;events.push({type:'unit.healed',unitId:u.id,amount});
+  }else if(id==='collapse'){
+    const hp=target.hp,cells=collapseCells(target,context.direction);consumePillar(target,events,id);
+    for(const cell of cells){const t=entities(state).find(e=>e.alive&&e.team!==u.team&&key(e)===key(cell));if(t)damage(t,Math.max(3,hp-(cell.band==='near'?6:cell.band==='middle'?3:0)),'ability.collapse');}
+  }else if(id==='magnetism'){
+    pushOrPull(state,entityById(state,context.secondaryTargetId),target,2,false,0,events,damage,'magnetism');
+  }else if(id==='quake'){
+    const origin=quakeOrigin(state,u,target),used=new Set(origin.type==='pillar'?[origin.id]:[]);
+    damage(target,origin.type==='pillar'?8:10,'ability.quake');
+    pushOrPull(state,target,origin,1,true,2,events,damage,'quake');
+    if(u.monolith&&target.kind==='champion')while(target.alive&&u.alive){
+      const pillar=ownPillars(state,u).find(p=>!used.has(p.id)&&adjacent(p,target));if(!pillar)break;used.add(pillar.id);
+      events.push({type:'pillar.replica',objectId:pillar.id,targetId:target.id});damage(target,6,'ability.replica');
+      pushOrPull(state,target,pillar,1,true,2,events,damage,'replica');
+    }
+  }
+}
+export function colosoActionTargets(state,unitId,action){
+  validateSupportedState(state);const u=unitById(state,unitId);
+  if(state.phase!=='active'||activeUnit(state).id!==u.id||u.championId!=='coloso')return [];
+  if(action==='exit')return u.monolith?[u.id]:[];
+  if(action==='fusion')return !u.monolith&&!u.exitedMonolithThisTurn&&u.pa>=3?ownPillars(state,u).filter(p=>adjacent8(u,p)).map(p=>p.id):[];
+  if(action==='recycle')return u.monolith&&!u.colosoRecycleUsed?ownPillars(state,u).map(p=>p.id):[];
+  return [];
+}
+export function colosoAction(state,{unitId,action,targetId}){
+  if(!colosoActionTargets(state,unitId,action).includes(targetId))fail('INVALID_TARGET','Acción propia de Coloso no disponible');
+  const next=clone(state),u=unitById(next,unitId),target=entityById(next,targetId),events=[];u.colosoCreateWindow=false;
+  if(action==='fusion'){
+    u.pa-=3;consumePillar(target,events,action);u.monolithStoredPm=u.pm;u.pm=0;u.monolith=true;
+  }else if(action==='exit'){
+    u.monolith=false;u.exitedMonolithThisTurn=true;u.pm=u.monolithStoredPm;
+  }else{
+    consumePillar(target,events,action);u.colosoRecycleUsed=true;
+    const damaged=ownPillars(next,u).filter(p=>p.hp<15).sort((a,b)=>a.hp-b.hp||a.number-b.number)[0];
+    if(damaged){const amount=15-damaged.hp;damaged.hp=15;events.push({type:'object.healed',objectId:damaged.id,amount});}
+    else{u.shield.push({amount:6,sourceId:u.id});events.push({type:'shield.added',unitId:u.id,sourceId:u.id,amount:6});}
+  }
+  events.push({type:'coloso.action',unitId,action,targetId,monolith:u.monolith});return {state:next,events};
 }

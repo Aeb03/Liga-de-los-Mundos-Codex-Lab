@@ -15,7 +15,7 @@ test('illegal targets, diagonals, resources, champion and inactive unit fail ato
  let s=make();assert.deepEqual(swordTargets(s,'a'),['b']);
  rejects(s,{unitId:'a',abilityId:'sword',targetId:'a'},'INVALID_TARGET');
  rejects(s,{unitId:'b',abilityId:'sword',targetId:'a'},'NOT_ACTIVE_UNIT');
- rejects(s,{unitId:'a',abilityId:'bow',targetId:'b'},'UNSUPPORTED_ABILITY');
+ rejects(s,{unitId:'a',abilityId:'impulse',targetId:'b'},'UNSUPPORTED_ABILITY');
  s.units[1].y=3;assert.deepEqual(swordTargets(s,'a'),[]);rejects(s,{unitId:'a',abilityId:'sword',targetId:'b'},'OUT_OF_RANGE');
  s=make();s.units[0].pa=1;rejects(s,{unitId:'a',abilityId:'sword',targetId:'b'},'INSUFFICIENT_PA');
 });

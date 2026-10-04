@@ -18,15 +18,15 @@ test('respuesta perdida: recupera aceptación sin repetir el movimiento ni retro
   const game=new LiveSession({api,storage:saved,clock:()=>1000});
   await game.attach('actor',state());game.preview={path:[1,2]};
   assert.equal(await game.send('move',{path:[1,2]}),false);
-  assert.equal(game.online,false);assert.equal(game.preview,null);assert(saved.getItem('live-v2-lab-pending:actor:room'));
+  assert.equal(game.online,false);assert.equal(game.preview,null);assert(saved.getItem('live-v2-lab2-pending:actor:room'));
   recovered=true;await game.refresh();
   assert.equal(sends,1);assert.equal(game.state.version,3);assert.equal(game.sync.pendingCommand(),null);
-  assert.equal(saved.getItem('live-v2-lab-pending:actor:room'),null);
+  assert.equal(saved.getItem('live-v2-lab2-pending:actor:room'),null);
 });
 
 test('recarga: recupera y reenvía exactamente el ID y la versión originales si no se registró',async()=>{
   const saved=storage(), original={id:'original',matchId:'room',type:'move',expectedVersion:0,expectedTurn:1,path:[{x:0,y:0},{x:1,y:0}]};
-  saved.setItem('live-v2-lab-pending:actor:room',JSON.stringify(original));let received;
+  saved.setItem('live-v2-lab2-pending:actor:room',JSON.stringify(original));let received;
   const api=async(op,args)=>({data:op==='snapshot'?state(2):op==='recover'?null:(received=args.command,envelope(args.command,3))});
   const game=new LiveSession({api,storage:saved});await game.attach('actor',state(2));
   assert.deepEqual(received,original);assert.equal(game.state.version,3);assert.equal(game.sync.pendingCommand(),null);

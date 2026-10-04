@@ -54,7 +54,7 @@ export function createUnit({ championId, id, team, slot, controllerId, position 
     markedTargetId: null, piplusMarkUsedThisTurn: false, piplusMarkBlockedThisTurn: false, piplusFixationTargetId: null, piplusInterferenceTargets: [],
     onodTurnSerial: 0, onodGerminateUses: 0, onodWitherUsedThisTurn: false, onodGerminateBlockedThisTurn: false, onodReabsorptionUsedThisTurn: false,
     korganTurnSerial: 0, korganDisarmUsedThisTurn: false,
-    houganPainTransfer: null, houganDance: null
+    linkedTargetId: null, houganPainTransfer: null, houganDance: null
   };
 }
 
@@ -106,18 +106,30 @@ function validateSupportedState(state) {
     if (unit.piplusFixationTargetId !== null && typeof unit.piplusFixationTargetId !== 'string') fail('INVALID_CHAMPION_STATE', 'Objetivo de fijación inválido');
     ids.add(unit.id); positions.add(key(unit)); teams.add(unit.team); teamSlots.add(teamSlot);
   }
-  for(const unit of state.units)if(unit.markedTargetId!=null&&!state.units.some(t=>t.id===unit.markedTargetId&&t.team!==unit.team&&unit.championId==='piplus'))fail('INVALID_CHAMPION_STATE','Marca inválida');
+  for(const unit of state.units){
+    if(unit.markedTargetId!=null&&!state.units.some(t=>t.id===unit.markedTargetId&&t.team!==unit.team&&unit.championId==='piplus'))fail('INVALID_CHAMPION_STATE','Marca inválida');
+    if(unit.linkedTargetId!=null&&(!state.units.some(t=>t.id===unit.linkedTargetId&&t.id!==unit.id)||unit.championId!=='houngan'))fail('INVALID_CHAMPION_STATE','Vínculo Vudú inválido');
+  }
   for (const object of state.objects) {
-    if (!object || object.kind!=='object' || !['pillar','sprout'].includes(object.type)) fail('UNSUPPORTED_MECHANIC','Sólo se admiten Pilares y Brotes');
-    const owner=state.units.find(u=>u.id===object.ownerId),sprout=object.type==='sprout',max=sprout?12:15;
-    if (!owner || owner.championId!==(sprout?'onod':'coloso') || object.team!==owner.team || object.id!==`${object.type}${object.number}` || ids.has(object.id)) fail('INVALID_OBJECT','Identidad o propietario del objeto inválido');
-    if (!inside(object) || !nonNegativeInteger(object.hp) || object.maxHp!==max || object.hp>max || object.alive!==(object.hp>0) || !Number.isInteger(object.number) || object.number<1 || object.blocksLOS!==!sprout || !nonNegativeInteger(object[sprout?'createdByOnodTurn':'createdByColosoTurn'])) fail('INVALID_OBJECT','Objeto inválido');
+    if (!object || object.kind!=='object' || !['pillar','sprout','doll'].includes(object.type)) fail('UNSUPPORTED_MECHANIC','Objeto táctico no soportado');
+    const owner=state.units.find(u=>u.id===object.ownerId),sprout=object.type==='sprout',doll=object.type==='doll';
+    const expectedChampion=doll?'houngan':sprout?'onod':'coloso';
+    const expectedMax=doll?(object.linkMode==='ally'?20:object.linkMode==='enemy'?16:-1):sprout?12:15;
+    if (!owner || owner.championId!==expectedChampion || object.team!==owner.team || object.id!==`${object.type}${object.number}` || ids.has(object.id)) fail('INVALID_OBJECT','Identidad o propietario del objeto inválido');
+    if (!inside(object) || !nonNegativeInteger(object.hp) || object.maxHp!==expectedMax || object.hp>expectedMax || object.alive!==(object.hp>0) || !Number.isInteger(object.number) || object.number<1 || object.blocksLOS!==(doll||sprout?false:true)) fail('INVALID_OBJECT','Objeto inválido');
+    if(doll){
+      const linked=state.units.find(u=>u.id===object.linkedTargetId&&u.id!==owner.id);
+      if(!linked||!['ally','enemy'].includes(object.linkMode)||(object.linkMode==='ally')!==(linked.team===owner.team)||object.movePm!==3)fail('INVALID_OBJECT','Muñeco Vudú inválido');
+    }else if(!nonNegativeInteger(object[sprout?'createdByOnodTurn':'createdByColosoTurn']))fail('INVALID_OBJECT','Secuencia temporal del objeto inválida');
     if (!Array.isArray(object.shield) || object.shield.some(t=>!t||!Number.isInteger(t.amount)||t.amount<=0||!state.units.some(u=>u.id===t.sourceId))) fail('INVALID_OBJECT','Escudo de objeto inválido');
     if (object.alive && (positions.has(key(object)) || obstacleSet.has(key(object)))) fail('INVALID_POSITION','Objeto en casilla ocupada');
     if(object.alive)positions.add(key(object));ids.add(object.id);
   }
-  for(const owner of state.units)if(state.objects.filter(o=>o.alive&&o.ownerId===owner.id).length>3)fail('INVALID_OBJECT','Máximo tres objetos propios activos');
-  for(const [field,type] of [['nextPillarId','pillar'],['nextSproutId','sprout']])if(state[field]!==undefined&&(!Number.isInteger(state[field])||state[field]<1||state.objects.some(o=>o.type===type&&o.number>=state[field])))fail('INVALID_OBJECT','Secuencia de objeto inválida');
+  for(const owner of state.units){
+    if(state.objects.filter(o=>o.alive&&o.ownerId===owner.id&&o.type!=='doll').length>3)fail('INVALID_OBJECT','Máximo tres objetos propios activos');
+    if(state.objects.filter(o=>o.alive&&o.ownerId===owner.id&&o.type==='doll').length>1)fail('INVALID_OBJECT','Hougan sólo puede mantener un Muñeco Vudú');
+  }
+  for(const [field,type] of [['nextPillarId','pillar'],['nextSproutId','sprout'],['nextDollId','doll']])if(state[field]!==undefined&&(!Number.isInteger(state[field])||state[field]<1||state.objects.some(o=>o.type===type&&o.number>=state[field])))fail('INVALID_OBJECT','Secuencia de objeto inválida');
   const activeTrapCells=new Set();
   for(const trap of state.traps){
     const owner=state.units.find(u=>u.id===trap?.ownerId);
@@ -172,7 +184,7 @@ export function initializeCombat({ units, obstacles = [], random, clock }) {
   }
   let state = {
     schemaVersion: CORE_VERSION, board: { width: BOARD_SIZE, height: BOARD_SIZE, obstacles: obstacleKeys.sort() },
-    units: copy, objects: [], nextPillarId: 1, nextSproutId: 1, traps: [], nextTrapId: 1, summons: [], order: sorted.map(u => u.id), turnIndex: 0,
+    units: copy, objects: [], nextPillarId: 1, nextSproutId: 1, nextDollId: 1, traps: [], nextTrapId: 1, summons: [], order: sorted.map(u => u.id), turnIndex: 0,
     round: 1, phase: 'active', winnerTeam: null, tieBreak,
     audit: { initializedAt: clock ?? null }
   };
@@ -318,9 +330,8 @@ export function applyDamage(state, { targetId, amount, ignoreShield = false, sou
   if (!Number.isInteger(amount) || amount < 0) fail('INVALID_DAMAGE', 'El daño debe ser un entero no negativo');
   const next = clone(state), target = entityById(next, targetId);
   if (!target.alive) fail('UNIT_DEAD', 'No se puede dañar una unidad muerta');
-  const result = applyDamageToUnit(target, amount, ignoreShield);
-  const events = [{ type: 'damage.applied', targetId, amount, absorbed: result.absorbed, hpLost: result.hpLost, ignoreShield, source }];
-  if (result.killed) events.push(target.kind==='object'?{type:'object.destroyed',objectId:targetId}:{ type: 'unit.died', unitId: targetId });
+  const events = [];
+  const result = damageWithDollEffect(next,target,amount,ignoreShield,events,source);
   finishIfNeeded(next, events);
   return { state: next, events };
 }
@@ -404,6 +415,7 @@ export function restoreState(serialized) {
 }
 
 const ABILITIES = Object.freeze({
+  needle:{championId:'houngan',cost:2,range:4,los:true},
   trap_spikes:{championId:'korgan',cost:2,range:3,los:true,maxUses:2,ground:true},
   trap_mine:{championId:'korgan',cost:3,range:3,los:true,maxUses:1,ground:true},
   grenade:{championId:'korgan',cost:3,range:3,los:true,ground:true},
@@ -475,6 +487,7 @@ export function abilityTargets(state,unitId,abilityId){
     if(abilityId==='shot')return entities(state).filter(t=>t.alive&&t.team!==u.team&&(t.x===u.x||t.y===u.y)&&distance(u,t)>=1&&distance(u,t)<=5&&clearAbilityLOS(state,u,t)).map(t=>t.id);
     if(abilityId==='hook')return state.units.filter(t=>t.alive&&t.team!==u.team&&distance(u,t)>=1&&distance(u,t)<=3&&clearAbilityLOS(state,u,t)).map(t=>t.id);
   }
+  if(u.championId==='houngan'&&abilityId==='needle')return state.units.filter(t=>t.alive&&t.id!==u.id&&distance(u,t)<=4&&clearAbilityLOS(state,u,t)).map(t=>t.id);
   if(abilityId==='shield')return [u.id];
   if(['impulse','vines'].includes(abilityId))return [];
   if(abilityId==='sap')return state.units.filter(t=>t.alive&&t.team===u.team&&(t.id===u.id||abilityRangeContains(u,abilityId,t)&&clearAbilityLOS(state,u,t))).map(t=>t.id);
@@ -516,6 +529,7 @@ export function useAbility(state, { unitId, abilityId, targetId, direction, seco
   if(abilityId==='impulse')return usePiplusImpulse(state,unit,position);
   if(unit.championId==='onod')return useOnodAbility(state,unit,abilityId,targetId,position);
   if(unit.championId==='korgan')return useKorganAbility(state,unit,abilityId,targetId,position,pullDistance);
+  if(unit.championId==='houngan')return useHouganAbility(state,unit,abilityId,targetId);
   const target = entityById(state, targetId);
   if(!abilityTargets(state,unitId,abilityId).includes(target.id)){
     if(['stonearmor','absorb','collapse','magnetism','shield','interference','rupture','fixation'].includes(abilityId))fail('INVALID_TARGET','Objetivo inválido para esta habilidad');
@@ -534,10 +548,8 @@ export function useAbility(state, { unitId, abilityId, targetId, direction, seco
   actor.pa -= ability.cost; actor.skillUsesThisTurn[abilityId] = (actor.skillUsesThisTurn[abilityId] ?? 0) + 1;
   events.push({ type: 'ability.used', unitId, abilityId, targetId, cost: ability.cost, masteryBonus: bonus });
   function damage(targetUnit, amount, source) {
-    const result = applyDamageToUnit(targetUnit, amount, false);
-    events.push({ type: 'damage.applied', targetId: targetUnit.id, amount, ...result, ignoreShield: false, source });
+    const result = damageWithDollEffect(next,targetUnit,amount,false,events,source);
     if(source==='poison.ability')poisonSymbiosis(next,targetUnit,result.hpLost,events);
-    if (result.killed) events.push(targetUnit.kind==='object'?{type:'object.destroyed',objectId:targetUnit.id}:{ type: 'unit.died', unitId: targetUnit.id });
   }
   if (actor.status.poison > 0) damage(actor, actor.status.poison, 'poison.ability');
   if (actor.alive){
@@ -623,6 +635,7 @@ export function previewAbility(state, command) {
 
 export function executeCommand(state, command) {
   if (!command || typeof command.type !== 'string') fail('INVALID_COMMAND', 'Comando inválido');
+  if (command.type === 'houganAction') return houganAction(state,command);
   if (command.type === 'korganAction') return korganAction(state,command);
   if (command.type === 'onodAction') return onodAction(state,command);
   if (command.type === 'piplusMark') return markPiplus(state,command);
@@ -813,7 +826,7 @@ function useKorganAbility(state,unit,id,targetId,position,pullDistance){
   if(['shot','hook'].includes(id)&&!abilityTargets(state,unit.id,id).includes(targetId))fail('INVALID_TARGET','Objetivo inválido para Korgan');
   if(id==='hook'&&![1,2].includes(pullDistance))fail('INVALID_DISTANCE','Gancho requiere elegir atracción 1 o 2');
   const next=clone(state),u=unitById(next,unit.id),events=[];
-  const damage=(t,amount,source)=>{const result=applyDamageToUnit(t,amount,false);events.push({type:'damage.applied',targetId:t.id,amount,...result,ignoreShield:false,source});if(source==='poison.ability')poisonSymbiosis(next,t,result.hpLost,events);if(result.killed)events.push(t.kind==='object'?{type:'object.destroyed',objectId:t.id}:{type:'unit.died',unitId:t.id});};
+  const damage=(t,amount,source)=>{const result=damageWithDollEffect(next,t,amount,false,events,source);if(source==='poison.ability')poisonSymbiosis(next,t,result.hpLost,events);};
   u.pa-=a.cost;u.skillUsesThisTurn[id]=(u.skillUsesThisTurn[id]??0)+1;events.push({type:'ability.used',unitId:u.id,abilityId:id,cost:a.cost,...(targetId?{targetId}:{}),...(position?{position:clone(position)}:{}),...(pullDistance?{distance:pullDistance}:{})});
   if(u.status.poison)damage(u,u.status.poison,'poison.ability');
   if(!u.alive){finishIfNeeded(next,events);return {state:next,events};}
@@ -832,6 +845,62 @@ function useKorganAbility(state,unit,id,targetId,position,pullDistance){
     for(let i=0;i<steps&&u.alive;i++){u.x+=dx;u.y+=dy;path.push({x:u.x,y:u.y});triggerKorganTraps(next,u,events,'hunterstep');if(u.alive&&u.status.wound)damage(u,u.status.wound,'wound.hunterstep');}
     events.push({type:'unit.moved',unitId:u.id,path,kind:'dash',cost:0,remainingPm:u.pm,source:'ability.hunterstep'});
   }
+  finishIfNeeded(next,events);return {state:next,events};
+}
+
+
+function linkedTarget(state,u){return u.linkedTargetId?state.units.find(t=>t.id===u.linkedTargetId&&t.alive)??null:null;}
+function ownedDoll(state,u){return state.objects.find(o=>o.alive&&o.type==='doll'&&o.ownerId===u.id)??null;}
+function dollAssociationActive(state,doll){
+  if(!doll?.alive||doll.type!=='doll')return false;
+  const owner=state.units.find(u=>u.id===doll.ownerId),target=state.units.find(u=>u.id===doll.linkedTargetId);
+  return !!(owner?.alive&&owner.championId==='houngan'&&target?.alive&&owner.linkedTargetId===doll.linkedTargetId);
+}
+function applyDollEffect(state,doll,realLost,events){
+  if(realLost<=0||!dollAssociationActive(state,doll))return;
+  const target=state.units.find(u=>u.id===doll.linkedTargetId);if(!target?.alive)return;
+  const effect=Math.ceil(realLost/2);
+  if(doll.linkMode==='enemy'){
+    const result=applyDamageToUnit(target,effect,false);
+    events.push({type:'damage.applied',targetId:target.id,amount:effect,...result,ignoreShield:false,source:'doll.enemy'});
+    if(result.killed)events.push({type:'unit.died',unitId:target.id});
+  }else{
+    healEntity(target,effect,events,'doll.ally');
+  }
+}
+function damageWithDollEffect(state,target,amount,ignoreShield,events,source){
+  const result=applyDamageToUnit(target,amount,ignoreShield);
+  events.push({type:'damage.applied',targetId:target.id,amount,...result,ignoreShield,source});
+  if(target.type==='doll'&&result.hpLost>0&&target.alive)applyDollEffect(state,target,result.hpLost,events);
+  if(result.killed)events.push(target.kind==='object'?{type:'object.destroyed',objectId:target.id}:{type:'unit.died',unitId:target.id});
+  return result;
+}
+export function houganDollDestinations(state,unitId){
+  validateSupportedState(state);const u=unitById(state,unitId),target=linkedTarget(state,u);
+  if(state.phase!=='active'||activeUnit(state).id!==u.id||u.championId!=='houngan'||u.pa<2||!target)return [];
+  const occupied=occupiedKeys(state,u.id);occupied.add(key(u));const out=[];
+  for(let y=0;y<BOARD_SIZE;y++)for(let x=0;x<BOARD_SIZE;x++){const p={x,y},d=distance(u,p);if(d>=1&&d<=3&&!occupied.has(key(p))&&!state.board.obstacles.includes(key(p))&&clearAbilityLOS(state,u,p))out.push(p);}
+  return out;
+}
+export function houganAction(state,{unitId,action,position}){
+  if(action!=='doll'||!houganDollDestinations(state,unitId).some(p=>p.x===position?.x&&p.y===position?.y))fail('HOUGAN_ACTION_UNAVAILABLE','Muñeco Vudú no disponible');
+  const next=clone(state),u=unitById(next,unitId),target=linkedTarget(next,u),events=[];
+  const old=ownedDoll(next,u);if(old){old.hp=0;old.alive=false;old.shield=[];events.push({type:'object.destroyed',objectId:old.id,source:'hougan.doll.replace'});}
+  let number=next.nextDollId??Math.max(0,...next.objects.filter(o=>o.type==='doll').map(o=>o.number))+1;
+  while(entities(next).some(e=>e.id===`doll${number}`))number++;next.nextDollId=number+1;u.pa-=2;
+  const mode=target.team===u.team?'ally':'enemy',maxHp=mode==='ally'?20:16;
+  const object={id:`doll${number}`,number,type:'doll',kind:'object',ownerId:u.id,team:u.team,x:position.x,y:position.y,hp:maxHp,maxHp,alive:true,shield:[],blocksLOS:false,linkedTargetId:target.id,linkMode:mode,movePm:3};
+  next.objects.push(object);events.push({type:'object.created',object:clone(object),unitId,cost:2});
+  return {state:next,events};
+}
+function useHouganAbility(state,unit,id,targetId){
+  if(id!=='needle'||!abilityTargets(state,unit.id,id).includes(targetId))fail('INVALID_TARGET','Objetivo inválido para Aguja Vudú');
+  const next=clone(state),u=unitById(next,unit.id),target=unitById(next,targetId),events=[];
+  u.pa-=ABILITIES[id].cost;u.skillUsesThisTurn[id]=(u.skillUsesThisTurn[id]??0)+1;events.push({type:'ability.used',unitId:u.id,abilityId:id,cost:ABILITIES[id].cost,targetId});
+  if(u.status.poison){const result=damageWithDollEffect(next,u,u.status.poison,false,events,'poison.ability');poisonSymbiosis(next,u,result.hpLost,events);}
+  if(!u.alive){finishIfNeeded(next,events);return {state:next,events};}
+  if(target.team===u.team){healEntity(target,6,events,'ability.needle');u.linkedTargetId=target.id;events.push({type:'link.changed',unitId:u.id,targetId:target.id,mode:'ally'});}
+  else{const result=damageWithDollEffect(next,target,6,false,events,'ability.needle');if(!result.killed){u.linkedTargetId=target.id;events.push({type:'link.changed',unitId:u.id,targetId:target.id,mode:'enemy'});}}
   finishIfNeeded(next,events);return {state:next,events};
 }
 
@@ -885,7 +954,7 @@ function useOnodAbility(state,unit,id,targetId,position){
   const next=clone(state),u=unitById(next,unit.id),target=targetId?entityById(next,targetId):null,events=[];
   u.pa-=ABILITIES[id].cost;u.skillUsesThisTurn[id]=(u.skillUsesThisTurn[id]??0)+1;
   events.push({type:'ability.used',unitId:u.id,abilityId:id,cost:ABILITIES[id].cost,...(targetId?{targetId}:{}),...(position?{position:clone(position)}:{})});
-  const damage=(t,amount,source)=>{const result=applyDamageToUnit(t,amount,false);events.push({type:'damage.applied',targetId:t.id,amount,...result,ignoreShield:false,source});if(source==='poison.ability')poisonSymbiosis(next,t,result.hpLost,events);if(result.killed)events.push(t.kind==='object'?{type:'object.destroyed',objectId:t.id}:{type:'unit.died',unitId:t.id});};
+  const damage=(t,amount,source)=>{const result=damageWithDollEffect(next,t,amount,false,events,source);if(source==='poison.ability')poisonSymbiosis(next,t,result.hpLost,events);};
   if(u.status.poison)damage(u,u.status.poison,'poison.ability');
   if(!u.alive){finishIfNeeded(next,events);return {state:next,events};}
   const poison=t=>{if(t.alive&&t.kind==='champion'){t.status.poison=Math.min(6,t.status.poison+1);events.push({type:'status.applied',targetId:t.id,status:'poison',value:t.status.poison});}};

@@ -384,3 +384,61 @@ test('authority forwards cone direction and secondary target atomically, includi
  await assert.rejects(()=>x.svc.command('u2',cmd('cone-missing-secondary','ability',out.version,args)),e=>e.code==='INVALID_TARGET');
  const collapse=cmd('cone-collapse','ability',out.version,{...args,abilityId:'collapse',direction:{x:1,y:0}});out=await x.svc.command('u2',collapse);assert.equal(out.state.combat.units[0].hp,91);assert.equal(out.state.combat.objects[0].alive,false);assert.deepEqual(await x.svc.command('u2',collapse),out);assert.deepEqual((await x.svc.snapshot('u1','m')).combat,out.state.combat);
 });
+
+async function readyPiplus() {
+  const x = await ready();
+  const m = await x.repo.get('m');
+  m.slots.A1.championId = 'piplus';
+  m.slots.A1.skills = ['precise', 'vector', 'impulse', 'fixation'];
+  await x.repo.save(m, m.version);
+  await x.svc.command('u1', cmd('piplus-start', 'startCombat', x.v));
+  const live = await x.repo.get('m');
+  Object.assign(live.combat.units[0], {x:5, y:5});
+  Object.assign(live.combat.units[1], {x:8, y:5});
+  await x.repo.save(live, live.version);
+  return x;
+}
+
+test('Piplus Marca authoritative: owner, version, turn, deadline, atomic rejection and recovery', async () => {
+  const x = await readyPiplus(), m = await x.repo.get('m');
+  const mark = cmd('piplus-mark', 'piplusMark', m.version, {slotId:'A1', expectedTurn:m.turnSerial, targetId:'B1'});
+  await assert.rejects(() => x.svc.command('u2', mark), e => e.code === 'FORBIDDEN');
+  const out = await x.svc.command('u1', mark);
+  assert.equal(out.state.combat.units[0].markedTargetId, 'B1');
+  assert.equal(out.state.combat.units[1].status.markedBy, 'A1');
+  assert.equal(out.state.combat.units[0].pa, 6);
+  assert.deepEqual(await x.svc.command('u1', mark), out);
+  assert.deepEqual((await x.svc.snapshot('u2', 'm')).combat, out.state.combat);
+  await assert.rejects(() => x.svc.command('u1', {...mark, id:'piplus-stale'}), e => e.code === 'VERSION_CONFLICT');
+  await assert.rejects(() => x.svc.command('u1', {...mark, id:'piplus-old-turn', expectedVersion:out.version, expectedTurn:99}), e => e.code === 'TURN_CONFLICT');
+  await assert.rejects(() => x.svc.command('u1', {...mark, id:'piplus-repeat', expectedVersion:out.version}), e => e.code === 'MARK_UNAVAILABLE');
+  assert.deepEqual((await x.svc.snapshot('u1', 'm')).combat, out.state.combat);
+  x.now = out.state.turnDeadline;
+  await assert.rejects(() => x.svc.command('u1', {...mark, id:'piplus-late', expectedVersion:out.version}), e => e.code === 'TURN_EXPIRED');
+});
+
+test('Piplus selected skills: fixation, marked damage, exact dash and idempotent equal snapshots', async () => {
+  const x = await readyPiplus(); let m = await x.repo.get('m');
+  let out = await x.svc.command('u1', cmd('p-mark', 'piplusMark', m.version, {slotId:'A1', expectedTurn:m.turnSerial, targetId:'B1'}));
+  out = await x.svc.command('u1', cmd('p-fix', 'ability', out.version, {slotId:'A1', expectedTurn:out.turn, abilityId:'fixation', targetId:'B1'}));
+  m = await x.repo.get('m'); m.combat.board.obstacles.push('6,5'); await x.repo.save(m, m.version);
+  const shot = cmd('p-shot', 'ability', out.version, {slotId:'A1', expectedTurn:out.turn, abilityId:'precise', targetId:'B1'});
+  out = await x.svc.command('u1', shot);
+  assert.equal(out.state.combat.units[1].hp, 105);
+  assert.equal(out.state.combat.units[0].pa, 1);
+  assert.equal(out.state.combat.units[0].piplusFixationTargetId, null);
+  assert.deepEqual(await x.svc.command('u1', shot), out);
+  assert.deepEqual((await x.svc.snapshot('u2', 'm')).combat, out.state.combat);
+  await assert.rejects(() => x.svc.command('u1', cmd('p-unselected', 'ability', out.version, {slotId:'A1', expectedTurn:out.turn, abilityId:'rupture', targetId:'B1'})), e => e.code === 'ABILITY_NOT_SELECTED');
+  out = await x.svc.command('u1', cmd('p-end', 'endTurn', out.version, {slotId:'A1', expectedTurn:out.turn}));
+  out = await x.svc.command('u2', cmd('c-end', 'endTurn', out.version, {slotId:'B1', expectedTurn:out.turn}));
+  const dash = cmd('p-dash', 'ability', out.version, {slotId:'A1', expectedTurn:out.turn, abilityId:'impulse', position:{x:7,y:5}});
+  out = await x.svc.command('u1', dash);
+  assert.equal(out.state.combat.units[0].x, 7);
+  assert.equal(out.state.combat.units[0].pm, 3);
+  assert.equal(out.state.combat.units[0].pa, 4);
+  assert.equal(out.state.presentation.moves.at(-1).kind, 'dash');
+  assert.deepEqual(out.state.presentation.moves.at(-1).path, [{x:5,y:5},{x:7,y:5}]);
+  assert.deepEqual(await x.svc.command('u1', dash), out);
+  assert.deepEqual((await x.svc.snapshot('u2', 'm')).combat, out.state.combat);
+});

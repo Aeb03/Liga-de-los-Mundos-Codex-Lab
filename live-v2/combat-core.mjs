@@ -51,7 +51,7 @@ export function createUnit({ championId, id, team, slot, controllerId, position 
     monolith: false, monolithStoredPm: 0, exitedMonolithThisTurn: false, monolithPillarGainUsed: false,
     arfeliMasteryChain: [], arfeliMasteryLastBonus: 0,
     colosoTurnSerial: 0, colosoCreateWindow: false, colosoPillarCreatedThisTurn: false, colosoRecycleUsed: false,
-    piplusMarkUsedThisTurn: false, piplusMarkBlockedThisTurn: false, piplusFixationTargetId: null, piplusInterferenceTargets: [],
+    markedTargetId: null, piplusMarkUsedThisTurn: false, piplusMarkBlockedThisTurn: false, piplusFixationTargetId: null, piplusInterferenceTargets: [],
     onodTurnSerial: 0, onodGerminateUses: 0, onodWitherUsedThisTurn: false, onodGerminateBlockedThisTurn: false, onodReabsorptionUsedThisTurn: false,
     korganTurnSerial: 0, korganDisarmUsedThisTurn: false,
     houganPainTransfer: null, houganDance: null
@@ -106,6 +106,7 @@ function validateSupportedState(state) {
     if (unit.piplusFixationTargetId !== null && typeof unit.piplusFixationTargetId !== 'string') fail('INVALID_CHAMPION_STATE', 'Objetivo de fijación inválido');
     ids.add(unit.id); positions.add(key(unit)); teams.add(unit.team); teamSlots.add(teamSlot);
   }
+  for(const unit of state.units)if(unit.markedTargetId!=null&&!state.units.some(t=>t.id===unit.markedTargetId&&t.team!==unit.team&&unit.championId==='piplus'))fail('INVALID_CHAMPION_STATE','Marca inválida');
   for (const object of state.objects) {
     if (!object || object.kind!=='object' || object.type!=='pillar') fail('UNSUPPORTED_MECHANIC','Sólo se admiten Pilares de Coloso');
     const owner=state.units.find(u=>u.id===object.ownerId);
@@ -392,6 +393,12 @@ export function restoreState(serialized) {
 }
 
 const ABILITIES = Object.freeze({
+  precise: {championId:'piplus',cost:3,range:4,damage:8,los:true},
+  vector: {championId:'piplus',cost:3,range:3,damage:6,los:true,forced:'push'},
+  impulse: {championId:'piplus',cost:2,range:2,maxUses:1,dash:true},
+  interference: {championId:'piplus',cost:2,range:4,los:true},
+  rupture: {championId:'piplus',cost:4,range:4,damage:14,los:true},
+  fixation: {championId:'piplus',cost:2,range:4,los:true},
   bow: {championId:'arfeli',cost:3,range:4,damage:8,los:true},
   stonearmor: {championId:'coloso',cost:2,range:3,shield:10,los:true,maxUses:2},
   absorb: {championId:'coloso',cost:2,range:3,los:true},
@@ -420,6 +427,7 @@ export function abilityRangeContains(unit, abilityId, target) {
   const a = ABILITIES[abilityId];
   if (!a) return false;
   const dx = Math.abs(unit.x-target.x), dy = Math.abs(unit.y-target.y);
+  if (abilityId==='impulse')return (dx===0||dy===0)&&dx+dy>=1&&dx+dy<=2;
   if (abilityId==='stonearmor'&&dx+dy===0)return true;
   if (a.geometry === 'adjacent8') return Math.max(dx,dy) === 1;
   const radius = ['rock','collapse','magnetism'].includes(abilityId) && unit.monolith ? 5 : a.range;
@@ -439,8 +447,10 @@ export function abilityTargets(state,unitId,abilityId){
   const u=unitById(state,unitId),a=ABILITIES[abilityId];
   if(!a||a.championId!==u.championId||state.phase!=='active'||activeUnit(state).id!==unitId||u.pa<a.cost||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
   if(abilityId==='shield')return [u.id];
+  if(abilityId==='impulse')return [];
   return entities(state).filter(t=>{
     if(!t.alive)return false;
+    if(['precise','vector','interference','rupture','fixation'].includes(abilityId))return t.team!==u.team&&abilityRangeContains(u,abilityId,t)&&(!['interference','rupture','fixation'].includes(abilityId)||markedTarget(state,u)?.id===t.id)&& (abilityId!=='interference'||!u.piplusInterferenceTargets.includes(t.id))&&!abilityLOSBlocked(state,u,abilityId,t);
     if(abilityId==='quake')return t.team!==u.team&&quakeOrigin(state,u,t);
     if(abilityId==='stonearmor')return !u.stoneArmorTargetsUsed.includes(t.id)&&(t.kind==='champion'?t.team===u.team:t.ownerId===u.id)&&(t.id===u.id||distance(u,t)<=3&&clearAbilityLOS(state,u,t));
     if(['absorb','collapse','magnetism'].includes(abilityId))return t.type==='pillar'&&t.ownerId===u.id&&abilityRangeContains(u,abilityId,t)&&clearAbilityLOS(state,u,t)&&(abilityId!=='absorb'||t.createdByColosoTurn!==u.colosoTurnSerial&&u.hp<u.maxHp);
@@ -460,7 +470,7 @@ export function magnetismTargets(state,unitId,pillarId){
 }
 export function swordTargets(state,unitId){return abilityTargets(state,unitId,'sword');}
 
-export function useAbility(state, { unitId, abilityId, targetId, direction, secondaryTargetId }) {
+export function useAbility(state, { unitId, abilityId, targetId, direction, secondaryTargetId, position }) {
   validateSupportedState(state);
   if (state.phase !== 'active') fail('COMBAT_ENDED', 'El combate ya terminó');
   const unit = unitById(state, unitId);
@@ -470,12 +480,13 @@ export function useAbility(state, { unitId, abilityId, targetId, direction, seco
   if (!ability || unit.championId!==ability.championId) fail('UNSUPPORTED_ABILITY','Habilidad no habilitada para este campeón');
   if (unit.pa < ability.cost) fail('INSUFFICIENT_PA', `Se requieren ${ability.cost} PA`);
   if (ability.maxUses && (unit.skillUsesThisTurn[abilityId] ?? 0) >= ability.maxUses) fail('ABILITY_LIMIT','Límite de usos por turno');
+  if(abilityId==='impulse')return usePiplusImpulse(state,unit,position);
   const target = entityById(state, targetId);
   if(!abilityTargets(state,unitId,abilityId).includes(target.id)){
-    if(['stonearmor','absorb','collapse','magnetism','shield'].includes(abilityId))fail('INVALID_TARGET','Objetivo inválido para esta habilidad');
+    if(['stonearmor','absorb','collapse','magnetism','shield','interference','rupture','fixation'].includes(abilityId))fail('INVALID_TARGET','Objetivo inválido para esta habilidad');
     if(!target.alive||target.team===unit.team)fail('INVALID_TARGET','Elegí una entidad enemiga viva');
     if(abilityId==='quake'?!quakeOrigin(state,unit,target):!abilityRangeContains(unit,abilityId,target))fail('OUT_OF_RANGE','Objetivo fuera del alcance');
-    if(ability.los&&!clearAbilityLOS(state,unit,target))fail('BLOCKED_LOS','Línea de visión bloqueada');
+    if(abilityLOSBlocked(state,unit,abilityId,target))fail('BLOCKED_LOS','Línea de visión bloqueada');
     if(ability.jump)fail('NO_LANDING','No hay una casilla cardinal libre para aterrizar');
     fail('INVALID_TARGET','Objetivo inválido');
   }
@@ -494,7 +505,8 @@ export function useAbility(state, { unitId, abilityId, targetId, direction, seco
   }
   if (actor.status.poison > 0) damage(actor, actor.status.poison, 'poison.ability');
   if (actor.alive){
-    if(['stonearmor','absorb','collapse','magnetism','quake'].includes(abilityId)){
+    if(actor.championId==='piplus'){resolvePiplusSkill(next,actor,victim,abilityId,events,damage);}
+    else if(['stonearmor','absorb','collapse','magnetism','quake'].includes(abilityId)){
       resolveColosoSkill(next,actor,victim,abilityId,{direction,secondaryTargetId},events,damage);
     }else     if(abilityId==='shield'){
       const amount=ability.shield+bonus;actor.shield.push({amount,sourceId:actor.id});
@@ -562,7 +574,7 @@ export function createPillar(state,{unitId,position}) {
 export function previewAbility(state, command) {
   const resolved = useAbility(state, command);
   return {
-    effect: command.abilityId==='collapse'?collapseCells(entityById(state,command.targetId),command.direction):[{x:entityById(state,command.targetId).x,y:entityById(state,command.targetId).y}],
+    effect: command.abilityId==='impulse'?[clone(command.position)]:command.abilityId==='collapse'?collapseCells(entityById(state,command.targetId),command.direction):[{x:entityById(state,command.targetId).x,y:entityById(state,command.targetId).y}],
     moves: resolved.events.filter(e=>e.type==='unit.moved'),
     blocked: resolved.events.filter(e=>e.type==='movement.blocked'),
     damage: resolved.events.filter(e=>e.type==='damage.applied'),
@@ -572,6 +584,7 @@ export function previewAbility(state, command) {
 
 export function executeCommand(state, command) {
   if (!command || typeof command.type !== 'string') fail('INVALID_COMMAND', 'Comando inválido');
+  if (command.type === 'piplusMark') return markPiplus(state,command);
   if (command.type === 'colosoAction') return colosoAction(state,command);
   if (command.type === 'createPillar') return createPillar(state,command);
   if (command.type === 'ability') return useAbility(state, command);
@@ -640,4 +653,56 @@ export function colosoAction(state,{unitId,action,targetId}){
     else{u.shield.push({amount:6,sourceId:u.id});events.push({type:'shield.added',unitId:u.id,sourceId:u.id,amount:6});}
   }
   events.push({type:'coloso.action',unitId,action,targetId,monolith:u.monolith});return {state:next,events};
+}
+
+function markedTarget(state,u){return state.units.find(t=>t.id===u.markedTargetId&&t.alive&&t.team!==u.team);}
+const PIPLUS_OFFENSIVE=new Set(['precise','vector','interference','rupture']);
+export function abilityLOSBlocked(state,u,id,target){
+  if(!ABILITIES[id]?.los)return false;
+  const fixed=u.championId==='piplus'&&PIPLUS_OFFENSIVE.has(id)&&markedTarget(state,u)?.id===target.id&&u.piplusFixationTargetId===target.id;
+  return !fixed&&!clearAbilityLOS(state,u,target);
+}
+export function piplusMarkTargets(state,unitId){
+  validateSupportedState(state);const u=unitById(state,unitId);
+  if(state.phase!=='active'||activeUnit(state).id!==u.id||u.championId!=='piplus'||u.piplusMarkUsedThisTurn||u.piplusMarkBlockedThisTurn)return [];
+  return state.units.filter(t=>t.alive&&t.team!==u.team&&distance(u,t)<=4&&clearAbilityLOS(state,u,t)).map(t=>t.id);
+}
+export function markPiplus(state,{unitId,targetId}){
+  if(!piplusMarkTargets(state,unitId).includes(targetId))fail('MARK_UNAVAILABLE','No se puede marcar este objetivo ahora');
+  const next=clone(state),u=unitById(next,unitId),target=unitById(next,targetId),old=markedTarget(next,u);
+  if(old?.status.markedBy===u.id)old.status.markedBy=null;
+  u.markedTargetId=target.id;target.status.markedBy=u.id;u.piplusMarkUsedThisTurn=true;
+  return {state:next,events:[{type:'piplus.marked',unitId,targetId,cost:0}]};
+}
+function resolvePiplusSkill(state,u,target,id,events,damage){
+  const marked=markedTarget(state,u)?.id===target.id;
+  const fixed=marked&&u.piplusFixationTargetId===target.id&&PIPLUS_OFFENSIVE.has(id);
+  if(id==='precise')damage(target,marked?10:8,'ability.precise');
+  if(id==='vector'){damage(target,6,'ability.vector');pushOrPull(state,target,u,marked?2:1,true,0,events,damage,'vector');}
+  if(id==='interference'){u.piplusInterferenceTargets.push(target.id);target.status.pmPenaltyNext=Math.max(target.status.pmPenaltyNext,1);events.push({type:'status.applied',targetId:target.id,status:'pmPenaltyNext',value:target.status.pmPenaltyNext});}
+  if(id==='rupture'){damage(target,14,'ability.rupture');if(target.status.markedBy===u.id)target.status.markedBy=null;u.markedTargetId=null;u.piplusMarkBlockedThisTurn=true;u.piplusFixationTargetId=null;events.push({type:'piplus.mark.cleared',unitId:u.id,targetId:target.id});}
+  if(id==='fixation'){u.piplusFixationTargetId=target.id;events.push({type:'piplus.fixed',unitId:u.id,targetId:target.id});}
+  if(fixed&&id!=='rupture'){u.piplusFixationTargetId=null;events.push({type:'piplus.fixation.consumed',unitId:u.id,targetId:target.id});}
+}
+export function impulseDestinations(state,unitId){
+  validateSupportedState(state);const u=unitById(state,unitId);
+  if(state.phase!=='active'||activeUnit(state).id!==u.id||u.championId!=='piplus'||u.monolith||u.pa<2||(u.skillUsesThisTurn.impulse??0)>=1)return [];
+  const occupied=occupiedKeys(state,u.id),out=[];
+  for(const [dx,dy]of DIRECTIONS)for(const d of [1,2]){const p={x:u.x+dx*d,y:u.y+dy*d};if(inside(p)&&!occupied.has(key(p))&&!state.board.obstacles.includes(key(p)))out.push(p);}
+  return out;
+}
+function usePiplusImpulse(state,unit,position){
+  if(!impulseDestinations(state,unit.id).some(p=>p.x===position?.x&&p.y===position?.y))fail('INVALID_POSITION','Impulso requiere una casilla cardinal libre a distancia 1 o 2');
+  const next=clone(state),u=unitById(next,unit.id),events=[];u.pa-=2;u.skillUsesThisTurn.impulse=(u.skillUsesThisTurn.impulse??0)+1;
+  events.push({type:'ability.used',unitId:u.id,abilityId:'impulse',position:clone(position),cost:2});
+  const damage=(target,amount,source)=>{const result=applyDamageToUnit(target,amount,false);events.push({type:'damage.applied',targetId:target.id,amount,...result,ignoreShield:false,source});if(result.killed)events.push(target.kind==='object'?{type:'object.destroyed',objectId:target.id}:{type:'unit.died',unitId:target.id});};
+  if(u.status.poison)damage(u,u.status.poison,'poison.ability');
+  if(!u.alive){finishIfNeeded(next,events);return {state:next,events};}
+  const dx=Math.sign(position.x-u.x),dy=Math.sign(position.y-u.y);
+  const enemy=next.units.find(t=>t.alive&&t.team!==u.team&&t.x===u.x-dx&&t.y===u.y-dy);
+  if(enemy){pushOrPull(next,enemy,u,1,true,0,events,damage,'impulse');if(finishIfNeeded(next,events))return {state:next,events};}
+  const from={x:u.x,y:u.y},d=distance(u,position);u.x=position.x;u.y=position.y;
+  events.push({type:'unit.moved',unitId:u.id,path:[from,clone(position)],kind:'dash',cost:0,remainingPm:u.pm,source:'ability.impulse'});
+  for(let i=0;i<d&&u.alive;i++)if(u.status.wound)damage(u,u.status.wound,'wound.impulse');
+  finishIfNeeded(next,events);return {state:next,events};
 }

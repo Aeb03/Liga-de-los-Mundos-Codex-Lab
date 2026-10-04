@@ -442,3 +442,38 @@ test('Piplus selected skills: fixation, marked damage, exact dash and idempotent
   assert.deepEqual(await x.svc.command('u1', dash), out);
   assert.deepEqual((await x.svc.snapshot('u2', 'm')).combat, out.state.combat);
 });
+
+async function readyOnodPiplus(){
+ const x=await ready(),m=await x.repo.get('m');
+ m.slots.A1.championId='piplus';m.slots.A1.skills=['precise','vector','impulse','fixation'];
+ m.slots.B1.championId='onod';m.slots.B1.skills=['thorn','vines','sap','spores'];
+ await x.repo.save(m,m.version);await x.svc.command('u1',cmd('onod-start','startCombat',x.v));
+ const live=await x.repo.get('m');Object.assign(live.combat.units[0],{x:4,y:5});Object.assign(live.combat.units[1],{x:7,y:5});await x.repo.save(live,live.version);
+ const out=await x.svc.command('u1',cmd('piplus-wait','endTurn',live.version,{slotId:'A1',expectedTurn:live.turnSerial}));return {x,out};
+}
+test('Onod authority: Brotes, selection, ownership, stale turn, deadline and idempotent equal snapshots',async()=>{
+ let {x,out}=await readyOnodPiplus();
+ const seed=cmd('seed','onodAction',out.version,{slotId:'B1',expectedTurn:out.turn,action:'germinate',position:{x:5,y:5}});
+ await assert.rejects(()=>x.svc.command('u1',seed),e=>e.code==='FORBIDDEN');out=await x.svc.command('u2',seed);
+ assert.equal(out.state.combat.objects[0].hp,12);assert.equal(out.state.combat.units[1].pa,5);assert.deepEqual(await x.svc.command('u2',seed),out);
+ assert.deepEqual((await x.svc.snapshot('u1','m')).combat,out.state.combat);
+ await assert.rejects(()=>x.svc.command('u2',{...seed,id:'seed-old-version'}),e=>e.code==='VERSION_CONFLICT');
+ await assert.rejects(()=>x.svc.command('u2',{...seed,id:'seed-old-turn',expectedVersion:out.version,expectedTurn:0}),e=>e.code==='TURN_CONFLICT');
+ await assert.rejects(()=>x.svc.command('u2',cmd('unselected-awake','ability',out.version,{slotId:'B1',expectedTurn:out.turn,abilityId:'awakening',targetId:'B1'})),e=>e.code==='ABILITY_NOT_SELECTED');
+ const thorn=cmd('poison-thorn','ability',out.version,{slotId:'B1',expectedTurn:out.turn,abilityId:'thorn',targetId:'A1'});out=await x.svc.command('u2',thorn);
+ assert.equal(out.state.combat.units[0].hp,84);assert.equal(out.state.combat.units[0].status.poison,1);assert.deepEqual(await x.svc.command('u2',thorn),out);
+ let m=await x.repo.get('m');m.combat.objects[0].hp=3;await x.repo.save(m,m.version);
+ out=await x.svc.command('u2',cmd('onod-end','endTurn',out.version,{slotId:'B1',expectedTurn:out.turn}));
+ const shot=cmd('poison-shot','ability',out.version,{slotId:'A1',expectedTurn:out.turn,abilityId:'precise',targetId:'B1'});out=await x.svc.command('u1',shot);
+ assert.equal(out.state.combat.objects[0].hp,4);assert.equal(out.state.combat.units[0].hp,83);assert.equal(out.state.combat.units[1].hp,87);
+ assert.deepEqual(await x.svc.command('u1',shot),out);assert.deepEqual((await x.svc.snapshot('u2','m')).combat,out.state.combat);
+ x.now=out.state.turnDeadline;await assert.rejects(()=>x.svc.command('u1',{...shot,id:'late-shot',expectedVersion:out.version}),e=>e.code==='TURN_EXPIRED');
+});
+test('Onod Enredaderas authority accepts exact ground center, rejects blocked input without mutation, synchronizes once',async()=>{
+ let {x,out}=await readyOnodPiplus();
+ const ground=cmd('vines-ground','ability',out.version,{slotId:'B1',expectedTurn:out.turn,abilityId:'vines',position:{x:5,y:5}});
+ out=await x.svc.command('u2',ground);assert.equal(out.state.combat.units[0].hp,86);assert.equal(out.state.combat.units[0].status.pmPenaltyNext,1);assert.equal(out.state.combat.units[1].pa,3);
+ assert.deepEqual(await x.svc.command('u2',ground),out);assert.deepEqual((await x.svc.snapshot('u1','m')).combat,out.state.combat);
+ const before=await x.svc.snapshot('u2','m');await assert.rejects(()=>x.svc.command('u2',{...ground,id:'invalid-vines',expectedVersion:out.version,position:{x:0,y:0}}),e=>e.code==='INVALID_TARGET');assert.deepEqual(await x.svc.snapshot('u2','m'),before);
+ out=await x.svc.command('u2',cmd('vines-end','endTurn',out.version,{slotId:'B1',expectedTurn:out.turn}));assert.equal(out.state.combat.units[0].pm,2);
+});

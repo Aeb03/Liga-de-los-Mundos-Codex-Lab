@@ -43,7 +43,7 @@ invocaciones, trampas, fases del Muñeco y 2v2 no se han comparado.
 - Sólo admite exactamente dos campeones, uno por equipo. `team`, `slot` y `controllerId` son campos independientes; el núcleo no autoriza comandos por controlador.
 - El azar de desempate y la lectura de reloj (`clock`, sólo auditoría) son entradas. No se invocan `Math.random`, `Date.now`, temporizadores ni esperas.
 - Las rutas confirmadas se validan casilla por casilla. Nunca se recalcula o sustituye silenciosamente una ruta presentada.
-- Pilares de Coloso y las habilidades documentadas en `HAMMER-PILLAR.md` están habilitados. Trampas, brotes, muñecos, invocaciones y habilidades de los otros campeones producen errores tipados de “fuera de alcance”; no se simulan parcialmente.
+- Pilares de Coloso, Brotes de Onod y las habilidades documentadas en `CHAMPIONS-COMPLETE.md`, `PIPLUS-STAGE.md` y `ONOD-STAGE.md` están habilitados. Trampas, muñecos, otras invocaciones y habilidades de los otros campeones producen errores tipados de “fuera de alcance”; no se simulan parcialmente.
 - Herida activa (máximo 3) se resuelve por casilla realmente recorrida, con absorción de escudo y detención al morir. El preview informa daño y posible muerte. El rechazo previo de placaje mortal se conserva. Lanza, Sísmico y salto de Martillo aplican Herida según sus reglas efectivas; trampas y fases del Muñeco siguen fuera de alcance. Veneno al usar las habilidades habilitadas ya se resuelve.
 - Todo punto de entrada valida el estado 1v1 completo: tablero, colecciones, identidades, equipos/slots, posiciones, recursos, estados, escudos, orden, turno, ronda, fase y ganador.
 - Daño y contadores son enteros: valores fraccionarios se rechazan antes de mutar. Los campos de turno usados por el núcleo también son obligatorios, evitando `NaN` y pérdidas durante el round-trip JSON.
@@ -56,7 +56,7 @@ Entrada separada `live-v2/index.html`; instrucciones y límites en [CLIENT.md](C
 
 ## Etapa 3 — primera habilidad
 
-Corte con Espada de Arfeli se implementa según la ficha efectiva de `arfeli-rework-0626.js`: 2 PA, alcance ortogonal 1, 10 daño y máximo 2 usos por turno. La implementación y sus límites están en [SWORD-STAGE.md](SWORD-STAGE.md). Las referencias anteriores a habilidades fuera del alcance describen la etapa inicial; el estado actual habilita las seis habilidades de Arfeli, Coloso y Piplus, según [CHAMPIONS-COMPLETE.md](CHAMPIONS-COMPLETE.md) y [PIPLUS-STAGE.md](PIPLUS-STAGE.md).
+Corte con Espada de Arfeli se implementa según la ficha efectiva de `arfeli-rework-0626.js`: 2 PA, alcance ortogonal 1, 10 daño y máximo 2 usos por turno. La implementación y sus límites están en [SWORD-STAGE.md](SWORD-STAGE.md). Las referencias anteriores a habilidades fuera del alcance describen la etapa inicial; el estado actual habilita las seis habilidades de Arfeli, Coloso, Piplus y Onod, según [CHAMPIONS-COMPLETE.md](CHAMPIONS-COMPLETE.md) y [PIPLUS-STAGE.md](PIPLUS-STAGE.md); Onod en [ONOD-STAGE.md](ONOD-STAGE.md).
 
 ## Escudo + Roca
 
@@ -71,3 +71,7 @@ Reglas, selecciones en dos pasos, Monolito y validación: [CHAMPIONS-COMPLETE.md
 ## Piplus completo
 
 Marca persistente, seis habilidades, Fijación e Impulso: [PIPLUS-STAGE.md](PIPLUS-STAGE.md).
+
+## Onod completo
+
+Brotes, seis habilidades, áreas y Simbiosis: [ONOD-STAGE.md](ONOD-STAGE.md).

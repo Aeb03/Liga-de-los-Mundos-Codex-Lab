@@ -85,7 +85,7 @@ function validateSupportedState(state) {
     if (teamSlots.has(teamSlot)) fail('INVALID_UNIT_IDENTITY', 'El slot debe ser único dentro del equipo');
     if (!inside(unit) || positions.has(key(unit)) || obstacleSet.has(key(unit))) fail('INVALID_POSITION', 'Posición de unidad inválida, repetida u obstruida');
     for (const field of ['hp', 'maxHp', 'pa', 'maxPa', 'pm', 'maxPm', 'initiative']) if (!nonNegativeInteger(unit[field])) fail('INVALID_RESOURCE', `Recurso inválido: ${field}`);
-    if (unit.maxHp < 1 || unit.hp > unit.maxHp || unit.pa > unit.maxPa || unit.pm > unit.maxPm || typeof unit.alive !== 'boolean' || unit.alive !== (unit.hp > 0)) fail('INVALID_RESOURCE', 'Vida, recursos o marca alive inconsistentes');
+    if (unit.maxHp < 1 || unit.hp > unit.maxHp || unit.pa > unit.maxPa + (unit.championId==='onod'?3:0) || unit.pm > unit.maxPm || typeof unit.alive !== 'boolean' || unit.alive !== (unit.hp > 0)) fail('INVALID_RESOURCE', 'Vida, recursos o marca alive inconsistentes');
     const statusFields = ['wound', 'poison', 'burn', 'paPenaltyNext', 'pmPenaltyNext'];
     if (!unit.status || statusFields.some(field => !nonNegativeInteger(unit.status[field]))) fail('INVALID_STATUS', 'Estado alterado inválido');
     if (unit.status.wound > 3) fail('INVALID_STATUS', 'Herida no puede superar 3');
@@ -108,16 +108,16 @@ function validateSupportedState(state) {
   }
   for(const unit of state.units)if(unit.markedTargetId!=null&&!state.units.some(t=>t.id===unit.markedTargetId&&t.team!==unit.team&&unit.championId==='piplus'))fail('INVALID_CHAMPION_STATE','Marca inválida');
   for (const object of state.objects) {
-    if (!object || object.kind!=='object' || object.type!=='pillar') fail('UNSUPPORTED_MECHANIC','Sólo se admiten Pilares de Coloso');
-    const owner=state.units.find(u=>u.id===object.ownerId);
-    if (!owner || owner.championId!=='coloso' || object.team!==owner.team || object.id!==`pillar${object.number}` || ids.has(object.id)) fail('INVALID_OBJECT','Identidad o propietario del Pilar inválido');
-    if (!inside(object) || !nonNegativeInteger(object.hp) || object.maxHp!==15 || object.hp>15 || object.alive!==(object.hp>0) || !Number.isInteger(object.number) || object.number<1 || object.blocksLOS!==true || !nonNegativeInteger(object.createdByColosoTurn)) fail('INVALID_OBJECT','Pilar inválido');
-    if (!Array.isArray(object.shield) || object.shield.some(t=>!t||!Number.isInteger(t.amount)||t.amount<=0||!state.units.some(u=>u.id===t.sourceId))) fail('INVALID_OBJECT','Escudo de Pilar inválido');
-    if (object.alive && (positions.has(key(object)) || obstacleSet.has(key(object)))) fail('INVALID_POSITION','Pilar en casilla ocupada');
+    if (!object || object.kind!=='object' || !['pillar','sprout'].includes(object.type)) fail('UNSUPPORTED_MECHANIC','Sólo se admiten Pilares y Brotes');
+    const owner=state.units.find(u=>u.id===object.ownerId),sprout=object.type==='sprout',max=sprout?12:15;
+    if (!owner || owner.championId!==(sprout?'onod':'coloso') || object.team!==owner.team || object.id!==`${object.type}${object.number}` || ids.has(object.id)) fail('INVALID_OBJECT','Identidad o propietario del objeto inválido');
+    if (!inside(object) || !nonNegativeInteger(object.hp) || object.maxHp!==max || object.hp>max || object.alive!==(object.hp>0) || !Number.isInteger(object.number) || object.number<1 || object.blocksLOS!==!sprout || !nonNegativeInteger(object[sprout?'createdByOnodTurn':'createdByColosoTurn'])) fail('INVALID_OBJECT','Objeto inválido');
+    if (!Array.isArray(object.shield) || object.shield.some(t=>!t||!Number.isInteger(t.amount)||t.amount<=0||!state.units.some(u=>u.id===t.sourceId))) fail('INVALID_OBJECT','Escudo de objeto inválido');
+    if (object.alive && (positions.has(key(object)) || obstacleSet.has(key(object)))) fail('INVALID_POSITION','Objeto en casilla ocupada');
     if(object.alive)positions.add(key(object));ids.add(object.id);
   }
-  for(const owner of state.units)if(state.objects.filter(o=>o.alive&&o.ownerId===owner.id).length>3)fail('INVALID_OBJECT','Máximo tres Pilares activos');
-  if (state.nextPillarId!==undefined && (!Number.isInteger(state.nextPillarId) || state.nextPillarId<1 || state.objects.some(o=>o.number>=state.nextPillarId))) fail('INVALID_OBJECT','Secuencia de Pilar inválida');
+  for(const owner of state.units)if(state.objects.filter(o=>o.alive&&o.ownerId===owner.id).length>3)fail('INVALID_OBJECT','Máximo tres objetos propios activos');
+  for(const [field,type] of [['nextPillarId','pillar'],['nextSproutId','sprout']])if(state[field]!==undefined&&(!Number.isInteger(state[field])||state[field]<1||state.objects.some(o=>o.type===type&&o.number>=state[field])))fail('INVALID_OBJECT','Secuencia de objeto inválida');
   if (teams.size !== 2) fail('UNSUPPORTED_FORMAT', 'El estado 1v1 requiere dos equipos distintos');
   for (const unit of state.units) for (const stack of unit.shield) if (!ids.has(stack.sourceId)) fail('INVALID_SHIELD', 'El generador del escudo no existe');
   if (!Array.isArray(state.order) || state.order.length !== 2 || new Set(state.order).size !== 2 || state.order.some(id => !state.units.some(u=>u.id===id))) fail('INVALID_ORDER', 'El orden debe ser una permutación de las dos unidades');
@@ -162,7 +162,7 @@ export function initializeCombat({ units, obstacles = [], random, clock }) {
   }
   let state = {
     schemaVersion: CORE_VERSION, board: { width: BOARD_SIZE, height: BOARD_SIZE, obstacles: obstacleKeys.sort() },
-    units: copy, objects: [], nextPillarId: 1, traps: [], summons: [], order: sorted.map(u => u.id), turnIndex: 0,
+    units: copy, objects: [], nextPillarId: 1, nextSproutId: 1, traps: [], summons: [], order: sorted.map(u => u.id), turnIndex: 0,
     round: 1, phase: 'active', winnerTeam: null, tieBreak,
     audit: { initializedAt: clock ?? null }
   };
@@ -393,6 +393,12 @@ export function restoreState(serialized) {
 }
 
 const ABILITIES = Object.freeze({
+  thorn:{championId:'onod',cost:2,range:4,damage:6,los:true,maxUses:2},
+  vines:{championId:'onod',cost:3,range:3,los:true,ground:true},
+  sap:{championId:'onod',cost:3,range:3,los:true,maxUses:2},
+  spores:{championId:'onod',cost:4,range:99},
+  awakening:{championId:'onod',cost:4,range:0},
+  reabsorption:{championId:'onod',cost:0,range:0,maxUses:1},
   precise: {championId:'piplus',cost:3,range:4,damage:8,los:true},
   vector: {championId:'piplus',cost:3,range:3,damage:6,los:true,forced:'push'},
   impulse: {championId:'piplus',cost:2,range:2,maxUses:1,dash:true},
@@ -428,7 +434,7 @@ export function abilityRangeContains(unit, abilityId, target) {
   if (!a) return false;
   const dx = Math.abs(unit.x-target.x), dy = Math.abs(unit.y-target.y);
   if (abilityId==='impulse')return (dx===0||dy===0)&&dx+dy>=1&&dx+dy<=2;
-  if (abilityId==='stonearmor'&&dx+dy===0)return true;
+  if (['stonearmor','sap','vines'].includes(abilityId)&&dx+dy===0)return true;
   if (a.geometry === 'adjacent8') return Math.max(dx,dy) === 1;
   const radius = ['rock','collapse','magnetism'].includes(abilityId) && unit.monolith ? 5 : a.range;
   return radius === 0 ? dx+dy === 0 : dx+dy > 0 && dx+dy <= radius;
@@ -447,7 +453,11 @@ export function abilityTargets(state,unitId,abilityId){
   const u=unitById(state,unitId),a=ABILITIES[abilityId];
   if(!a||a.championId!==u.championId||state.phase!=='active'||activeUnit(state).id!==unitId||u.pa<a.cost||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
   if(abilityId==='shield')return [u.id];
-  if(abilityId==='impulse')return [];
+  if(['impulse','vines'].includes(abilityId))return [];
+  if(abilityId==='sap')return state.units.filter(t=>t.alive&&t.team===u.team&&(t.id===u.id||abilityRangeContains(u,abilityId,t)&&clearAbilityLOS(state,u,t))).map(t=>t.id);
+  if(abilityId==='spores')return ownSprouts(state,u).map(s=>s.id);
+  if(abilityId==='awakening')return ownSprouts(state,u).length?[u.id]:[];
+  if(abilityId==='reabsorption')return absorbableSprouts(state,u).length?[u.id]:[];
   return entities(state).filter(t=>{
     if(!t.alive)return false;
     if(['precise','vector','interference','rupture','fixation'].includes(abilityId))return t.team!==u.team&&abilityRangeContains(u,abilityId,t)&&(!['interference','rupture','fixation'].includes(abilityId)||markedTarget(state,u)?.id===t.id)&& (abilityId!=='interference'||!u.piplusInterferenceTargets.includes(t.id))&&!abilityLOSBlocked(state,u,abilityId,t);
@@ -481,6 +491,7 @@ export function useAbility(state, { unitId, abilityId, targetId, direction, seco
   if (unit.pa < ability.cost) fail('INSUFFICIENT_PA', `Se requieren ${ability.cost} PA`);
   if (ability.maxUses && (unit.skillUsesThisTurn[abilityId] ?? 0) >= ability.maxUses) fail('ABILITY_LIMIT','Límite de usos por turno');
   if(abilityId==='impulse')return usePiplusImpulse(state,unit,position);
+  if(unit.championId==='onod')return useOnodAbility(state,unit,abilityId,targetId,position);
   const target = entityById(state, targetId);
   if(!abilityTargets(state,unitId,abilityId).includes(target.id)){
     if(['stonearmor','absorb','collapse','magnetism','shield','interference','rupture','fixation'].includes(abilityId))fail('INVALID_TARGET','Objetivo inválido para esta habilidad');
@@ -501,6 +512,7 @@ export function useAbility(state, { unitId, abilityId, targetId, direction, seco
   function damage(targetUnit, amount, source) {
     const result = applyDamageToUnit(targetUnit, amount, false);
     events.push({ type: 'damage.applied', targetId: targetUnit.id, amount, ...result, ignoreShield: false, source });
+    if(source==='poison.ability')poisonSymbiosis(next,targetUnit,result.hpLost,events);
     if (result.killed) events.push(targetUnit.kind==='object'?{type:'object.destroyed',objectId:targetUnit.id}:{ type: 'unit.died', unitId: targetUnit.id });
   }
   if (actor.status.poison > 0) damage(actor, actor.status.poison, 'poison.ability');
@@ -574,16 +586,18 @@ export function createPillar(state,{unitId,position}) {
 export function previewAbility(state, command) {
   const resolved = useAbility(state, command);
   return {
-    effect: command.abilityId==='impulse'?[clone(command.position)]:command.abilityId==='collapse'?collapseCells(entityById(state,command.targetId),command.direction):[{x:entityById(state,command.targetId).x,y:entityById(state,command.targetId).y}],
+    effect: ABILITIES[command.abilityId]?.championId==='onod'?onodEffectCells(state,command):command.abilityId==='impulse'?[clone(command.position)]:command.abilityId==='collapse'?collapseCells(entityById(state,command.targetId),command.direction):[{x:entityById(state,command.targetId).x,y:entityById(state,command.targetId).y}],
     moves: resolved.events.filter(e=>e.type==='unit.moved'),
     blocked: resolved.events.filter(e=>e.type==='movement.blocked'),
     damage: resolved.events.filter(e=>e.type==='damage.applied'),
+    healing:resolved.events.filter(e=>['unit.healed','object.healed'].includes(e.type)),
     deaths: resolved.events.filter(e=>e.type==='unit.died').map(e=>e.unitId)
   };
 }
 
 export function executeCommand(state, command) {
   if (!command || typeof command.type !== 'string') fail('INVALID_COMMAND', 'Comando inválido');
+  if (command.type === 'onodAction') return onodAction(state,command);
   if (command.type === 'piplusMark') return markPiplus(state,command);
   if (command.type === 'colosoAction') return colosoAction(state,command);
   if (command.type === 'createPillar') return createPillar(state,command);
@@ -695,7 +709,7 @@ function usePiplusImpulse(state,unit,position){
   if(!impulseDestinations(state,unit.id).some(p=>p.x===position?.x&&p.y===position?.y))fail('INVALID_POSITION','Impulso requiere una casilla cardinal libre a distancia 1 o 2');
   const next=clone(state),u=unitById(next,unit.id),events=[];u.pa-=2;u.skillUsesThisTurn.impulse=(u.skillUsesThisTurn.impulse??0)+1;
   events.push({type:'ability.used',unitId:u.id,abilityId:'impulse',position:clone(position),cost:2});
-  const damage=(target,amount,source)=>{const result=applyDamageToUnit(target,amount,false);events.push({type:'damage.applied',targetId:target.id,amount,...result,ignoreShield:false,source});if(result.killed)events.push(target.kind==='object'?{type:'object.destroyed',objectId:target.id}:{type:'unit.died',unitId:target.id});};
+  const damage=(target,amount,source)=>{const result=applyDamageToUnit(target,amount,false);events.push({type:'damage.applied',targetId:target.id,amount,...result,ignoreShield:false,source});if(source==='poison.ability')poisonSymbiosis(next,target,result.hpLost,events);if(result.killed)events.push(target.kind==='object'?{type:'object.destroyed',objectId:target.id}:{type:'unit.died',unitId:target.id});};
   if(u.status.poison)damage(u,u.status.poison,'poison.ability');
   if(!u.alive){finishIfNeeded(next,events);return {state:next,events};}
   const dx=Math.sign(position.x-u.x),dy=Math.sign(position.y-u.y);
@@ -704,5 +718,74 @@ function usePiplusImpulse(state,unit,position){
   const from={x:u.x,y:u.y},d=distance(u,position);u.x=position.x;u.y=position.y;
   events.push({type:'unit.moved',unitId:u.id,path:[from,clone(position)],kind:'dash',cost:0,remainingPm:u.pm,source:'ability.impulse'});
   for(let i=0;i<d&&u.alive;i++)if(u.status.wound)damage(u,u.status.wound,'wound.impulse');
+  finishIfNeeded(next,events);return {state:next,events};
+}
+
+function ownSprouts(state,u){return state.objects.filter(s=>s.alive&&s.type==='sprout'&&s.ownerId===u.id).sort((a,b)=>a.number-b.number);}
+function absorbableSprouts(state,u){return ownSprouts(state,u).filter(s=>s.createdByOnodTurn!==u.onodTurnSerial);}
+function healEntity(target,amount,events,source){const got=Math.min(amount,target.maxHp-target.hp);if(got>0){target.hp+=got;events.push({type:target.kind==='object'?'object.healed':'unit.healed',unitId:target.kind==='champion'?target.id:undefined,objectId:target.kind==='object'?target.id:undefined,amount:got,source});}return got;}
+function poisonSymbiosis(state,victim,realDamage,events){
+  if(realDamage<=0)return;
+  for(const u of state.units.filter(u=>u.alive&&u.championId==='onod'&&u.team!==victim.team))for(const s of ownSprouts(state,u).filter(s=>adjacent(s,victim)))healEntity(s,realDamage,events,'symbiosis.poison');
+}
+export function onodActionTargets(state,unitId,action){
+  validateSupportedState(state);const u=unitById(state,unitId);
+  if(state.phase!=='active'||activeUnit(state).id!==u.id||u.championId!=='onod')return [];
+  if(action==='wither')return u.onodWitherUsedThisTurn?[]:ownSprouts(state,u).map(s=>s.id);
+  return [];
+}
+export function germinateDestinations(state,unitId){
+  validateSupportedState(state);const u=unitById(state,unitId);
+  if(state.phase!=='active'||activeUnit(state).id!==u.id||u.championId!=='onod'||u.pa<1||u.onodGerminateBlockedThisTurn||u.onodGerminateUses>=2||ownSprouts(state,u).length>=3)return [];
+  const occupied=occupiedKeys(state,u.id);occupied.add(key(u));const out=[];
+  for(let y=0;y<12;y++)for(let x=0;x<12;x++){const p={x,y};if(distance(u,p)<=3&&!occupied.has(key(p))&&!state.board.obstacles.includes(key(p))&&clearAbilityLOS(state,u,p))out.push(p);}
+  return out;
+}
+export function onodAction(state,{unitId,action,targetId,position}){
+  if(action==='germinate'?!germinateDestinations(state,unitId).some(p=>p.x===position?.x&&p.y===position?.y):!onodActionTargets(state,unitId,action).includes(targetId))fail('ONOD_ACTION_UNAVAILABLE','Acción propia de Onod no disponible');
+  const next=clone(state),u=unitById(next,unitId),events=[];
+  if(action==='germinate'){
+    let number=next.nextSproutId??Math.max(0,...next.objects.filter(s=>s.type==='sprout').map(s=>s.number))+1;
+    while(entities(next).some(e=>e.id===`sprout${number}`))number++;
+    next.nextSproutId=number+1;u.pa--;u.onodGerminateUses++;
+    const object={id:`sprout${number}`,number,type:'sprout',kind:'object',ownerId:u.id,team:u.team,x:position.x,y:position.y,hp:12,maxHp:12,alive:true,shield:[],blocksLOS:false,createdByOnodTurn:u.onodTurnSerial};
+    next.objects.push(object);events.push({type:'object.created',object:clone(object),unitId,cost:1});
+  }else{consumePillar(entityById(next,targetId),events,'wither');u.onodWitherUsedThisTurn=true;}
+  return {state:next,events};
+}
+export function vinesDestinations(state,unitId){
+  validateSupportedState(state);const u=unitById(state,unitId),a=ABILITIES.vines;
+  if(u.championId!=='onod'||state.phase!=='active'||activeUnit(state).id!==u.id||u.pa<a.cost)return [];
+  const cells=[];for(let y=0;y<12;y++)for(let x=0;x<12;x++){const p={x,y};if(distance(u,p)<=3&&clearAbilityLOS(state,u,p))cells.push(p);}return cells;
+}
+export function onodEffectCells(state,{unitId,abilityId,targetId,position}){
+  const u=unitById(state,unitId),target=targetId?entityById(state,targetId):null;
+  if(abilityId==='vines')return [{...position,zone:'center'},...DIRECTIONS.map(([dx,dy])=>({x:position.x+dx,y:position.y+dy,zone:'arm'}))].filter(inside);
+  if(abilityId==='spores'){const cells=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(dx||dy){const p={x:target.x+dx,y:target.y+dy};if(inside(p))cells.push(p);}return cells;}
+  if(abilityId==='awakening'){const cells=new Map();for(const s of ownSprouts(state,u))for(const [dx,dy]of DIRECTIONS){const p={x:s.x+dx,y:s.y+dy};if(inside(p)){const prev=cells.get(key(p));cells.set(key(p),{...p,hits:(prev?.hits??0)+1});}}return [...cells.values()];}
+  if(abilityId==='reabsorption')return absorbableSprouts(state,u).map(s=>({x:s.x,y:s.y}));
+  return target?[{x:target.x,y:target.y}]:[];
+}
+function useOnodAbility(state,unit,id,targetId,position){
+  if(id==='vines'?!vinesDestinations(state,unit.id).some(p=>p.x===position?.x&&p.y===position?.y):!abilityTargets(state,unit.id,id).includes(targetId))fail('INVALID_TARGET','Objetivo o centro inválido para Onod');
+  const next=clone(state),u=unitById(next,unit.id),target=targetId?entityById(next,targetId):null,events=[];
+  u.pa-=ABILITIES[id].cost;u.skillUsesThisTurn[id]=(u.skillUsesThisTurn[id]??0)+1;
+  events.push({type:'ability.used',unitId:u.id,abilityId:id,cost:ABILITIES[id].cost,...(targetId?{targetId}:{}),...(position?{position:clone(position)}:{})});
+  const damage=(t,amount,source)=>{const result=applyDamageToUnit(t,amount,false);events.push({type:'damage.applied',targetId:t.id,amount,...result,ignoreShield:false,source});if(source==='poison.ability')poisonSymbiosis(next,t,result.hpLost,events);if(result.killed)events.push(t.kind==='object'?{type:'object.destroyed',objectId:t.id}:{type:'unit.died',unitId:t.id});};
+  if(u.status.poison)damage(u,u.status.poison,'poison.ability');
+  if(!u.alive){finishIfNeeded(next,events);return {state:next,events};}
+  const poison=t=>{if(t.alive&&t.kind==='champion'){t.status.poison=Math.min(6,t.status.poison+1);events.push({type:'status.applied',targetId:t.id,status:'poison',value:t.status.poison});}};
+  if(id==='thorn'){damage(target,6,'ability.thorn');poison(target);}
+  if(id==='sap'){
+    const adjacentSprouts=ownSprouts(next,u).filter(s=>adjacent(s,target));
+    if(healEntity(target,adjacentSprouts.length?12:8,events,'ability.sap')>0)for(const s of adjacentSprouts)healEntity(s,4,events,'symbiosis.heal');
+  }
+  if(['vines','spores','awakening'].includes(id))for(const cell of onodEffectCells(next,{unitId:u.id,abilityId:id,targetId,position})){
+    const t=entities(next).find(t=>t.alive&&t.team!==u.team&&key(t)===key(cell));if(!t)continue;
+    damage(t,id==='vines'?(cell.zone==='center'?6:4):id==='awakening'?8*cell.hits:8,`ability.${id}`);
+    if(id==='spores')poison(t);
+    if(id==='vines'&&t.alive&&t.kind==='champion'){t.status.pmPenaltyNext=Math.max(t.status.pmPenaltyNext,1);events.push({type:'status.applied',targetId:t.id,status:'pmPenaltyNext',value:t.status.pmPenaltyNext});}
+  }
+  if(id==='reabsorption'){const eligible=absorbableSprouts(next,u);for(const s of eligible)consumePillar(s,events,id);u.pa+=eligible.length;u.onodGerminateBlockedThisTurn=true;u.onodReabsorptionUsedThisTurn=true;events.push({type:'resource.gained',unitId:u.id,resource:'pa',amount:eligible.length});}
   finishIfNeeded(next,events);return {state:next,events};
 }

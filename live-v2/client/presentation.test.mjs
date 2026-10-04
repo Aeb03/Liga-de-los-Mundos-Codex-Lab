@@ -30,7 +30,7 @@ test('status display sums shields and reads positive confirmed values without in
 test('sword targets are marked and action is enabled only for own valid active slot',()=>{
  const state=fixture();state.slots.A1.championId='arfeli';state.slots.A1.skills=['sword','daggers','bow','shield'];state.combat=initializeCombat({units:[createUnit({...state.slots.A1,slot:1,position:{x:2,y:5}}),createUnit({...state.slots.B1,slot:1,position:{x:3,y:5}})]}).state;
  const args={state,actor:'shared',slotId:'A1',remaining:24,blocked:false,canMove:true,abilitySelection:{targetId:'B1'}};
- const before=structuredClone(state);let html=renderArena(args);assert.match(html,/data-action="sword"  title/);assert.match(html,/ability-target ability-selected/);assert.match(html,/Corte con Espada: 10 daño · 2 PA/);assert.match(html,/0\/2/);assert.deepEqual(state,before);
+ const before=structuredClone(state);let html=renderArena(args);assert.match(html,/data-action="sword"  title/);assert.match(html,/ability-target ability-selected ability-effect/);assert.match(html,/Corte con Espada: 10 daño · 2 PA/);assert.match(html,/0\/2/);assert.deepEqual(state,before);
  html=renderArena({...args,canMove:false});assert.match(html,/data-action="sword" disabled/);
  state.combat.units[0].skillUsesThisTurn.sword=2;html=renderArena(args);assert.match(html,/data-action="sword" disabled/);assert.match(html,/2\/2/);
 });

@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261003-motion1';
-import { renderArena } from './presentation.mjs?v=20261003-daggers1';
+import { renderArena } from './presentation.mjs?v=20261004-range1';
 import { catalog } from './catalog.mjs';
 import { LiveSession, newId } from './session.mjs';
 import { championDefinitions, calculatePath, previewPath, abilityTargets } from '../combat-core.mjs?v=20261003-daggers1';

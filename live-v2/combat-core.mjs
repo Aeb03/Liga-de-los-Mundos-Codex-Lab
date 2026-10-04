@@ -743,9 +743,10 @@ function usePiplusImpulse(state,unit,position){
   const dx=Math.sign(position.x-u.x),dy=Math.sign(position.y-u.y);
   const enemy=next.units.find(t=>t.alive&&t.team!==u.team&&t.x===u.x-dx&&t.y===u.y-dy);
   if(enemy){pushOrPull(next,enemy,u,1,true,0,events,damage,'impulse');if(finishIfNeeded(next,events))return {state:next,events};}
-  const from={x:u.x,y:u.y},d=distance(u,position),path=[from];
-  for(let i=0;i<d&&u.alive;i++){u.x+=dx;u.y+=dy;path.push({x:u.x,y:u.y});triggerKorganTraps(next,u,events,'impulse');if(u.alive&&u.status.wound)damage(u,u.status.wound,'wound.impulse');}
-  events.push({type:'unit.moved',unitId:u.id,path,kind:'dash',cost:0,remainingPm:u.pm,source:'ability.impulse'});
+  const from={x:u.x,y:u.y},d=distance(u,position);u.x=position.x;u.y=position.y;
+  events.push({type:'unit.moved',unitId:u.id,path:[from,clone(position)],kind:'dash',cost:0,remainingPm:u.pm,source:'ability.impulse'});
+  triggerKorganTraps(next,u,events,'impulse');
+  for(let i=0;i<d&&u.alive;i++)if(u.status.wound)damage(u,u.status.wound,'wound.impulse');
   finishIfNeeded(next,events);return {state:next,events};
 }
 

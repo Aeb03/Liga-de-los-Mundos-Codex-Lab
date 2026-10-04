@@ -1,5 +1,5 @@
 // Pure presentation queries: never authorize or resolve an action.
-import { BOARD_SIZE, abilityDefinitions, abilityTargets, clearAbilityLOS, abilityRangeContains, previewAbility, collapseCells, magnetismTargets } from '../combat-core.mjs?v=20261004-champions1';
+import { BOARD_SIZE, abilityDefinitions, abilityTargets, clearAbilityLOS, abilityRangeContains, previewAbility, collapseCells, magnetismTargets } from '../combat-core.mjs?v=20261004-champions2';
 
 export function abilityOverlay(combat, unitId, abilityId, targetId = null, context = {}) {
   const unit = combat?.units.find(candidate => candidate.id === unitId);

@@ -72,8 +72,8 @@ function validateSupportedState(state) {
     obstacleSet.add(obstacle);
   }
   if (!Array.isArray(state.objects) || !Array.isArray(state.traps) || !Array.isArray(state.summons)) fail('INVALID_STATE', 'Faltan colecciones de entidades');
-  if (state.traps.length || state.summons.length) {
-    fail('UNSUPPORTED_MECHANIC', 'Trampas e invocaciones están fuera de alcance en esta etapa');
+  if (state.summons.length) {
+    fail('UNSUPPORTED_MECHANIC', 'Invocaciones están fuera de alcance en esta etapa');
   }
   if (!Array.isArray(state.units) || state.units.length !== 2) fail('UNSUPPORTED_FORMAT', 'El estado soportado es exactamente 1v1');
   const ids = new Set(), positions = new Set(), teams = new Set(), teamSlots = new Set();
@@ -85,7 +85,7 @@ function validateSupportedState(state) {
     if (teamSlots.has(teamSlot)) fail('INVALID_UNIT_IDENTITY', 'El slot debe ser único dentro del equipo');
     if (!inside(unit) || positions.has(key(unit)) || obstacleSet.has(key(unit))) fail('INVALID_POSITION', 'Posición de unidad inválida, repetida u obstruida');
     for (const field of ['hp', 'maxHp', 'pa', 'maxPa', 'pm', 'maxPm', 'initiative']) if (!nonNegativeInteger(unit[field])) fail('INVALID_RESOURCE', `Recurso inválido: ${field}`);
-    if (unit.maxHp < 1 || unit.hp > unit.maxHp || unit.pa > unit.maxPa + (unit.championId==='onod'?3:0) || unit.pm > unit.maxPm || typeof unit.alive !== 'boolean' || unit.alive !== (unit.hp > 0)) fail('INVALID_RESOURCE', 'Vida, recursos o marca alive inconsistentes');
+    if (unit.maxHp < 1 || unit.hp > unit.maxHp || unit.pa > unit.maxPa + (unit.championId==='onod'?3:unit.championId==='korgan'?1:0) || unit.pm > unit.maxPm || typeof unit.alive !== 'boolean' || unit.alive !== (unit.hp > 0)) fail('INVALID_RESOURCE', 'Vida, recursos o marca alive inconsistentes');
     const statusFields = ['wound', 'poison', 'burn', 'paPenaltyNext', 'pmPenaltyNext'];
     if (!unit.status || statusFields.some(field => !nonNegativeInteger(unit.status[field]))) fail('INVALID_STATUS', 'Estado alterado inválido');
     if (unit.status.wound > 3) fail('INVALID_STATUS', 'Herida no puede superar 3');
@@ -118,6 +118,16 @@ function validateSupportedState(state) {
   }
   for(const owner of state.units)if(state.objects.filter(o=>o.alive&&o.ownerId===owner.id).length>3)fail('INVALID_OBJECT','Máximo tres objetos propios activos');
   for(const [field,type] of [['nextPillarId','pillar'],['nextSproutId','sprout']])if(state[field]!==undefined&&(!Number.isInteger(state[field])||state[field]<1||state.objects.some(o=>o.type===type&&o.number>=state[field])))fail('INVALID_OBJECT','Secuencia de objeto inválida');
+  const activeTrapCells=new Set();
+  for(const trap of state.traps){
+    const owner=state.units.find(u=>u.id===trap?.ownerId);
+    if(!trap||trap.kind!=='trap'||!['spikes','mine'].includes(trap.trapType)||!owner||owner.championId!=='korgan'||trap.team!==owner.team||trap.id!==`trap${trap.number}`||ids.has(trap.id))fail('INVALID_TRAP','Identidad o propietario de trampa inválido');
+    if(!inside(trap)||!Number.isInteger(trap.number)||trap.number<1||typeof trap.active!=='boolean'||trap.hidden!==true||!nonNegativeInteger(trap.createdByKorganTurn))fail('INVALID_TRAP','Estado de trampa inválido');
+    if(trap.active){const ownCell=`${trap.ownerId}:\0${key(trap)}`;if(activeTrapCells.has(ownCell))fail('INVALID_TRAP','Una red de Korgan no puede apilar trampas');activeTrapCells.add(ownCell);}
+    ids.add(trap.id);
+  }
+  for(const owner of state.units)if(state.traps.filter(t=>t.active&&t.ownerId===owner.id).length>3)fail('INVALID_TRAP','Máximo tres trampas activas por Korgan');
+  if(state.nextTrapId!==undefined&&(!Number.isInteger(state.nextTrapId)||state.nextTrapId<1||state.traps.some(t=>t.number>=state.nextTrapId)))fail('INVALID_TRAP','Secuencia de trampa inválida');
   if (teams.size !== 2) fail('UNSUPPORTED_FORMAT', 'El estado 1v1 requiere dos equipos distintos');
   for (const unit of state.units) for (const stack of unit.shield) if (!ids.has(stack.sourceId)) fail('INVALID_SHIELD', 'El generador del escudo no existe');
   if (!Array.isArray(state.order) || state.order.length !== 2 || new Set(state.order).size !== 2 || state.order.some(id => !state.units.some(u=>u.id===id))) fail('INVALID_ORDER', 'El orden debe ser una permutación de las dos unidades');
@@ -162,7 +172,7 @@ export function initializeCombat({ units, obstacles = [], random, clock }) {
   }
   let state = {
     schemaVersion: CORE_VERSION, board: { width: BOARD_SIZE, height: BOARD_SIZE, obstacles: obstacleKeys.sort() },
-    units: copy, objects: [], nextPillarId: 1, nextSproutId: 1, traps: [], summons: [], order: sorted.map(u => u.id), turnIndex: 0,
+    units: copy, objects: [], nextPillarId: 1, nextSproutId: 1, traps: [], nextTrapId: 1, summons: [], order: sorted.map(u => u.id), turnIndex: 0,
     round: 1, phase: 'active', winnerTeam: null, tieBreak,
     audit: { initializedAt: clock ?? null }
   };
@@ -281,7 +291,8 @@ export function resolvePath(state, unitId, path) {
     if (!unit.alive) break;
     unit.x = path[index].x; unit.y = path[index].y; unit.pm--;
     travelled.push(clone(path[index]));
-    if (unit.status.wound) damage(unit.status.wound, 'wound.movement', index, false);
+    triggerKorganTraps(next,unit,events,'movement');
+    if (unit.alive && unit.status.wound) damage(unit.status.wound, 'wound.movement', index, false);
   }
   if (unit.championId === 'coloso') unit.colosoCreateWindow = false;
   if (travelled.length > 1) events.push({ type: 'unit.moved', unitId, path: travelled, cost: travelled.length - 1, remainingPm: unit.pm });
@@ -393,6 +404,12 @@ export function restoreState(serialized) {
 }
 
 const ABILITIES = Object.freeze({
+  trap_spikes:{championId:'korgan',cost:2,range:3,los:true,maxUses:2,ground:true},
+  trap_mine:{championId:'korgan',cost:3,range:3,los:true,maxUses:1,ground:true},
+  grenade:{championId:'korgan',cost:3,range:3,los:true,ground:true},
+  shot:{championId:'korgan',cost:3,range:5,damage:10,los:true},
+  hook:{championId:'korgan',cost:3,range:3,damage:6,los:true},
+  hunterstep:{championId:'korgan',cost:1,range:2,maxUses:1,dash:true,ground:true},
   thorn:{championId:'onod',cost:2,range:4,damage:6,los:true,maxUses:2},
   vines:{championId:'onod',cost:3,range:3,los:true,ground:true},
   sap:{championId:'onod',cost:3,range:3,los:true,maxUses:2},
@@ -433,7 +450,8 @@ export function abilityRangeContains(unit, abilityId, target) {
   const a = ABILITIES[abilityId];
   if (!a) return false;
   const dx = Math.abs(unit.x-target.x), dy = Math.abs(unit.y-target.y);
-  if (abilityId==='impulse')return (dx===0||dy===0)&&dx+dy>=1&&dx+dy<=2;
+  if (abilityId==='impulse'||abilityId==='hunterstep')return (dx===0||dy===0)&&dx+dy>=1&&dx+dy<=2;
+  if (abilityId==='shot')return (dx===0||dy===0)&&dx+dy>=1&&dx+dy<=5;
   if (['stonearmor','sap','vines'].includes(abilityId)&&dx+dy===0)return true;
   if (a.geometry === 'adjacent8') return Math.max(dx,dy) === 1;
   const radius = ['rock','collapse','magnetism'].includes(abilityId) && unit.monolith ? 5 : a.range;
@@ -452,6 +470,11 @@ export function abilityTargets(state,unitId,abilityId){
   validateSupportedState(state);
   const u=unitById(state,unitId),a=ABILITIES[abilityId];
   if(!a||a.championId!==u.championId||state.phase!=='active'||activeUnit(state).id!==unitId||u.pa<a.cost||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
+  if(u.championId==='korgan'){
+    if(['trap_spikes','trap_mine','grenade','hunterstep'].includes(abilityId))return [];
+    if(abilityId==='shot')return entities(state).filter(t=>t.alive&&t.team!==u.team&&(t.x===u.x||t.y===u.y)&&distance(u,t)>=1&&distance(u,t)<=5&&clearAbilityLOS(state,u,t)).map(t=>t.id);
+    if(abilityId==='hook')return state.units.filter(t=>t.alive&&t.team!==u.team&&distance(u,t)>=1&&distance(u,t)<=3&&clearAbilityLOS(state,u,t)).map(t=>t.id);
+  }
   if(abilityId==='shield')return [u.id];
   if(['impulse','vines'].includes(abilityId))return [];
   if(abilityId==='sap')return state.units.filter(t=>t.alive&&t.team===u.team&&(t.id===u.id||abilityRangeContains(u,abilityId,t)&&clearAbilityLOS(state,u,t))).map(t=>t.id);
@@ -480,7 +503,7 @@ export function magnetismTargets(state,unitId,pillarId){
 }
 export function swordTargets(state,unitId){return abilityTargets(state,unitId,'sword');}
 
-export function useAbility(state, { unitId, abilityId, targetId, direction, secondaryTargetId, position }) {
+export function useAbility(state, { unitId, abilityId, targetId, direction, secondaryTargetId, position, distance: pullDistance }) {
   validateSupportedState(state);
   if (state.phase !== 'active') fail('COMBAT_ENDED', 'El combate ya terminó');
   const unit = unitById(state, unitId);
@@ -492,6 +515,7 @@ export function useAbility(state, { unitId, abilityId, targetId, direction, seco
   if (ability.maxUses && (unit.skillUsesThisTurn[abilityId] ?? 0) >= ability.maxUses) fail('ABILITY_LIMIT','Límite de usos por turno');
   if(abilityId==='impulse')return usePiplusImpulse(state,unit,position);
   if(unit.championId==='onod')return useOnodAbility(state,unit,abilityId,targetId,position);
+  if(unit.championId==='korgan')return useKorganAbility(state,unit,abilityId,targetId,position,pullDistance);
   const target = entityById(state, targetId);
   if(!abilityTargets(state,unitId,abilityId).includes(target.id)){
     if(['stonearmor','absorb','collapse','magnetism','shield','interference','rupture','fixation'].includes(abilityId))fail('INVALID_TARGET','Objetivo inválido para esta habilidad');
@@ -528,6 +552,7 @@ export function useAbility(state, { unitId, abilityId, targetId, direction, seco
         const from={x:actor.x,y:actor.y},landing=hammerLanding(next,actor,victim),distance=Math.abs(actor.x-landing.x)+Math.abs(actor.y-landing.y);
         actor.x=landing.x;actor.y=landing.y;
         if(distance){events.push({type:'unit.moved',unitId:actor.id,path:[from,{x:actor.x,y:actor.y}],kind:'jump',cost:0,remainingPm:actor.pm,source:'ability.hammer'});
+          triggerKorganTraps(next,actor,events,'jump');
           for(let step=1;step<=distance&&actor.alive;step++)if(actor.status.wound)damage(actor,actor.status.wound,'wound.jump');}
         if(!actor.alive){finishIfNeeded(next,events);return {state:next,events};}
       }
@@ -585,8 +610,9 @@ export function createPillar(state,{unitId,position}) {
 
 export function previewAbility(state, command) {
   const resolved = useAbility(state, command);
+  const korganGround=['trap_spikes','trap_mine','hunterstep'].includes(command.abilityId)?[clone(command.position)]:command.abilityId==='grenade'?korganGrenadeCells(command.position):null;
   return {
-    effect: ABILITIES[command.abilityId]?.championId==='onod'?onodEffectCells(state,command):command.abilityId==='impulse'?[clone(command.position)]:command.abilityId==='collapse'?collapseCells(entityById(state,command.targetId),command.direction):[{x:entityById(state,command.targetId).x,y:entityById(state,command.targetId).y}],
+    effect: korganGround??(ABILITIES[command.abilityId]?.championId==='onod'?onodEffectCells(state,command):command.abilityId==='impulse'?[clone(command.position)]:command.abilityId==='collapse'?collapseCells(entityById(state,command.targetId),command.direction):[{x:entityById(state,command.targetId).x,y:entityById(state,command.targetId).y}]),
     moves: resolved.events.filter(e=>e.type==='unit.moved'),
     blocked: resolved.events.filter(e=>e.type==='movement.blocked'),
     damage: resolved.events.filter(e=>e.type==='damage.applied'),
@@ -621,7 +647,8 @@ function pushOrPull(state,target,source,steps,away,collisionExtra,events,damage,
     }
     target.x=dest.x;target.y=dest.y;
     events.push({type:'unit.moved',unitId:target.id,path:[from,dest],cost:0,remainingPm:target.pm,forced:true,source:label});
-    if(target.status.wound)damage(target,target.status.wound,'wound.forced');
+    triggerKorganTraps(state,target,events,label);
+    if(target.alive&&target.status.wound)damage(target,target.status.wound,'wound.forced');
   }
 }
 function resolveColosoSkill(state,u,target,id,context,events,damage){
@@ -715,9 +742,91 @@ function usePiplusImpulse(state,unit,position){
   const dx=Math.sign(position.x-u.x),dy=Math.sign(position.y-u.y);
   const enemy=next.units.find(t=>t.alive&&t.team!==u.team&&t.x===u.x-dx&&t.y===u.y-dy);
   if(enemy){pushOrPull(next,enemy,u,1,true,0,events,damage,'impulse');if(finishIfNeeded(next,events))return {state:next,events};}
-  const from={x:u.x,y:u.y},d=distance(u,position);u.x=position.x;u.y=position.y;
-  events.push({type:'unit.moved',unitId:u.id,path:[from,clone(position)],kind:'dash',cost:0,remainingPm:u.pm,source:'ability.impulse'});
-  for(let i=0;i<d&&u.alive;i++)if(u.status.wound)damage(u,u.status.wound,'wound.impulse');
+  const from={x:u.x,y:u.y},d=distance(u,position),path=[from];
+  for(let i=0;i<d&&u.alive;i++){u.x+=dx;u.y+=dy;path.push({x:u.x,y:u.y});triggerKorganTraps(next,u,events,'impulse');if(u.alive&&u.status.wound)damage(u,u.status.wound,'wound.impulse');}
+  events.push({type:'unit.moved',unitId:u.id,path,kind:'dash',cost:0,remainingPm:u.pm,source:'ability.impulse'});
+  finishIfNeeded(next,events);return {state:next,events};
+}
+
+
+function activeOwnTraps(state,u){return state.traps.filter(t=>t.active&&t.ownerId===u.id).sort((a,b)=>a.number-b.number);}
+function triggerKorganTraps(state,target,events,source='movement'){
+  if(!target?.alive||target.kind!=='champion')return 0;
+  let count=0;
+  for(const trap of state.traps.filter(t=>t.active&&t.team!==target.team&&t.x===target.x&&t.y===target.y)){
+    trap.active=false;count++;
+    events.push({type:'trap.triggered',trapId:trap.id,trapType:trap.trapType,x:trap.x,y:trap.y,targetId:target.id,source});
+    const amount=trap.trapType==='spikes'?10:8,result=applyDamageToUnit(target,amount,false);
+    events.push({type:'damage.applied',targetId:target.id,amount,...result,ignoreShield:false,source:`trap.${trap.trapType}`});
+    if(result.killed){events.push({type:'unit.died',unitId:target.id});break;}
+    if(trap.trapType==='spikes'){const before=target.status.wound;target.status.wound=Math.min(3,before+1);events.push({type:'status.applied',targetId:target.id,status:'wound',amount:target.status.wound-before,value:target.status.wound});}
+    else{target.status.paPenaltyNext=Math.max(target.status.paPenaltyNext,1);events.push({type:'status.applied',targetId:target.id,status:'paPenaltyNext',value:target.status.paPenaltyNext});}
+  }
+  return count;
+}
+export function korganTrapDestinations(state,unitId,abilityId){
+  validateSupportedState(state);const u=unitById(state,unitId),a=ABILITIES[abilityId];
+  if(!['trap_spikes','trap_mine'].includes(abilityId)||u.championId!=='korgan'||state.phase!=='active'||activeUnit(state).id!==u.id||u.pa<a.cost||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses)||activeOwnTraps(state,u).length>=3)return [];
+  const occupied=occupiedKeys(state,null),ownCells=new Set(activeOwnTraps(state,u).map(key)),out=[];
+  for(let y=0;y<BOARD_SIZE;y++)for(let x=0;x<BOARD_SIZE;x++){const p={x,y},d=distance(u,p);if(d>=1&&d<=3&&!occupied.has(key(p))&&!state.board.obstacles.includes(key(p))&&!ownCells.has(key(p))&&clearAbilityLOS(state,u,p))out.push(p);}
+  return out;
+}
+export function hunterStepDestinations(state,unitId){
+  validateSupportedState(state);const u=unitById(state,unitId),a=ABILITIES.hunterstep;
+  if(u.championId!=='korgan'||state.phase!=='active'||activeUnit(state).id!==u.id||u.pa<a.cost||(u.skillUsesThisTurn.hunterstep??0)>=1)return [];
+  const occupied=occupiedKeys(state,u.id),out=[];
+  for(const [dx,dy] of DIRECTIONS)for(const d of [1,2]){
+    let ok=true;for(let step=1;step<=d;step++){const p={x:u.x+dx*step,y:u.y+dy*step};if(!inside(p)||occupied.has(key(p))||state.board.obstacles.includes(key(p))){ok=false;break;}}
+    if(ok)out.push({x:u.x+dx*d,y:u.y+dy*d});
+  }
+  return out;
+}
+export function korganGrenadeCells(position){
+  if(!inside(position))return [];
+  return [{...position,zone:'center'},...DIRECTIONS.map(([dx,dy])=>({x:position.x+dx,y:position.y+dy,zone:'arm'}))].filter(inside);
+}
+export function korganDisarmTargets(state,unitId){
+  validateSupportedState(state);const u=unitById(state,unitId);
+  if(u.championId!=='korgan'||state.phase!=='active'||activeUnit(state).id!==u.id||u.korganDisarmUsedThisTurn)return [];
+  return activeOwnTraps(state,u).map(t=>t.id);
+}
+export function korganAction(state,{unitId,action,targetId}){
+  if(action!=='disarm'||!korganDisarmTargets(state,unitId).includes(targetId))fail('KORGAN_ACTION_UNAVAILABLE','Desarmar no disponible');
+  const next=clone(state),u=unitById(next,unitId),trap=next.traps.find(t=>t.id===targetId),events=[];
+  trap.active=false;u.korganDisarmUsedThisTurn=true;u.pa+=1;
+  events.push({type:'trap.disarmed',trapId:trap.id,unitId:u.id},{type:'resource.gained',unitId:u.id,resource:'pa',amount:1});
+  return {state:next,events};
+}
+function useKorganAbility(state,unit,id,targetId,position,pullDistance){
+  const a=ABILITIES[id];
+  if(['trap_spikes','trap_mine'].includes(id)&&!korganTrapDestinations(state,unit.id,id).some(p=>p.x===position?.x&&p.y===position?.y))fail('INVALID_POSITION','Casilla inválida para la trampa');
+  if(id==='grenade'){
+    if(!inside(position)||distance(unit,position)<1||distance(unit,position)>3)fail('OUT_OF_RANGE','Centro de Granada fuera de alcance');
+    if(!clearAbilityLOS(state,unit,position))fail('BLOCKED_LOS','Línea de visión bloqueada');
+  }
+  if(id==='hunterstep'&&!hunterStepDestinations(state,unit.id).some(p=>p.x===position?.x&&p.y===position?.y))fail('INVALID_POSITION','Paso del Cazador requiere 1 o 2 casillas cardinales libres');
+  if(['shot','hook'].includes(id)&&!abilityTargets(state,unit.id,id).includes(targetId))fail('INVALID_TARGET','Objetivo inválido para Korgan');
+  if(id==='hook'&&![1,2].includes(pullDistance))fail('INVALID_DISTANCE','Gancho requiere elegir atracción 1 o 2');
+  const next=clone(state),u=unitById(next,unit.id),events=[];
+  const damage=(t,amount,source)=>{const result=applyDamageToUnit(t,amount,false);events.push({type:'damage.applied',targetId:t.id,amount,...result,ignoreShield:false,source});if(source==='poison.ability')poisonSymbiosis(next,t,result.hpLost,events);if(result.killed)events.push(t.kind==='object'?{type:'object.destroyed',objectId:t.id}:{type:'unit.died',unitId:t.id});};
+  u.pa-=a.cost;u.skillUsesThisTurn[id]=(u.skillUsesThisTurn[id]??0)+1;events.push({type:'ability.used',unitId:u.id,abilityId:id,cost:a.cost,...(targetId?{targetId}:{}),...(position?{position:clone(position)}:{}),...(pullDistance?{distance:pullDistance}:{})});
+  if(u.status.poison)damage(u,u.status.poison,'poison.ability');
+  if(!u.alive){finishIfNeeded(next,events);return {state:next,events};}
+  if(['trap_spikes','trap_mine'].includes(id)){
+    let number=next.nextTrapId??Math.max(0,...next.traps.map(t=>t.number))+1;while(next.traps.some(t=>t.id===`trap${number}`))number++;next.nextTrapId=number+1;
+    const trap={id:`trap${number}`,number,kind:'trap',trapType:id==='trap_spikes'?'spikes':'mine',ownerId:u.id,team:u.team,x:position.x,y:position.y,active:true,hidden:true,createdByKorganTurn:u.korganTurnSerial};
+    next.traps.push(trap);events.push({type:'trap.created',trap:clone(trap),unitId:u.id});
+  }else if(id==='grenade'){
+    const center={x:position.x,y:position.y},cells=korganGrenadeCells(center),victims=entities(next).filter(t=>t.alive&&t.team!==u.team&&cells.some(c=>c.x===t.x&&c.y===t.y));
+    for(const t of victims){const cell=cells.find(c=>c.x===t.x&&c.y===t.y);damage(t,cell.zone==='center'?10:6,`ability.grenade.${cell.zone}`);}
+    for(const t of victims){const cell=cells.find(c=>c.x===t.x&&c.y===t.y);if(t.alive&&t.kind==='champion'&&cell?.zone==='arm')pushOrPull(next,t,center,1,true,0,events,damage,'grenade');}
+  }else if(id==='shot'){damage(entityById(next,targetId),10,'ability.shot');}
+  else if(id==='hook'){const target=unitById(next,targetId);damage(target,6,'ability.hook');if(target.alive)pushOrPull(next,target,u,pullDistance,false,0,events,damage,'hook');}
+  else if(id==='hunterstep'){
+    const dx=Math.sign(position.x-u.x),dy=Math.sign(position.y-u.y),steps=distance(u,position),path=[{x:u.x,y:u.y}];
+    for(let i=0;i<steps&&u.alive;i++){u.x+=dx;u.y+=dy;path.push({x:u.x,y:u.y});triggerKorganTraps(next,u,events,'hunterstep');if(u.alive&&u.status.wound)damage(u,u.status.wound,'wound.hunterstep');}
+    events.push({type:'unit.moved',unitId:u.id,path,kind:'dash',cost:0,remainingPm:u.pm,source:'ability.hunterstep'});
+  }
   finishIfNeeded(next,events);return {state:next,events};
 }
 

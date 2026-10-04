@@ -17,3 +17,23 @@ do $$ declare denied boolean:=false; begin
   if not denied then raise exception 'anonymous backend read accepted'; end if;
 end $$;
 reset role;
+
+-- Exercise the SQL rejection directly and assert its SQLSTATE, not a mocked adapter.
+begin;
+do $$ declare
+  actor uuid := gen_random_uuid(); match uuid := gen_random_uuid();
+  rejected boolean := false;
+begin
+  perform public.live_v2_create_room(actor,match);
+  begin
+    perform public.live_v2_confirm_command(actor,match,gen_random_uuid(),'stale',99,0,
+      'preparation','preparation',0,null,'{}'::jsonb,'{}'::jsonb,'hash',false);
+  exception when others then
+    if sqlstate <> 'P0001' or sqlerrm <> 'VERSION_CONFLICT' then
+      raise exception 'Unexpected CAS rejection: % %',sqlstate,sqlerrm;
+    end if;
+    rejected := true;
+  end;
+  if not rejected then raise exception 'Stale version accepted'; end if;
+end $$;
+rollback;

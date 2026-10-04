@@ -1,10 +1,17 @@
 // Pure presentation queries: never authorize or resolve an action.
-import { BOARD_SIZE, abilityDefinitions, abilityTargets, clearAbilityLOS, abilityRangeContains, previewAbility, collapseCells, magnetismTargets, impulseDestinations, piplusMarkTargets, abilityLOSBlocked, germinateDestinations, onodActionTargets, vinesDestinations, onodEffectCells } from '../combat-core.mjs?v=20261004-onod1';
+import { BOARD_SIZE, abilityDefinitions, abilityTargets, clearAbilityLOS, abilityRangeContains, previewAbility, collapseCells, magnetismTargets, impulseDestinations, piplusMarkTargets, abilityLOSBlocked, germinateDestinations, onodActionTargets, vinesDestinations, onodEffectCells, korganTrapDestinations, korganGrenadeDestinations, korganGrenadeCells, hunterStepDestinations, korganDisarmTargets } from '../combat-core.mjs?v=20261004-korgan1';
 
 export function abilityOverlay(combat, unitId, abilityId, targetId = null, context = {}) {
   const unit = combat?.units.find(candidate => candidate.id === unitId);
   const ability = abilityDefinitions()[abilityId];
   const empty = { range: [], targets: [], effect: [] };
+  if(unit?.alive&&unit.championId==='korgan'&&combat.phase==='active'&&combat.order[combat.turnIndex]===unitId){
+    if(abilityId==='korganDisarm'){const targets=korganDisarmTargets(combat,unitId),trap=combat.traps.find(t=>t.id===targetId&&targets.includes(t.id));return {range:[],targets,effect:trap?[{x:trap.x,y:trap.y}]:[]};}
+    if(['trap_spikes','trap_mine'].includes(abilityId)){const range=korganTrapDestinations(combat,unitId,abilityId),p=context.position,valid=p&&range.some(c=>c.x===p.x&&c.y===p.y);return {range,targets:[],effect:valid?[p]:[]};}
+    if(abilityId==='grenade'){const range=korganGrenadeDestinations(combat,unitId),p=context.position,valid=p&&range.some(c=>c.x===p.x&&c.y===p.y);return {range,targets:[],effect:valid?korganGrenadeCells(p):[],...(valid?{forced:previewAbility(combat,{unitId,abilityId,position:p})}:{})};}
+    if(abilityId==='hunterstep'){const range=hunterStepDestinations(combat,unitId),p=context.position,valid=p&&range.some(c=>c.x===p.x&&c.y===p.y);return {range,targets:[],effect:valid?[p]:[],...(valid?{forced:previewAbility(combat,{unitId,abilityId,position:p})}:{})};}
+    if(abilityId==='hook'){const targets=abilityTargets(combat,unitId,abilityId),target=combat.units.find(t=>t.id===targetId&&targets.includes(t.id)),range=[];for(let y=0;y<BOARD_SIZE;y++)for(let x=0;x<BOARD_SIZE;x++){const d=Math.abs(x-unit.x)+Math.abs(y-unit.y);if(d>=1&&d<=3)range.push({x,y,blocked:!clearAbilityLOS(combat,unit,{x,y})});}const result={range,targets,effect:target?[{x:target.x,y:target.y}]:[]};if(target&&[1,2].includes(context.distance))result.forced=previewAbility(combat,{unitId,abilityId,targetId:target.id,distance:context.distance});return result;}
+  }
   if(unit?.alive&&unit.championId==='onod'&&combat.phase==='active'&&combat.order[combat.turnIndex]===unitId){
     if(abilityId==='germinate'){const range=germinateDestinations(combat,unitId),p=context.position;return {range,targets:[],effect:p&&range.some(c=>c.x===p.x&&c.y===p.y)?[p]:[]};}
     if(abilityId==='wither'){const targets=onodActionTargets(combat,unitId,'wither'),t=combat.objects.find(s=>s.id===targetId&&targets.includes(s.id));return {range:[],targets,effect:t?[{x:t.x,y:t.y}]:[]};}

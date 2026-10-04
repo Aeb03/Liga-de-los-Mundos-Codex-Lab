@@ -57,3 +57,12 @@
 }
 
 .live-board .tile.ability-target{fill:#ad443b99;stroke:#ffc18b;stroke-width:2}.live-board .tile.ability-selected{fill:#ed9844bb;stroke:#fff0bc;stroke-width:2.5}.combat-skill.selected-skill{outline:2px solid #ffdc77;outline-offset:-3px}.move-action[role=button]{cursor:pointer}
+
+/* Full skill range, LOS blockers and actual single-cell effect preview. */
+.live-board .tile.ability-range{fill:#2d6fb388;stroke:#72c9ff;stroke-width:1.5}
+.live-board .tile.ability-range.ability-blocked{fill:#40566d99;stroke:#8daac3;stroke-width:1.2;stroke-dasharray:4 3}
+.live-board .tile.ability-range.ability-target{fill:#ad443b99;stroke:#ffc18b;stroke-width:2}
+.live-board .tile.ability-range.ability-effect{fill:#ed9844bb;stroke:#fff0bc;stroke-width:2.5;stroke-dasharray:none}
+.range-legend{display:inline-flex;gap:6px;flex-wrap:wrap;font-size:9px;margin-right:6px}
+.range-legend span:before{content:'';display:inline-block;width:7px;height:7px;margin-right:3px;border:1px solid currentColor;vertical-align:middle}
+.range-key{color:#72c9ff}.range-key:before{background:#2d6fb3}.blocked-key{color:#8daac3}.blocked-key:before{background:#40566d;border-style:dashed!important}.target-key{color:#ffc18b}.target-key:before{background:#ad443b}.effect-key{color:#fff0bc}.effect-key:before{background:#ed9844}

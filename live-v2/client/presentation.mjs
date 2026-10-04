@@ -1,6 +1,7 @@
+import { abilityOverlay } from './ability-overlay.mjs?v=20261004-range1';
 import { spriteSource } from './motion.mjs?v=20261003-motion1';
 import { catalog } from './catalog.mjs?v=20261003-layout1';
-import { movementAvailable, abilityTargets, abilityDefinitions } from '../combat-core.mjs?v=20261003-daggers1';
+import { movementAvailable, abilityDefinitions } from '../combat-core.mjs?v=20261003-daggers1';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=p=>`${p.x},${p.y}`;
 export const boardPoint=(x,y)=>({x:260+(x-y)*20,y:30+(x+y)*10});
@@ -25,15 +26,18 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
   const own=state.slots[slotId]??Object.values(state.slots).find(s=>s.controllerId===actor);
   const active=state.combat?.units.find(u=>u.id===state.combat.order[state.combat.turnIndex]);
   const deployment=state.phase==='deployment',finished=state.phase==='finished';
-  const validTargets=abilitySelection&&state.combat?new Set(abilityTargets(state.combat,active.id,abilitySelection.abilityId??'sword')):new Set();
+  const overlay=abilitySelection&&canMove&&!blocked&&state.phase==='combat'?abilityOverlay(state.combat,active.id,abilitySelection.abilityId??'sword',abilitySelection.targetId):{range:[],targets:[],effect:[]};
+  const rangeCells=new Map(overlay.range.map(cell=>[key(cell),cell]));
+  const effectCells=new Set(overlay.effect.map(key));
+  const validTargets=new Set(overlay.targets);
   const targetCells=new Set((state.combat?.units??[]).filter(u=>validTargets.has(u.id)).map(key));
   const reachable=canMove&&!abilitySelection?new Set(movementAvailable(state.combat,active.id).map(key)):new Set();
   const route=new Set(preview?.path.map(key)??[]),dest=preview?.path.at(-1);
   const obstacles=new Set(state.combat?.board.obstacles??['5,4','6,4','5,7','6,7']);
   let cells='';for(let y=0;y<12;y++)for(let x=0;x<12;x++){
     const p=boardPoint(x,y),k=`${x},${y}`,zone=deployment&&zones[own?.team]?.includes(k);
-    const cls=['tile',targetCells.has(k)?'ability-target':'',abilitySelection?.targetId&&abilitySelection.targetId===state.combat?.units.find(u=>key(u)===k)?.id?'ability-selected':'',obstacles.has(k)?'obstacle':'',zone?'zone':'',reachable.has(k)?'reachable':'',route.has(k)?'route':'',dest&&key(dest)===k?'destination':''].join(' ');
-    cells+=`<polygon class="${cls}" points="${p.x},${p.y-10} ${p.x+20},${p.y} ${p.x},${p.y+10} ${p.x-20},${p.y}" data-x="${x}" data-y="${y}" role="button" tabindex="0" aria-label="Casilla ${x}, ${y}"><title>${x}, ${y}</title></polygon>`;
+    const cls=['tile',rangeCells.has(k)?'ability-range':'',rangeCells.get(k)?.blocked?'ability-blocked':'',targetCells.has(k)?'ability-target':'',effectCells.has(k)?'ability-selected ability-effect':'',obstacles.has(k)?'obstacle':'',zone?'zone':'',reachable.has(k)?'reachable':'',route.has(k)?'route':'',dest&&key(dest)===k?'destination':''].join(' ');
+    cells+=`<polygon class="${cls}" points="${p.x},${p.y-10} ${p.x+20},${p.y} ${p.x},${p.y+10} ${p.x-20},${p.y}" data-x="${x}" data-y="${y}" role="button" tabindex="0" aria-label="Casilla ${x}, ${y}"><title>${x}, ${y}${rangeCells.has(k)?rangeCells.get(k).blocked?" · Alcance: línea de visión bloqueada":" · Alcance de habilidad":""}${targetCells.has(k)?" · Objetivo válido":""}${effectCells.has(k)?" · Casilla afectada":""}</title></polygon>`;
   }
   const trail=preview?`<polyline class="trail" points="${preview.path.map(p=>{const c=boardPoint(p.x,p.y);return `${c.x},${c.y}`;}).join(' ')}"/>`:'';
   const units=state.combat?.units??Object.values(state.slots).filter(s=>s.position).map(s=>({...s,x:s.position.x,y:s.position.y,alive:true}));
@@ -54,6 +58,7 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
   const masteryBonus=active?.championId==='arfeli'&&!active.arfeliMasteryChain?.includes(selectedAbilityId)?(active.arfeliMasteryChain?.length??0):0;
   const selectedName=catalog[active?.championId]?.skills.find(s=>s.id===selectedAbilityId)?.name;
   const effect=selectedAbilityId==='shield'?`${15+masteryBonus} escudo`:`${selectedDefinition?.damage+masteryBonus} daño${selectedDefinition?.wound?` + Herida ${selectedDefinition.wound}`:""}`;
+  const legend=overlay.range.length?'<span class="range-legend" aria-label="Referencias de alcance"><span class="range-key">Alcance</span><span class="blocked-key">LOS bloqueada</span><span class="target-key">Objetivo</span><span class="effect-key">Efecto</span></span> ':'';
   const note=abilitySelection?(selectedTarget?`${selectedName}: ${effect} · ${selectedDefinition.cost} PA. Tocá de nuevo la misma casilla para confirmar.`:`${selectedName}: elegí un objetivo marcado. Tocá MOVER para cancelar.`):
     deployment?(own?.position?`Posición ${own.position.x}, ${own.position.y}. Tocá otra casilla marcada para cambiarla.`:'Tocá una casilla marcada de tu zona.'):
     preview?`Recorrido: ${preview.cost} PM · Placaje: ${preview.tackleDamage} PV${preview.woundDamage?` · Herida: ${preview.woundDamage} daño · PV final: ${preview.remainingHp}${preview.diesDuringPath?" · MUERTE DURANTE EL RECORRIDO":""}`:""}. Tocá de nuevo la misma casilla para mover.`:
@@ -68,5 +73,5 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
   return `<section class="live-battle" aria-label="Arena Central"><div class="arena-stage"><img class="arena-platform" src="../assets/arenas/central/arena-central-base.png" alt=""><svg class="live-board" viewBox="0 0 520 280" aria-label="Tablero 12 por 12">${cells}${trail}${pieces}</svg></div>
     <div class="live-round"><div class="round-summary"><span>${deployment?'DESPLIEGUE':finished?'RESULTADO':`RONDA ${state.combat.round}`}</span><strong>${active?escape(catalog[active.championId]?.name):'Arena Central'}</strong>${!deployment&&!finished?`<span class="timer" id="timer">${remaining}</span>`:''}</div>${turnOrder}</div>
     ${roster(true)}${roster(false)}
-    <div class="live-command ${hudCollapsed?'collapsed':''}"><button class="hud-fold" data-action="toggleHud" aria-label="${hudCollapsed?'Expandir controles':'Plegar controles'}" aria-expanded="${!hudCollapsed}">${hudCollapsed?'+':'−'}</button><div class="command-main">${championCard}${skillButtons}<div class="command-controls">${controls}</div></div><div class="command-feedback"><p class="board-note">${note}</p><span class="phase-text" id="pending">${pending}</span></div></div></section>`;
+    <div class="live-command ${hudCollapsed?'collapsed':''}"><button class="hud-fold" data-action="toggleHud" aria-label="${hudCollapsed?'Expandir controles':'Plegar controles'}" aria-expanded="${!hudCollapsed}">${hudCollapsed?'+':'−'}</button><div class="command-main">${championCard}${skillButtons}<div class="command-controls">${controls}</div></div><div class="command-feedback"><p class="board-note">${legend}${note}</p><span class="phase-text" id="pending">${pending}</span></div></div></section>`;
 }

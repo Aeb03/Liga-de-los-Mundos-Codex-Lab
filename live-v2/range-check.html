@@ -1,0 +1,19 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVE v2 — Alcance y efecto</title><link rel="stylesheet" href="client/ui.css"><link rel="stylesheet" href="client/presentation.css?v=20261004-range1"><body class="in-arena"><header><h1>Alcance y efecto · prueba visual</h1><span>Sin sala ni conexión</span></header><main id="app"></main><script type="module">
+import {renderArena} from './client/presentation.mjs?v=20261004-range1';
+import {createUnit,initializeCombat,useAbility,endTurn,abilityTargets,calculatePath,previewPath,resolvePath} from './combat-core.mjs?v=20261003-daggers1';
+const slots={A1:{id:'A1',team:'A',controllerId:'demo-a',championId:'arfeli',position:{x:5,y:5},skills:['sword','daggers','bow','shield']},B1:{id:'B1',team:'B',controllerId:'demo-b',championId:'coloso',position:{x:8,y:5},skills:['rock','stonearmor','absorb','quake']}};
+const state={id:'demo',version:0,phase:'combat',slots,combat:initializeCombat({units:Object.values(slots).map(s=>createUnit({...s,slot:1})),obstacles:[{x:7,y:5}]}).state};let abilitySelection=null,preview=null,hudCollapsed=false;
+const active=()=>state.combat.units.find(u=>u.id===state.combat.order[state.combat.turnIndex]);
+function commit(out){state.combat=out.state;state.version++;if(out.state.phase==='ended'){state.phase='finished';state.result={winnerTeam:out.state.winnerTeam};}abilitySelection=null;preview=null;}
+function render(){const u=active();document.querySelector('#app').innerHTML=renderArena({state,actor:u.controllerId,slotId:u.id,blocked:false,canMove:state.phase==='combat',remaining:24,hudCollapsed,abilitySelection,preview});}
+document.querySelector('#app').addEventListener('click',e=>{const t=e.target.closest('[data-action],[data-x]');if(!t||t.disabled)return;const id=t.dataset.action;
+if(['sword','daggers','shield','rock'].includes(id)){abilitySelection=abilitySelection?.abilityId===id?null:{abilityId:id,targetId:null};preview=null;render();return;}
+if(id==='toggleHud'){hudCollapsed=!hudCollapsed;render();return;}if(id==='moveMode'){abilitySelection=null;render();return;}
+if(id==='end'){commit(endTurn(state.combat,{unitId:active().id}));render();return;}
+if(t.dataset.x!=null&&state.phase==='combat'){const u=active(),x=Number(t.dataset.x),y=Number(t.dataset.y);
+if(abilitySelection){const valid=abilityTargets(state.combat,u.id,abilitySelection.abilityId),target=state.combat.units.find(v=>valid.includes(v.id)&&v.x===x&&v.y===y);if(!target)return;
+if(abilitySelection.targetId===target.id)commit(useAbility(state.combat,{unitId:u.id,abilityId:abilitySelection.abilityId,targetId:target.id}));else abilitySelection.targetId=target.id;
+}else{try{if(preview?.destination.x===x&&preview?.destination.y===y)commit(resolvePath(state.combat,u.id,preview.path));else preview=previewPath(state.combat,u.id,calculatePath(state.combat,u.id,{x,y}));}catch{preview=null;}}
+render();}
+});render();
+</script></body></html>

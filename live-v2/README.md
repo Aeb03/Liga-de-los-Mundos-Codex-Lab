@@ -56,7 +56,7 @@ Entrada separada `live-v2/index.html`; instrucciones y límites en [CLIENT.md](C
 
 ## Etapa 3 — primera habilidad
 
-Corte con Espada de Arfeli se implementa según la ficha efectiva de `arfeli-rework-0626.js`: 2 PA, alcance ortogonal 1, 10 daño y máximo 2 usos por turno. La implementación y sus límites están en [SWORD-STAGE.md](SWORD-STAGE.md). Las referencias anteriores a habilidades fuera del alcance describen la etapa inicial; el estado actual habilita las seis habilidades de Arfeli, Coloso y Piplus, según [CHAMPIONS-COMPLETE.md](CHAMPIONS-COMPLETE.md) y [PIPLUS-STAGE.md](PIPLUS-STAGE.md).
+Corte con Espada de Arfeli se implementa según la ficha efectiva de `arfeli-rework-0626.js`: 2 PA, alcance ortogonal 1, 10 daño y máximo 2 usos por turno. La implementación y sus límites están en [SWORD-STAGE.md](SWORD-STAGE.md). Las referencias anteriores a habilidades fuera del alcance describen la etapa inicial; el estado actual habilita las seis habilidades de Arfeli, Coloso, Piplus y Onod, según [CHAMPIONS-COMPLETE.md](CHAMPIONS-COMPLETE.md) y [PIPLUS-STAGE.md](PIPLUS-STAGE.md); Onod en [ONOD-STAGE.md](ONOD-STAGE.md).
 
 ## Escudo + Roca
 
@@ -71,3 +71,7 @@ Reglas, selecciones en dos pasos, Monolito y validación: [CHAMPIONS-COMPLETE.md
 ## Piplus completo
 
 Marca persistente, seis habilidades, Fijación e Impulso: [PIPLUS-STAGE.md](PIPLUS-STAGE.md).
+
+## Onod completo
+
+Brotes, seis habilidades, áreas y Simbiosis: [ONOD-STAGE.md](ONOD-STAGE.md).

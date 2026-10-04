@@ -1,7 +1,7 @@
-import { abilityOverlay } from './ability-overlay.mjs?v=20261004-champions1';
-import { spriteSource } from './motion.mjs?v=20261004-champions1';
+import { abilityOverlay } from './ability-overlay.mjs?v=20261004-champions2';
+import { spriteSource } from './motion.mjs?v=20261004-champions2';
 import { catalog } from './catalog.mjs?v=20261003-layout1';
-import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets } from '../combat-core.mjs?v=20261004-champions1';
+import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets } from '../combat-core.mjs?v=20261004-champions2';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=p=>`${p.x},${p.y}`;
 export const boardPoint=(x,y)=>({x:260+(x-y)*20,y:30+(x+y)*10});
@@ -49,7 +49,7 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
     const indicators=statuses(u), life=u.hp == null ? '' : `<g class="piece-health" aria-label="${escape(catalog[u.championId]?.name)}: ${u.hp}/${u.maxHp} PV${indicators?`, ${escape(indicators)}`:''}"><rect x="${p.x-30}" y="${p.y-68}" width="60" height="12" rx="2"/><rect class="health-fill" x="${p.x-29}" y="${p.y-67}" width="${58*Math.max(0,Math.min(1,u.hp/u.maxHp))}" height="10" rx="1"/><text x="${p.x}" y="${p.y-59}">${u.hp}/${u.maxHp}</text>${indicators?`<text class="piece-status" x="${p.x}" y="${p.y-72}">${escape(indicators)}</text>`:''}</g>`;
     return `<g data-motion-unit="${escape(u.id)}" data-x="${u.x}" data-y="${u.y}" data-champion="${u.championId}" data-monolith="${Boolean(u.monolith)}" data-facing="${state.presentation?.facings?.[u.id]??(u.team==='B'?'up-left':'down-right')}"><ellipse class="marker" cx="${p.x}" cy="${p.y}" rx="16" ry="7" stroke="${u.controllerId===actor?'#64c6f2':'#f18b83'}"/><image class="champion-piece" href="${spriteSource(u.championId,state.presentation?.facings?.[u.id]??(u.team==='B'?'up-left':'down-right'),u.monolith)}" x="${p.x-22}" y="${p.y-53}" width="44" height="58"/>${life}</g>`;
   }).join('');
-  const obstaclePieces=[...obstacles].map(tile=>{const [x,y]=tile.split(',').map(Number),p=boardPoint(x,y);return {x,y,html:`<g class="arena-obstacle" aria-label="Obstáculo de arena en ${x}, ${y}"><image href="assets/arena-block.png?v=20261004-champions1" x="${p.x-23}" y="${p.y-28}" width="46" height="38"/></g>`};}).sort((a,b)=>a.x+a.y-b.x-b.y).map(o=>o.html).join('');
+  const obstaclePieces=[...obstacles].map(tile=>{const [x,y]=tile.split(',').map(Number),p=boardPoint(x,y);return {x,y,html:`<g class="arena-obstacle" aria-label="Obstáculo de arena en ${x}, ${y}"><image href="assets/arena-block.png?v=20261004-champions2" x="${p.x-23}" y="${p.y-28}" width="46" height="38"/></g>`};}).sort((a,b)=>a.x+a.y-b.x-b.y).map(o=>o.html).join('');
   const objectPieces=(state.combat?.objects??[]).filter(o=>o.alive).map(o=>{const p=boardPoint(o.x,o.y);return `<g class="pillar-piece" aria-label="Pilar ${o.number}: ${o.hp}/15 PV"><image href="../assets/tactical/objects/pilar-coloso.png" x="${p.x-20}" y="${p.y-45}" width="40" height="50"/><text x="${p.x}" y="${p.y-48}" text-anchor="middle">${o.hp}/15${o.shield.length?' · Escudo '+o.shield.reduce((n,s)=>n+s.amount,0):''}</text></g>`;}).join('');
   function roster(mine){
     const slots=Object.values(state.slots).filter(s=>(s.team===own?.team)===mine);

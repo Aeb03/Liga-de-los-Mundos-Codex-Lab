@@ -14,16 +14,17 @@ export function confirmedRoutes(previous,next) {
   for(const before of previous.combat.units){
     const after=next.combat.units.find(u=>u.id===before.id);
     if(!before.alive||!after?.alive)continue;
-    let path=[{x:before.x,y:before.y}],valid=true;
+    let path=[{x:before.x,y:before.y}],valid=true,jump=false;
     for(const batch of batches.filter(b=>b.unitId===before.id)){
       if(!Array.isArray(batch.path)||batch.path.length<2||!same(path.at(-1),batch.path[0])){valid=false;break;}
+      if(batch.kind==='jump')jump=true;
       for(let i=1;i<batch.path.length;i++){
         const p=batch.path[i],last=path.at(-1);
-        if(!Number.isInteger(p.x)||!Number.isInteger(p.y)||p.x<0||p.y<0||p.x>11||p.y>11||Math.abs(last.x-p.x)+Math.abs(last.y-p.y)!==1){valid=false;break;}
+        if(!Number.isInteger(p.x)||!Number.isInteger(p.y)||p.x<0||p.y<0||p.x>11||p.y>11||(batch.kind==='jump'?batch.path.length!==2||Math.abs(last.x-p.x)+Math.abs(last.y-p.y)>4:Math.abs(last.x-p.x)+Math.abs(last.y-p.y)!==1)){valid=false;break;}
         path.push({...p});
       }
     }
-    if(valid&&path.length>1&&same(path.at(-1),after))routes.push({unitId:before.id,path});
+    if(valid&&path.length>1&&same(path.at(-1),after))routes.push({unitId:before.id,path,...(jump?{jump:true}:{})});
   }
   return routes;
 }
@@ -36,14 +37,14 @@ export class MotionTimeline {
     const routes=!this.offline&&!reducedMotion?confirmedRoutes(this.state,state):[];
     this.tracks.clear();this.offline=false;this.state=state;
     // Snapshot gaps may span several moves. Cap visual duration, not server time.
-    for(const route of routes)this.tracks.set(route.unitId,{...route,start:now,stepMs:Math.min(160,900/(route.path.length-1))});
+    for(const route of routes)this.tracks.set(route.unitId,{...route,start:now,stepMs:route.jump?320:Math.min(160,900/(route.path.length-1))});
   }
   sample(id,now){
     const t=this.tracks.get(id);if(!t)return null;
     const elapsed=Math.max(0,now-t.start),step=Math.floor(elapsed/t.stepMs);
     if(step>=t.path.length-1){this.tracks.delete(id);return null;}
     const a=t.path[step],b=t.path[step+1],fraction=(elapsed%t.stepMs)/t.stepMs;
-    return {x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction,direction:stepDirection(a,b)};
+    return {x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction,direction:stepDirection(a,b),...(t.jump?{lift:Math.sin(fraction*Math.PI)*18}:{})};
   }
 }
 export class MotionPresenter {
@@ -60,7 +61,7 @@ export class MotionPresenter {
         if(!sample){group.removeAttribute('transform');group.querySelector('image').setAttribute('href',spriteSource(group.dataset.champion,group.dataset.facing));continue;}
         // Isometric offset from the authoritative final position; no state mutation.
         const dx=sample.x-Number(group.dataset.x),dy=sample.y-Number(group.dataset.y);
-        group.setAttribute('transform',`translate(${(dx-dy)*20} ${(dx+dy)*10})`);
+        group.setAttribute('transform',`translate(${(dx-dy)*20} ${(dx+dy)*10-(sample.lift??0)})`);
         const image=group.querySelector('image');image.setAttribute('href',spriteSource(group.dataset.champion,sample.direction));
       }
       if(this.timeline.tracks.size)this.frameId=this.frame(tick);

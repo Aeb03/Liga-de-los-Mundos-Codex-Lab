@@ -3,6 +3,7 @@ import {
   initializeCombat,
   resolvePath,
   useAbility,
+  createPillar,
   endTurn,
 } from "../combat-core.mjs";
 import {
@@ -135,7 +136,7 @@ export class AuthoritativeService {
         const slot = input.slotId ? m.slots[input.slotId] : null;
         if (slot && slot.controllerId !== identity)
           err("FORBIDDEN", "El slot pertenece a otro controlador");
-        if (["move", "endTurn", "ability"].includes(input.type)) {
+        if (["move", "endTurn", "ability", "createPillar"].includes(input.type)) {
           if (m.phase !== "combat") err("WRONG_PHASE", "No está en combate");
           if (input.expectedTurn !== m.turnSerial)
             err("TURN_CONFLICT", "Turno obsoleto");
@@ -145,7 +146,9 @@ export class AuthoritativeService {
             err("FORBIDDEN", "Sólo controla el slot activo");
           if (input.type === "ability" && !slot.skills.includes(input.abilityId)) err("ABILITY_NOT_SELECTED", "La habilidad no está en tu selección");
           const out =
-            input.type === "ability"
+            input.type === "createPillar"
+              ? createPillar(m.combat,{unitId:slot.id,position:input.position})
+              : input.type === "ability"
               ? useAbility(m.combat, {unitId:slot.id,abilityId:input.abilityId,targetId:input.targetId})
               : input.type === "move"
               ? resolvePath(m.combat, slot.id, input.path)
@@ -276,7 +279,7 @@ export class AuthoritativeService {
           const presentation = m.presentation ?? { moves: [], facings: {} };
           for (const event of moves) {
             const path = structuredClone(event.path);
-            presentation.moves.push({ version: m.version, unitId: event.unitId, path });
+            presentation.moves.push({ version: m.version, unitId: event.unitId, path, ...(event.kind?{kind:event.kind}:{}) });
             const a = path.at(-2), b = path.at(-1);
             presentation.facings[event.unitId] = b.x > a.x ? "down-right" : b.x < a.x ? "up-left" : b.y > a.y ? "down-left" : "up-right";
           }

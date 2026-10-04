@@ -1,7 +1,7 @@
-import { abilityOverlay } from './ability-overlay.mjs?v=20261004-korgan1';
+import { abilityOverlay } from './ability-overlay.mjs?v=20261004-korgan2';
 import { spriteSource } from './motion.mjs?v=20261004-onod1';
 import { catalog } from './catalog.mjs?v=20261003-layout1';
-import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets } from '../combat-core.mjs?v=20261004-korgan1';
+import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets } from '../combat-core.mjs?v=20261004-korgan2';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=p=>`${p.x},${p.y}`;
 export const boardPoint=(x,y)=>({x:260+(x-y)*20,y:30+(x+y)*10});

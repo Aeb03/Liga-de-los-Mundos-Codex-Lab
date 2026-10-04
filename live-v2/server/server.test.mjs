@@ -336,3 +336,17 @@ test('death during movement persists shortened animation path and finishes match
  const route=[{x:3,y:5},{x:4,y:5},{x:5,y:5},{x:6,y:5}],move=cmd('death-move','move',m.version,{slotId:'B1',expectedTurn:0,path:route});const out=await x.svc.command('u2',move);
  assert.equal(out.state.phase,'finished');assert.equal(out.state.turnDeadline,null);assert.equal(out.state.result.winnerTeam,'A');assert.deepEqual(out.state.presentation.moves.at(-1).path,route.slice(0,3));assert.equal(out.state.combat.units[1].pm,1);assert.deepEqual(await x.svc.command('u2',move),out);
 });
+
+
+test('forced enemy movement is authoritative, recoverable and synchronized once without spending victim PM',async()=>{
+ const x=await ready();await x.svc.command('u1',cmd('force-start','startCombat',x.v));const m=await x.repo.get('m');
+ m.slots.A1.skills=['sword','daggers','spear','shield'];m.combat.units[0].x=4;m.combat.units[0].y=5;m.combat.units[1].x=6;m.combat.units[1].y=5;m.combat.units[1].status.wound=2;x.repo.matches.set('m',m);
+ const spear=cmd('force-spear','ability',m.version,{slotId:'A1',expectedTurn:m.turnSerial,abilityId:'spear',targetId:'B1'});
+ let out=await x.svc.command('u1',spear);assert.equal(out.state.combat.units[1].hp,103);assert.equal(out.state.combat.units[1].pm,3);assert.equal(out.state.presentation.moves.length,1);assert.equal(out.state.presentation.moves[0].unitId,'B1');assert.deepEqual(out.state.presentation.moves[0].path,[{x:6,y:5},{x:5,y:5}]);
+ assert.deepEqual(await x.svc.command('u1',spear),out);assert.deepEqual((await x.svc.snapshot('u2','m')).combat,out.state.combat);assert.equal((await x.svc.snapshot('u2','m')).presentation.moves.length,1);
+ out=await x.svc.command('u1',cmd('force-end','endTurn',out.version,{slotId:'A1',expectedTurn:out.turn}));
+ const quake=cmd('force-quake','ability',out.version,{slotId:'B1',expectedTurn:out.turn,abilityId:'quake',targetId:'A1'});out=await x.svc.command('u2',quake);
+ assert.equal(out.state.combat.units[0].hp,90);assert.equal(out.state.combat.units[0].x,3);assert.equal(out.state.presentation.moves.at(-1).unitId,'A1');assert.equal(out.state.combat.units[0].pm,3);
+ assert.deepEqual(await x.svc.command('u2',quake),out);assert.deepEqual((await x.svc.snapshot('u1','m')).presentation,out.state.presentation);
+ await assert.rejects(()=>x.svc.command('u1',{...quake,id:'force-forbidden',expectedVersion:out.version}),e=>e.code==='FORBIDDEN');
+});

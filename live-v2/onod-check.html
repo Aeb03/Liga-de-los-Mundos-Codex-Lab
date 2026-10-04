@@ -1,0 +1,11 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVE v2 — Onod</title><link rel="stylesheet" href="client/ui.css"><link rel="stylesheet" href="client/presentation.css?v=20261004-onod1"><body class="in-arena"><header><h1>LIVE v2 · Onod contra Piplus</h1><span>Revisión sin sala ni conexión</span><button id="spores">Esporas</button><button id="awake">Despertar</button></header><main id="app"></main><script type="module">
+import {renderArena} from './client/presentation.mjs?v=20261004-onod1';
+import {createUnit,initializeCombat,endTurn,onodAction} from './combat-core.mjs?v=20261004-onod1';
+const slots={A1:{id:'A1',team:'A',controllerId:'demo',championId:'onod',position:{x:5,y:5},skills:['thorn','vines','spores','awakening'],confirmed:true},B1:{id:'B1',team:'B',controllerId:'rival',championId:'piplus',position:{x:7,y:5},skills:['precise','vector','impulse','fixation'],confirmed:true}};
+let combat=endTurn(initializeCombat({units:Object.values(slots).map(s=>createUnit({...s,slot:1})),obstacles:[{x:5,y:4},{x:6,y:4},{x:5,y:7},{x:6,y:7}]}).state,{unitId:'B1'}).state;
+combat=onodAction(combat,{unitId:'A1',action:'germinate',position:{x:6,y:5}}).state;combat=onodAction(combat,{unitId:'A1',action:'germinate',position:{x:7,y:6}}).state;
+combat.units[1].status.poison=2;combat.objects[0].hp=8;
+const state={id:'fixture',phase:'combat',slots,combat};let abilitySelection={abilityId:'awakening',targetId:'A1'};
+function render(){document.querySelector('#app').innerHTML=renderArena({state,actor:'demo',slotId:'A1',preview:null,blocked:false,canMove:true,remaining:24,abilitySelection});}
+document.querySelector('#spores').onclick=()=>{abilitySelection={abilityId:'spores',targetId:'sprout1'};render();};document.querySelector('#awake').onclick=()=>{abilitySelection={abilityId:'awakening',targetId:'A1'};render();};render();
+</script></body></html>

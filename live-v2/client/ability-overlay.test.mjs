@@ -22,7 +22,7 @@ test('disabled or stale selection cannot invent an effect; HUD hides overlays fo
  const args={state:{phase:'combat',combat,slots},actor:'one',slotId:'a',canMove:true,blocked:false,remaining:20,abilitySelection:{abilityId:'daggers',targetId:'b'}};
  let html=renderArena(args);assert.equal((html.match(/class="tile ability-range/g)||[]).length,4);assert.match(html,/ability-selected ability-effect/);assert.match(html,/Referencias de alcance/);
  for(const extra of [{canMove:false},{blocked:true},{abilitySelection:null}]){html=renderArena({...args,...extra});assert(!html.includes('class="tile ability-range'));assert(!html.includes('ability-selected ability-effect'));}
- assert.deepEqual(abilityOverlay(combat,'a','bow'),{range:[],targets:[],effect:[]});assert.deepEqual(abilityOverlay(combat,'b','rock'),{range:[],targets:[],effect:[]});
+ assert.deepEqual(abilityOverlay(combat,'a','impulse'),{range:[],targets:[],effect:[]});assert.deepEqual(abilityOverlay(combat,'b','rock'),{range:[],targets:[],effect:[]});
  combat.units[0].skillUsesThisTurn.daggers=1;assert.deepEqual(abilityOverlay(combat,'a','daggers','b').effect,[]);
 });
 test('rock range and blocked-cell map match pinned offline range-state and LOS sampling',()=>{

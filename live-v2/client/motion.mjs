@@ -1,6 +1,7 @@
 // Presentation only. Every animated cell comes from an accepted server event.
 export const stepDirection=(a,b)=>b.x>a.x?'down-right':b.x<a.x?'up-left':b.y>a.y?'down-left':'up-right';
-export function spriteSource(championId,direction='down-right') {
+export function spriteSource(championId,direction='down-right',monolith=false) {
+  if(championId==='coloso'&&monolith)return `../assets/tactical/objects/monolito-coloso/${direction}.png`;
   // Effective offline mapping in champion-assets.js, including Coloso's upper views.
   const files={'down-right':'down-left','down-left':'down-right','up-right':'up-left','up-left':'up-right'};
   const view=championId==='coloso'&&direction.startsWith('up-')?direction:files[direction];
@@ -58,11 +59,11 @@ export class MotionPresenter {
       this.frameId=null;
       for(const group of root.querySelectorAll('[data-motion-unit]')){
         const id=group.dataset.motionUnit,sample=this.timeline.sample(id,this.clock());
-        if(!sample){group.removeAttribute('transform');group.querySelector('image').setAttribute('href',spriteSource(group.dataset.champion,group.dataset.facing));continue;}
+        if(!sample){group.removeAttribute('transform');group.querySelector('image').setAttribute('href',spriteSource(group.dataset.champion,group.dataset.facing,group.dataset.monolith==='true'));continue;}
         // Isometric offset from the authoritative final position; no state mutation.
         const dx=sample.x-Number(group.dataset.x),dy=sample.y-Number(group.dataset.y);
         group.setAttribute('transform',`translate(${(dx-dy)*20} ${(dx+dy)*10-(sample.lift??0)})`);
-        const image=group.querySelector('image');image.setAttribute('href',spriteSource(group.dataset.champion,sample.direction));
+        const image=group.querySelector('image');image.setAttribute('href',spriteSource(group.dataset.champion,sample.direction,group.dataset.monolith==='true'));
       }
       if(this.timeline.tracks.size)this.frameId=this.frame(tick);
     };

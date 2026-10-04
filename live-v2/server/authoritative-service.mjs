@@ -4,6 +4,7 @@ import {
   resolvePath,
   useAbility,
   createPillar,
+  colosoAction,
   endTurn,
 } from "../combat-core.mjs";
 import {
@@ -136,7 +137,7 @@ export class AuthoritativeService {
         const slot = input.slotId ? m.slots[input.slotId] : null;
         if (slot && slot.controllerId !== identity)
           err("FORBIDDEN", "El slot pertenece a otro controlador");
-        if (["move", "endTurn", "ability", "createPillar"].includes(input.type)) {
+        if (["move", "endTurn", "ability", "createPillar", "colosoAction"].includes(input.type)) {
           if (m.phase !== "combat") err("WRONG_PHASE", "No está en combate");
           if (input.expectedTurn !== m.turnSerial)
             err("TURN_CONFLICT", "Turno obsoleto");
@@ -146,10 +147,12 @@ export class AuthoritativeService {
             err("FORBIDDEN", "Sólo controla el slot activo");
           if (input.type === "ability" && !slot.skills.includes(input.abilityId)) err("ABILITY_NOT_SELECTED", "La habilidad no está en tu selección");
           const out =
-            input.type === "createPillar"
+            input.type === "colosoAction"
+              ? colosoAction(m.combat,{unitId:slot.id,action:input.action,targetId:input.targetId})
+              : input.type === "createPillar"
               ? createPillar(m.combat,{unitId:slot.id,position:input.position})
               : input.type === "ability"
-              ? useAbility(m.combat, {unitId:slot.id,abilityId:input.abilityId,targetId:input.targetId})
+              ? useAbility(m.combat, {unitId:slot.id,abilityId:input.abilityId,targetId:input.targetId,direction:input.direction,secondaryTargetId:input.secondaryTargetId})
               : input.type === "move"
               ? resolvePath(m.combat, slot.id, input.path)
               : endTurn(m.combat, { unitId: slot.id });

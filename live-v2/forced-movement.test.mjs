@@ -30,10 +30,10 @@ test('shield absorbs ability and forced wound; lethal initial damage never moves
  s=make();s.units[1].hp=12;s.units[1].status.wound=2;o=cast(s,'spear');assert.equal(o.state.phase,'ended');assert.equal(o.state.units[1].x,5);assert.equal(o.state.units[1].pm,3);assert.equal(o.state.winnerTeam,'A');assert(serializeState(o.state));
  s=make({x:5,y:5},{x:6,y:5});s.units[0].hp=1;s.units[1].hp=12;o=cast(s,'spear');assert.equal(o.state.phase,'ended');assert.equal(o.state.winnerTeam,null);assert(o.events.filter(e=>e.type==='unit.died').length===2);
 });
-test('invalid range, LOS, PA and unsupported Monolith reject atomically; poison death cancels pull',()=>{
+test('invalid range, LOS, PA and Monolith reject atomically; poison death cancels pull',()=>{
  for(const [s,id,actor,target,code] of [[make({x:3,y:5}),'spear','a','b','OUT_OF_RANGE'],[make({x:4,y:5},{x:6,y:5},[{x:5,y:5}]),'spear','a','b','BLOCKED_LOS']]){const b=serializeState(s);assert.throws(()=>cast(s,id,actor,target),e=>e.code===code);assert.equal(serializeState(s),b);}
  let s=make();s.units[0].pa=2;assert.throws(()=>cast(s,'spear'),e=>e.code==='INSUFFICIENT_PA');
- s=endTurn(make({x:5,y:5}),{unitId:'a'}).state;s.units[1].monolith=true;assert.deepEqual(abilityTargets(s,'b','quake'),[]);assert.throws(()=>cast(s,'quake','b','a'),e=>e.code==='UNSUPPORTED_MECHANIC');
+ s=endTurn(make({x:5,y:5}),{unitId:'a'}).state;s.units[1].monolith=true;assert.deepEqual(abilityTargets(s,'b','quake'),['a']);assert.equal(cast(s,'quake','b','a').state.units[0].hp,90);
  s=make();s.units[0].hp=1;s.units[0].status.poison=1;const o=cast(s,'spear');assert.equal(o.state.units[0].pa,3);assert.equal(o.state.units[1].hp,115);assert(!o.events.some(e=>e.type==='unit.moved'));
 });
 test('forced direction and collision constants match pinned effective offline sources',()=>{

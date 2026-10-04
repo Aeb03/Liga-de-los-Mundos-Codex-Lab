@@ -362,3 +362,25 @@ test('Pilar opening action and hammer jump synchronize once, enforce owner/loado
  out=await x.svc.command('u1',cmd('hammer-end','endTurn',out.version,{slotId:'A1',expectedTurn:out.turn}));assert.equal(out.state.combat.units[1].pm,2);
  const stale=cmd('pillar-stale','createPillar',out.version,{slotId:'B1',expectedTurn:0,position:{x:5,y:6}});await assert.rejects(()=>x.svc.command('u2',stale),e=>e.code==='TURN_CONFLICT');
 });
+
+test('complete Coloso: own actions enforce ownership, stale turns, deadline, once-only recovery and equal snapshots',async()=>{
+ const x=await ready();let out=await x.svc.command('u1',cmd('complete-start','startCombat',x.v));
+ let m=await x.repo.get('m');m.slots.B1.skills=['stonearmor','absorb','collapse','magnetism'];m.combat.units[1].x=6;m.combat.units[1].y=5;x.repo.matches.set('m',m);
+ out=await x.svc.command('u1',cmd('complete-turn','endTurn',m.version,{slotId:'A1',expectedTurn:m.turnSerial}));
+ out=await x.svc.command('u2',cmd('complete-pillar','createPillar',out.version,{slotId:'B1',expectedTurn:out.turn,position:{x:7,y:5}}));
+ const fusion=cmd('complete-fusion','colosoAction',out.version,{slotId:'B1',expectedTurn:out.turn,action:'fusion',targetId:'pillar1'});
+ await assert.rejects(()=>x.svc.command('u1',fusion),e=>e.code==='FORBIDDEN');
+ out=await x.svc.command('u2',fusion);assert(out.state.combat.units[1].monolith);assert.equal(out.state.combat.units[1].pa,3);assert.deepEqual(await x.svc.command('u2',fusion),out);assert.deepEqual(await x.svc.recover('u2','m',fusion.id),out);
+ assert.deepEqual((await x.svc.snapshot('u1','m')).combat,(await x.svc.snapshot('u2','m')).combat);
+ await assert.rejects(()=>x.svc.command('u2',cmd('complete-stale','colosoAction',out.version,{slotId:'B1',expectedTurn:0,action:'exit',targetId:'B1'})),e=>e.code==='TURN_CONFLICT');
+ await assert.rejects(()=>x.svc.command('u2',cmd('complete-unselected','ability',out.version,{slotId:'B1',expectedTurn:out.turn,abilityId:'rock',targetId:'A1'})),e=>e.code==='ABILITY_NOT_SELECTED');
+ const exit=cmd('complete-exit','colosoAction',out.version,{slotId:'B1',expectedTurn:out.turn,action:'exit',targetId:'B1'});out=await x.svc.command('u2',exit);assert(!out.state.combat.units[1].monolith);assert.equal(out.state.combat.units[1].pm,3);
+});
+
+test('authority forwards cone direction and secondary target atomically, including idempotent collapse',async()=>{
+ const x=await ready();let out=await x.svc.command('u1',cmd('cone-start','startCombat',x.v));let m=await x.repo.get('m');m.slots.B1.skills=['stonearmor','absorb','collapse','magnetism'];m.combat.units[0].x=8;m.combat.units[0].y=5;m.combat.units[1].x=6;m.combat.units[1].y=5;x.repo.matches.set('m',m);
+ out=await x.svc.command('u1',cmd('cone-turn','endTurn',m.version,{slotId:'A1',expectedTurn:m.turnSerial}));out=await x.svc.command('u2',cmd('cone-pillar','createPillar',out.version,{slotId:'B1',expectedTurn:out.turn,position:{x:7,y:5}}));
+ const args={slotId:'B1',expectedTurn:out.turn,abilityId:'magnetism',targetId:'pillar1'};
+ await assert.rejects(()=>x.svc.command('u2',cmd('cone-missing-secondary','ability',out.version,args)),e=>e.code==='INVALID_TARGET');
+ const collapse=cmd('cone-collapse','ability',out.version,{...args,abilityId:'collapse',direction:{x:1,y:0}});out=await x.svc.command('u2',collapse);assert.equal(out.state.combat.units[0].hp,91);assert.equal(out.state.combat.objects[0].alive,false);assert.deepEqual(await x.svc.command('u2',collapse),out);assert.deepEqual((await x.svc.snapshot('u1','m')).combat,out.state.combat);
+});

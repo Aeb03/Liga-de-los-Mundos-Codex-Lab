@@ -72,8 +72,8 @@ function validateSupportedState(state) {
     obstacleSet.add(obstacle);
   }
   if (!Array.isArray(state.objects) || !Array.isArray(state.traps) || !Array.isArray(state.summons)) fail('INVALID_STATE', 'Faltan colecciones de entidades');
-  if (state.traps.length || state.summons.length || state.objects.length) {
-    fail('UNSUPPORTED_MECHANIC', 'Trampas, invocaciones y objetos de combate están fuera de alcance en esta etapa');
+  if (state.traps.length || state.summons.length) {
+    fail('UNSUPPORTED_MECHANIC', 'Trampas e invocaciones están fuera de alcance en esta etapa');
   }
   if (!Array.isArray(state.units) || state.units.length !== 2) fail('UNSUPPORTED_FORMAT', 'El estado soportado es exactamente 1v1');
   const ids = new Set(), positions = new Set(), teams = new Set(), teamSlots = new Set();
@@ -106,9 +106,20 @@ function validateSupportedState(state) {
     if (unit.piplusFixationTargetId !== null && typeof unit.piplusFixationTargetId !== 'string') fail('INVALID_CHAMPION_STATE', 'Objetivo de fijación inválido');
     ids.add(unit.id); positions.add(key(unit)); teams.add(unit.team); teamSlots.add(teamSlot);
   }
+  for (const object of state.objects) {
+    if (!object || object.kind!=='object' || object.type!=='pillar') fail('UNSUPPORTED_MECHANIC','Sólo se admiten Pilares de Coloso');
+    const owner=state.units.find(u=>u.id===object.ownerId);
+    if (!owner || owner.championId!=='coloso' || object.team!==owner.team || object.id!==`pillar${object.number}` || ids.has(object.id)) fail('INVALID_OBJECT','Identidad o propietario del Pilar inválido');
+    if (!inside(object) || !nonNegativeInteger(object.hp) || object.maxHp!==15 || object.hp>15 || object.alive!==(object.hp>0) || !Number.isInteger(object.number) || object.number<1 || object.blocksLOS!==true || !nonNegativeInteger(object.createdByColosoTurn)) fail('INVALID_OBJECT','Pilar inválido');
+    if (!Array.isArray(object.shield) || object.shield.length) fail('INVALID_OBJECT','El escudo de Pilares aún no está habilitado');
+    if (object.alive && (positions.has(key(object)) || obstacleSet.has(key(object)))) fail('INVALID_POSITION','Pilar en casilla ocupada');
+    if(object.alive)positions.add(key(object));ids.add(object.id);
+  }
+  for(const owner of state.units)if(state.objects.filter(o=>o.alive&&o.ownerId===owner.id).length>2)fail('INVALID_OBJECT','Máximo dos Pilares activos');
+  if (state.nextPillarId!==undefined && (!Number.isInteger(state.nextPillarId) || state.nextPillarId<1 || state.objects.some(o=>o.number>=state.nextPillarId))) fail('INVALID_OBJECT','Secuencia de Pilar inválida');
   if (teams.size !== 2) fail('UNSUPPORTED_FORMAT', 'El estado 1v1 requiere dos equipos distintos');
   for (const unit of state.units) for (const stack of unit.shield) if (!ids.has(stack.sourceId)) fail('INVALID_SHIELD', 'El generador del escudo no existe');
-  if (!Array.isArray(state.order) || state.order.length !== 2 || new Set(state.order).size !== 2 || state.order.some(id => !ids.has(id))) fail('INVALID_ORDER', 'El orden debe ser una permutación de las dos unidades');
+  if (!Array.isArray(state.order) || state.order.length !== 2 || new Set(state.order).size !== 2 || state.order.some(id => !state.units.some(u=>u.id===id))) fail('INVALID_ORDER', 'El orden debe ser una permutación de las dos unidades');
   if (!Number.isInteger(state.turnIndex) || state.turnIndex < 0 || state.turnIndex >= state.order.length || !Number.isInteger(state.round) || state.round < 1) fail('INVALID_TURN', 'Índice de turno o ronda inválidos');
   if (!['active', 'ended'].includes(state.phase)) fail('INVALID_PHASE', 'Fase de combate inválida');
   const aliveTeams = new Set(state.units.filter(unit => unit.alive).map(unit => unit.team));
@@ -150,7 +161,7 @@ export function initializeCombat({ units, obstacles = [], random, clock }) {
   }
   let state = {
     schemaVersion: CORE_VERSION, board: { width: BOARD_SIZE, height: BOARD_SIZE, obstacles: obstacleKeys.sort() },
-    units: copy, objects: [], traps: [], summons: [], order: sorted.map(u => u.id), turnIndex: 0,
+    units: copy, objects: [], nextPillarId: 1, traps: [], summons: [], order: sorted.map(u => u.id), turnIndex: 0,
     round: 1, phase: 'active', winnerTeam: null, tieBreak,
     audit: { initializedAt: clock ?? null }
   };
@@ -164,9 +175,11 @@ function unitById(state, id) {
   if (!unit) fail('UNKNOWN_UNIT', `Unidad inexistente: ${id}`);
   return unit;
 }
+function entities(state) { return [...state.units,...(state.objects??[])]; }
+function entityById(state,id) { const e=entities(state).find(e=>e.id===id);if(!e)fail('UNKNOWN_UNIT',`Entidad inexistente: ${id}`);return e; }
 function activeUnit(state) { return unitById(state, state.order[state.turnIndex]); }
 function occupiedKeys(state, movingId) {
-  return new Set(state.units.filter(u => u.alive && u.id !== movingId).map(key));
+  return new Set(entities(state).filter(u => u.alive && u.id !== movingId).map(key));
 }
 
 export function movementAvailable(state, unitId = state.order[state.turnIndex]) {
@@ -291,11 +304,11 @@ function applyDamageToUnit(target, amount, ignoreShield) {
 export function applyDamage(state, { targetId, amount, ignoreShield = false, source = 'external' }) {
   validateSupportedState(state);
   if (!Number.isInteger(amount) || amount < 0) fail('INVALID_DAMAGE', 'El daño debe ser un entero no negativo');
-  const next = clone(state), target = unitById(next, targetId);
+  const next = clone(state), target = entityById(next, targetId);
   if (!target.alive) fail('UNIT_DEAD', 'No se puede dañar una unidad muerta');
   const result = applyDamageToUnit(target, amount, ignoreShield);
   const events = [{ type: 'damage.applied', targetId, amount, absorbed: result.absorbed, hpLost: result.hpLost, ignoreShield, source }];
-  if (result.killed) events.push({ type: 'unit.died', unitId: targetId });
+  if (result.killed) events.push(target.kind==='object'?{type:'object.destroyed',objectId:targetId}:{ type: 'unit.died', unitId: targetId });
   finishIfNeeded(next, events);
   return { state: next, events };
 }
@@ -383,6 +396,7 @@ const ABILITIES = Object.freeze({
   daggers: {championId:'arfeli',cost:3,range:1,damage:10,wound:2,maxUses:1},
   shield: {championId:'arfeli',cost:3,range:0,shield:15,maxUses:1},
   rock: {championId:'coloso',cost:3,range:4,damage:8,los:true},
+  hammer: {championId:'arfeli',cost:4,range:3,damage:13,jump:true},
   spear: {championId:'arfeli',cost:3,range:2,damage:10,los:true,forced:'pull',collision:2},
   quake: {championId:'coloso',cost:3,range:1,damage:10,geometry:'adjacent8',forced:'push',collision:4}
 });
@@ -394,7 +408,7 @@ export function clearAbilityLOS(state,a,b){
     const t=i/samples,x=Math.floor(a.x+.5+(b.x-a.x)*t),y=Math.floor(a.y+.5+(b.y-a.y)*t);
     if((x!==a.x||y!==a.y)&&(x!==b.x||y!==b.y))cells.add(`${x},${y}`);
   }
-  const blockers=new Set([...state.board.obstacles,...state.units.filter(u=>u.alive&&u.id!==a.id&&u.id!==b.id&&u.blocksLOS!==false).map(key)]);
+  const blockers=new Set([...state.board.obstacles,...entities(state).filter(u=>u.alive&&u.id!==a.id&&u.id!==b.id&&u.blocksLOS!==false).map(key)]);
   return [...cells].every(cell=>!blockers.has(cell));
 }
 export function abilityRangeContains(unit, abilityId, target) {
@@ -415,7 +429,7 @@ export function abilityTargets(state,unitId,abilityId){
   const u=unitById(state,unitId),a=ABILITIES[abilityId];
   if(!a||a.championId!==u.championId||state.phase!=='active'||activeUnit(state).id!==unitId||u.pa<a.cost||(abilityId==='quake'&&u.monolith)||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
   if(abilityId==='shield')return [u.id];
-  return state.units.filter(t=>t.alive&&t.team!==u.team&&abilityRangeContains(u,abilityId,t)&&(!a.los||clearAbilityLOS(state,u,t))).map(t=>t.id);
+  return entities(state).filter(t=>t.alive&&t.team!==u.team&&abilityRangeContains(u,abilityId,t)&&(!a.los||clearAbilityLOS(state,u,t))&&(!a.jump||hammerLanding(state,u,t))).map(t=>t.id);
 }
 export function swordTargets(state,unitId){return abilityTargets(state,unitId,'sword');}
 
@@ -430,15 +444,16 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
   if (abilityId === 'quake' && unit.monolith) fail('UNSUPPORTED_MECHANIC', 'Sísmico en Monolito y sus réplicas requieren la etapa de Pilares');
   if (unit.pa < ability.cost) fail('INSUFFICIENT_PA', `Se requieren ${ability.cost} PA`);
   if (ability.maxUses && (unit.skillUsesThisTurn[abilityId] ?? 0) >= ability.maxUses) fail('ABILITY_LIMIT','Límite de usos por turno');
-  const target = unitById(state, targetId);
+  const target = entityById(state, targetId);
   if(abilityId==='shield'){
     if(target.id!==unit.id)fail('INVALID_TARGET','Portación de Escudo sólo protege a Arfeli');
   }else{
     if(!target.alive||target.team===unit.team)fail('INVALID_TARGET','Elegí un campeón enemigo vivo');
     if(!abilityRangeContains(unit,abilityId,target))fail('OUT_OF_RANGE','Objetivo fuera del alcance');
     if(ability.los&&!clearAbilityLOS(state,unit,target))fail('BLOCKED_LOS','Línea de visión bloqueada');
+    if(ability.jump&&!hammerLanding(state,unit,target))fail('NO_LANDING','No hay una casilla cardinal libre para aterrizar');
   }
-  const next = clone(state), actor = unitById(next, unitId), victim = unitById(next, targetId), events = [];
+  const next = clone(state), actor = unitById(next, unitId), victim = entityById(next, targetId), events = [];
   const bonus = actor.championId==='arfeli'&&!actor.arfeliMasteryChain.includes(abilityId) ? actor.arfeliMasteryChain.length : 0;
   if(actor.championId==='arfeli'){actor.arfeliMasteryChain = bonus === 0 ? [abilityId] : [...actor.arfeliMasteryChain, abilityId];actor.arfeliMasteryLastBonus = bonus;}
   if(actor.championId==='coloso')actor.colosoCreateWindow=false;
@@ -447,7 +462,7 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
   function damage(targetUnit, amount, source) {
     const result = applyDamageToUnit(targetUnit, amount, false);
     events.push({ type: 'damage.applied', targetId: targetUnit.id, amount, ...result, ignoreShield: false, source });
-    if (result.killed) events.push({ type: 'unit.died', unitId: targetUnit.id });
+    if (result.killed) events.push(targetUnit.kind==='object'?{type:'object.destroyed',objectId:targetUnit.id}:{ type: 'unit.died', unitId: targetUnit.id });
   }
   if (actor.status.poison > 0) damage(actor, actor.status.poison, 'poison.ability');
   if (actor.alive){
@@ -455,12 +470,20 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
       const amount=ability.shield+bonus;actor.shield.push({amount,sourceId:actor.id});
       events.push({type:'shield.added',unitId:actor.id,sourceId:actor.id,amount});
     }else {
+      if(ability.jump){
+        const from={x:actor.x,y:actor.y},landing=hammerLanding(next,actor,victim),distance=Math.abs(actor.x-landing.x)+Math.abs(actor.y-landing.y);
+        actor.x=landing.x;actor.y=landing.y;
+        if(distance){events.push({type:'unit.moved',unitId:actor.id,path:[from,{x:actor.x,y:actor.y}],kind:'jump',cost:0,remainingPm:actor.pm,source:'ability.hammer'});
+          for(let step=1;step<=distance&&actor.alive;step++)if(actor.status.wound)damage(actor,actor.status.wound,'wound.jump');}
+        if(!actor.alive){finishIfNeeded(next,events);return {state:next,events};}
+      }
       damage(victim,ability.damage+bonus,`ability.${abilityId}`);
-      if (ability.forced && victim.alive) {
+      if(ability.jump&&victim.alive&&victim.kind==='champion'&&!victim.monolith){victim.status.pmPenaltyNext=Math.max(victim.status.pmPenaltyNext,1);events.push({type:'status.applied',targetId:victim.id,status:'pmPenaltyNext',value:victim.status.pmPenaltyNext});}
+      if (ability.forced && victim.alive && victim.kind==='champion') {
         const from = {x:victim.x,y:victim.y};
         const [dx,dy] = forcedDirection(actor,victim,ability.forced==='push');
         const destination = {x:victim.x+dx,y:victim.y+dy};
-        const blocker = next.units.find(u=>u.alive&&u.id!==victim.id&&key(u)===key(destination));
+        const blocker = entities(next).find(u=>u.alive&&u.id!==victim.id&&key(u)===key(destination));
         if (!inside(destination) || next.board.obstacles.includes(key(destination)) || blocker) {
           events.push({type:'movement.blocked',unitId:victim.id,from,destination,source:`ability.${abilityId}`,blockerId:blocker?.id??null});
           damage(victim,ability.collision,`collision.${abilityId}`);
@@ -471,7 +494,7 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
           if(victim.status.wound)damage(victim,victim.status.wound,'wound.forced');
         }
       }
-      if (ability.wound && victim.alive) {
+      if (ability.wound && victim.alive && victim.kind==='champion') {
         const before = victim.status.wound;
         victim.status.wound = Math.min(3, before + ability.wound);
         events.push({ type: 'status.applied', targetId: victim.id, status: 'wound', amount: victim.status.wound - before, value: victim.status.wound });
@@ -483,10 +506,33 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
 }
 
 // Exact pure simulation: the preview and authority share damage, death and blockers.
+export function hammerLanding(state, actor, target) {
+  const occupied=occupiedKeys(state,actor.id),blocked=new Set(state.board.obstacles);
+  return DIRECTIONS.map(([dx,dy])=>({x:target.x+dx,y:target.y+dy}))
+    .filter(p=>inside(p)&&!occupied.has(key(p))&&!blocked.has(key(p)))
+    .sort((a,b)=>(Math.abs(actor.x-a.x)+Math.abs(actor.y-a.y))-(Math.abs(actor.x-b.x)+Math.abs(actor.y-b.y))||a.y-b.y||a.x-b.x)[0]??null;
+}
+export function pillarAvailable(state,unitId) {
+  validateSupportedState(state);const u=unitById(state,unitId);
+  if(state.phase!=='active'||activeUnit(state).id!==unitId||u.championId!=='coloso'||u.monolith||!u.colosoCreateWindow||u.colosoPillarCreatedThisTurn||state.objects.filter(o=>o.alive&&o.ownerId===u.id).length>=2)return [];
+  const occupied=occupiedKeys(state,unitId),cells=[];
+  for(let y=0;y<12;y++)for(let x=0;x<12;x++){const p={x,y},d=Math.abs(u.x-x)+Math.abs(u.y-y);if(d>0&&d<=5&&!occupied.has(key(p))&&!state.board.obstacles.includes(key(p))&&clearAbilityLOS(state,u,p))cells.push(p);}
+  return cells;
+}
+export function createPillar(state,{unitId,position}) {
+  if(!pillarAvailable(state,unitId).some(p=>p.x===position?.x&&p.y===position?.y))fail('PILLAR_UNAVAILABLE','No se puede crear un Pilar en esa casilla o en este momento');
+  const next=clone(state),u=unitById(next,unitId);let number=next.nextPillarId??Math.max(0,...next.objects.map(o=>o.number))+1;
+  while(entities(next).some(e=>e.id===`pillar${number}`))number++;
+  next.nextPillarId=number+1;
+  const object={id:`pillar${number}`,number,kind:'object',type:'pillar',ownerId:u.id,team:u.team,x:position.x,y:position.y,hp:15,maxHp:15,alive:true,shield:[],blocksLOS:true,createdByColosoTurn:u.colosoTurnSerial};
+  next.objects.push(object);u.colosoPillarCreatedThisTurn=true;u.colosoCreateWindow=false;
+  return {state:next,events:[{type:'object.created',object:clone(object),cost:0,unitId}]};
+}
+
 export function previewAbility(state, command) {
   const resolved = useAbility(state, command);
   return {
-    effect: [{x:unitById(state,command.targetId).x,y:unitById(state,command.targetId).y}],
+    effect: [{x:entityById(state,command.targetId).x,y:entityById(state,command.targetId).y}],
     moves: resolved.events.filter(e=>e.type==='unit.moved'),
     blocked: resolved.events.filter(e=>e.type==='movement.blocked'),
     damage: resolved.events.filter(e=>e.type==='damage.applied'),
@@ -496,6 +542,7 @@ export function previewAbility(state, command) {
 
 export function executeCommand(state, command) {
   if (!command || typeof command.type !== 'string') fail('INVALID_COMMAND', 'Comando inválido');
+  if (command.type === 'createPillar') return createPillar(state,command);
   if (command.type === 'ability') return useAbility(state, command);
   if (command.type === 'move') return resolvePath(state, command.unitId, command.path);
   if (command.type === 'endTurn') return endTurn(state, { unitId: command.unitId });

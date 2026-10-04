@@ -69,3 +69,8 @@
 
 .live-board .tile.forced-destination{fill:#8856bbaa;stroke:#d6adff;stroke-width:2.5;stroke-dasharray:3 2}
 .live-board .forced-trail{fill:none;stroke:#d6adff;stroke-width:3;pointer-events:none}
+
+.pillar-piece{pointer-events:none}.pillar-piece text{fill:#fff;stroke:#142018;stroke-width:3;paint-order:stroke;font-size:9px;font-weight:bold}
+.pillar-action{font-size:9px;padding:2px 4px;min-height:20px}
+
+.live-command .pillar-action{position:absolute;right:8px;bottom:calc(100% + 4px);min-height:24px;padding:2px 7px;font-size:9px}

@@ -623,6 +623,7 @@ export function previewAbility(state, command) {
 
 export function executeCommand(state, command) {
   if (!command || typeof command.type !== 'string') fail('INVALID_COMMAND', 'Comando inválido');
+  if (command.type === 'korganAction') return korganAction(state,command);
   if (command.type === 'onodAction') return onodAction(state,command);
   if (command.type === 'piplusMark') return markPiplus(state,command);
   if (command.type === 'colosoAction') return colosoAction(state,command);
@@ -785,6 +786,12 @@ export function korganGrenadeCells(position){
   if(!inside(position))return [];
   return [{...position,zone:'center'},...DIRECTIONS.map(([dx,dy])=>({x:position.x+dx,y:position.y+dy,zone:'arm'}))].filter(inside);
 }
+export function korganGrenadeDestinations(state,unitId){
+  validateSupportedState(state);const u=unitById(state,unitId),a=ABILITIES.grenade,out=[];
+  if(u.championId!=='korgan'||state.phase!=='active'||activeUnit(state).id!==u.id||u.pa<a.cost)return [];
+  for(let y=0;y<BOARD_SIZE;y++)for(let x=0;x<BOARD_SIZE;x++){const p={x,y},d=distance(u,p);if(d>=1&&d<=3&&clearAbilityLOS(state,u,p))out.push(p);}
+  return out;
+}
 export function korganDisarmTargets(state,unitId){
   validateSupportedState(state);const u=unitById(state,unitId);
   if(u.championId!=='korgan'||state.phase!=='active'||activeUnit(state).id!==u.id||u.korganDisarmUsedThisTurn)return [];
@@ -800,10 +807,7 @@ export function korganAction(state,{unitId,action,targetId}){
 function useKorganAbility(state,unit,id,targetId,position,pullDistance){
   const a=ABILITIES[id];
   if(['trap_spikes','trap_mine'].includes(id)&&!korganTrapDestinations(state,unit.id,id).some(p=>p.x===position?.x&&p.y===position?.y))fail('INVALID_POSITION','Casilla inválida para la trampa');
-  if(id==='grenade'){
-    if(!inside(position)||distance(unit,position)<1||distance(unit,position)>3)fail('OUT_OF_RANGE','Centro de Granada fuera de alcance');
-    if(!clearAbilityLOS(state,unit,position))fail('BLOCKED_LOS','Línea de visión bloqueada');
-  }
+  if(id==='grenade'&&!korganGrenadeDestinations(state,unit.id).some(p=>p.x===position?.x&&p.y===position?.y))fail('INVALID_POSITION','Centro de Granada inválido');
   if(id==='hunterstep'&&!hunterStepDestinations(state,unit.id).some(p=>p.x===position?.x&&p.y===position?.y))fail('INVALID_POSITION','Paso del Cazador requiere 1 o 2 casillas cardinales libres');
   if(['shot','hook'].includes(id)&&!abilityTargets(state,unit.id,id).includes(targetId))fail('INVALID_TARGET','Objetivo inválido para Korgan');
   if(id==='hook'&&![1,2].includes(pullDistance))fail('INVALID_DISTANCE','Gancho requiere elegir atracción 1 o 2');

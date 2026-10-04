@@ -762,7 +762,7 @@ function triggerKorganTraps(state,target,events,source='movement'){
     events.push({type:'damage.applied',targetId:target.id,amount,...result,ignoreShield:false,source:`trap.${trap.trapType}`});
     if(result.killed){events.push({type:'unit.died',unitId:target.id});break;}
     if(trap.trapType==='spikes'){const before=target.status.wound;target.status.wound=Math.min(3,before+1);events.push({type:'status.applied',targetId:target.id,status:'wound',amount:target.status.wound-before,value:target.status.wound});}
-    else{target.status.paPenaltyNext=Math.max(target.status.paPenaltyNext,1);events.push({type:'status.applied',targetId:target.id,status:'paPenaltyNext',value:target.status.paPenaltyNext});}
+    else{const before=target.pa;target.pa=Math.max(0,target.pa-1);events.push({type:'resource.lost',targetId:target.id,resource:'pa',amount:before-target.pa,value:target.pa,source:'trap.mine'});}
   }
   return count;
 }

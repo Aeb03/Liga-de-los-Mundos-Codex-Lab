@@ -27,7 +27,7 @@ const client = { async rpc(name, args) {
     return { data: JSON.parse(data), error: null };
   } catch (e) {
     const message = /ERROR:\s+([^\n]+)/.exec(e.stderr)?.[1] ?? e.message;
-    return { data: null, error: { message, code: message === 'VERSION_CONFLICT' ? '40001' : 'P0001' } };
+    return { data: null, error: { message, code: 'P0001' } };
   }
 }};
 

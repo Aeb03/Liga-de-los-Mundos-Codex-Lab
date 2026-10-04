@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261004-hammer1';
-import { renderArena } from './presentation.mjs?v=20261004-hammer1';
+import { renderArena } from './presentation.mjs?v=20261004-block1';
 import { catalog } from './catalog.mjs';
 import { LiveSession, newId } from './session.mjs';
 import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable } from '../combat-core.mjs?v=20261004-hammer1';

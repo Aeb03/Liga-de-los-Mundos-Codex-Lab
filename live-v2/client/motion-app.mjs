@@ -2,7 +2,7 @@ import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261004-onod1';
-import { renderArena } from './presentation.mjs?v=20261004-onod1';
+import { renderArena } from './presentation.mjs?v=20261004-korgan1';
 import { catalog } from './catalog.mjs';
 import { LiveSession, newId } from './session.mjs?v=20261004-lab2';
 import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets } from '../combat-core.mjs?v=20261004-korgan1';
@@ -31,7 +31,7 @@ const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
 const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.order[game.state.combat.turnIndex]);
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
 function remaining(){const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
-function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261004-lab2');url.searchParams.set('match',game.state.id);return url.href;}
+function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261004-korgan1');url.searchParams.set('match',game.state.id);return url.href;}
 function roomId(value){
   let id=value.trim();try{const url=new URL(id);id=url.searchParams.get('match')??'';}catch{}
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('Pegá el enlace o el identificador completo de la sala.');return id.toLowerCase();

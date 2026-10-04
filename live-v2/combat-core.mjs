@@ -382,7 +382,9 @@ const ABILITIES = Object.freeze({
   sword: {championId:'arfeli',cost:2,range:1,damage:10,maxUses:2},
   daggers: {championId:'arfeli',cost:3,range:1,damage:10,wound:2,maxUses:1},
   shield: {championId:'arfeli',cost:3,range:0,shield:15,maxUses:1},
-  rock: {championId:'coloso',cost:3,range:4,damage:8}
+  rock: {championId:'coloso',cost:3,range:4,damage:8,los:true},
+  spear: {championId:'arfeli',cost:3,range:2,damage:10,los:true,forced:'pull',collision:2},
+  quake: {championId:'coloso',cost:3,range:1,damage:10,geometry:'adjacent8',forced:'push',collision:4}
 });
 export function abilityDefinitions(){return clone(ABILITIES);}
 export function clearAbilityLOS(state,a,b){
@@ -395,12 +397,25 @@ export function clearAbilityLOS(state,a,b){
   const blockers=new Set([...state.board.obstacles,...state.units.filter(u=>u.alive&&u.id!==a.id&&u.id!==b.id&&u.blocksLOS!==false).map(key)]);
   return [...cells].every(cell=>!blockers.has(cell));
 }
+export function abilityRangeContains(unit, abilityId, target) {
+  const a = ABILITIES[abilityId];
+  if (!a) return false;
+  const dx = Math.abs(unit.x-target.x), dy = Math.abs(unit.y-target.y);
+  if (a.geometry === 'adjacent8') return Math.max(dx,dy) === 1;
+  const radius = abilityId === 'rock' && unit.monolith ? 5 : a.range;
+  return radius === 0 ? dx+dy === 0 : dx+dy > 0 && dx+dy <= radius;
+}
+export function forcedDirection(source, target, away = true) {
+  const dx=target.x-source.x,dy=target.y-source.y,sign=away?1:-1;
+  if(Math.abs(dx)>=Math.abs(dy)&&dx!==0)return [sign*Math.sign(dx),0];
+  return dy!==0?[0,sign*Math.sign(dy)]:[0,0];
+}
 export function abilityTargets(state,unitId,abilityId){
   validateSupportedState(state);
   const u=unitById(state,unitId),a=ABILITIES[abilityId];
-  if(!a||a.championId!==u.championId||state.phase!=='active'||activeUnit(state).id!==unitId||u.pa<a.cost||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
+  if(!a||a.championId!==u.championId||state.phase!=='active'||activeUnit(state).id!==unitId||u.pa<a.cost||(abilityId==='quake'&&u.monolith)||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
   if(abilityId==='shield')return [u.id];
-  return state.units.filter(t=>t.alive&&t.team!==u.team&&(a.range===1?adjacent(u,t):Math.abs(u.x-t.x)+Math.abs(u.y-t.y)<=(u.monolith?5:4)&&clearAbilityLOS(state,u,t))).map(t=>t.id);
+  return state.units.filter(t=>t.alive&&t.team!==u.team&&abilityRangeContains(u,abilityId,t)&&(!a.los||clearAbilityLOS(state,u,t))).map(t=>t.id);
 }
 export function swordTargets(state,unitId){return abilityTargets(state,unitId,'sword');}
 
@@ -412,6 +427,7 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
   if (unit.status.curseDamage > 0) fail('UNSUPPORTED_MECHANIC', 'Maldición está fuera del alcance de esta etapa');
   const ability=ABILITIES[abilityId];
   if (!ability || unit.championId!==ability.championId) fail('UNSUPPORTED_ABILITY','Habilidad no habilitada para este campeón');
+  if (abilityId === 'quake' && unit.monolith) fail('UNSUPPORTED_MECHANIC', 'Sísmico en Monolito y sus réplicas requieren la etapa de Pilares');
   if (unit.pa < ability.cost) fail('INSUFFICIENT_PA', `Se requieren ${ability.cost} PA`);
   if (ability.maxUses && (unit.skillUsesThisTurn[abilityId] ?? 0) >= ability.maxUses) fail('ABILITY_LIMIT','Límite de usos por turno');
   const target = unitById(state, targetId);
@@ -419,8 +435,8 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
     if(target.id!==unit.id)fail('INVALID_TARGET','Portación de Escudo sólo protege a Arfeli');
   }else{
     if(!target.alive||target.team===unit.team)fail('INVALID_TARGET','Elegí un campeón enemigo vivo');
-    if(ability.range===1?!adjacent(unit,target):Math.abs(unit.x-target.x)+Math.abs(unit.y-target.y)>(unit.monolith?5:4))fail('OUT_OF_RANGE','Objetivo fuera del alcance');
-    if(abilityId==='rock'&&!clearAbilityLOS(state,unit,target))fail('BLOCKED_LOS','Línea de visión bloqueada');
+    if(!abilityRangeContains(unit,abilityId,target))fail('OUT_OF_RANGE','Objetivo fuera del alcance');
+    if(ability.los&&!clearAbilityLOS(state,unit,target))fail('BLOCKED_LOS','Línea de visión bloqueada');
   }
   const next = clone(state), actor = unitById(next, unitId), victim = unitById(next, targetId), events = [];
   const bonus = actor.championId==='arfeli'&&!actor.arfeliMasteryChain.includes(abilityId) ? actor.arfeliMasteryChain.length : 0;
@@ -440,6 +456,21 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
       events.push({type:'shield.added',unitId:actor.id,sourceId:actor.id,amount});
     }else {
       damage(victim,ability.damage+bonus,`ability.${abilityId}`);
+      if (ability.forced && victim.alive) {
+        const from = {x:victim.x,y:victim.y};
+        const [dx,dy] = forcedDirection(actor,victim,ability.forced==='push');
+        const destination = {x:victim.x+dx,y:victim.y+dy};
+        const blocker = next.units.find(u=>u.alive&&u.id!==victim.id&&key(u)===key(destination));
+        if (!inside(destination) || next.board.obstacles.includes(key(destination)) || blocker) {
+          events.push({type:'movement.blocked',unitId:victim.id,from,destination,source:`ability.${abilityId}`,blockerId:blocker?.id??null});
+          damage(victim,ability.collision,`collision.${abilityId}`);
+          if(blocker)damage(blocker,ability.collision/2,`collision.${abilityId}`);
+        } else {
+          victim.x=destination.x;victim.y=destination.y;
+          events.push({type:'unit.moved',unitId:victim.id,path:[from,destination],cost:0,remainingPm:victim.pm,forced:true,source:`ability.${abilityId}`});
+          if(victim.status.wound)damage(victim,victim.status.wound,'wound.forced');
+        }
+      }
       if (ability.wound && victim.alive) {
         const before = victim.status.wound;
         victim.status.wound = Math.min(3, before + ability.wound);
@@ -449,6 +480,18 @@ export function useAbility(state, { unitId, abilityId, targetId }) {
   }
   finishIfNeeded(next, events);
   return { state: next, events };
+}
+
+// Exact pure simulation: the preview and authority share damage, death and blockers.
+export function previewAbility(state, command) {
+  const resolved = useAbility(state, command);
+  return {
+    effect: [{x:unitById(state,command.targetId).x,y:unitById(state,command.targetId).y}],
+    moves: resolved.events.filter(e=>e.type==='unit.moved'),
+    blocked: resolved.events.filter(e=>e.type==='movement.blocked'),
+    damage: resolved.events.filter(e=>e.type==='damage.applied'),
+    deaths: resolved.events.filter(e=>e.type==='unit.died').map(e=>e.unitId)
+  };
 }
 
 export function executeCommand(state, command) {

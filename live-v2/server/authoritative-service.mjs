@@ -5,7 +5,7 @@ import {
   useAbility,
   createPillar,
   colosoAction,
-  markPiplus, onodAction, korganAction,
+  markPiplus, onodAction, korganAction, houganAction,
   endTurn,
 } from "../combat-core.mjs";
 import {
@@ -138,7 +138,7 @@ export class AuthoritativeService {
         const slot = input.slotId ? m.slots[input.slotId] : null;
         if (slot && slot.controllerId !== identity)
           err("FORBIDDEN", "El slot pertenece a otro controlador");
-        if (["move", "endTurn", "ability", "createPillar", "colosoAction", "piplusMark", "onodAction", "korganAction"].includes(input.type)) {
+        if (["move", "endTurn", "ability", "createPillar", "colosoAction", "piplusMark", "onodAction", "korganAction", "houganAction"].includes(input.type)) {
           if (m.phase !== "combat") err("WRONG_PHASE", "No está en combate");
           if (input.expectedTurn !== m.turnSerial)
             err("TURN_CONFLICT", "Turno obsoleto");
@@ -148,7 +148,9 @@ export class AuthoritativeService {
             err("FORBIDDEN", "Sólo controla el slot activo");
           if (input.type === "ability" && !slot.skills.includes(input.abilityId)) err("ABILITY_NOT_SELECTED", "La habilidad no está en tu selección");
           const out =
-            input.type === "korganAction"
+            input.type === "houganAction"
+              ? houganAction(m.combat,{unitId:slot.id,action:input.action,position:input.position})
+              : input.type === "korganAction"
               ? korganAction(m.combat,{unitId:slot.id,action:input.action,targetId:input.targetId})
               : input.type === "onodAction"
               ? onodAction(m.combat,{unitId:slot.id,action:input.action,targetId:input.targetId,position:input.position})

@@ -6,6 +6,6 @@ La RPC usaba `40001` para un rechazo CAS `VERSION_CONFLICT`. Este es un conflict
 
 La migración `20261004160000_live_v2_conflict_error.sql` conserva la definición existente y reemplaza únicamente ese RAISE por una excepción estándar P0001. Firma, SECURITY DEFINER, search_path, permisos, historial y validaciones CAS quedan conservados. No cambia Auth, datos, cron, extensiones, Realtime ni reglas de combate. Se aplicó sólo en szueqtkjclsumoadnien.
 
-La prueba SQL ejecuta un comando con versión obsoleta y exige SQLSTATE P0001 + VERSION_CONFLICT; CI aplica la migración antes de las pruebas PostgreSQL. La prueba del adaptador deja de inventar SQLSTATE 40001. El cliente y los tiempos de espera permanecen iguales para comprobar la causa de fondo.
+La prueba SQL ejecuta un comando con versión obsoleta y exige SQLSTATE P0001 + VERSION_CONFLICT; CI aplica la migración antes de las pruebas PostgreSQL. La prueba del adaptador deja de inventar SQLSTATE 40001. Tras corregir la saturación, se observó latencia superior al presupuesto original. El transporte cliente permite hasta 30 segundos, conserva los comandos pendientes y normaliza la cancelación como CONNECTION_TIMEOUT. No reintenta automáticamente mutaciones; tres pruebas verifican éxito demorado, cancelación y rechazo definitivo.
 
 Tras aplicar la migración, el navegador pudo crear una sala y mostrar `Conectado al Lab` con ambos slots de preparación.

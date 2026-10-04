@@ -106,8 +106,8 @@ test('Servidor acepta Aguja y acción propia Muñeco bajo autoridad del slot act
   out=await svc.command('u2',cmd('endp','endTurn',v,{slotId:'B1',expectedTurn:out.turn}));v=out.version;
   out=await svc.command('u1',cmd('moveh','move',v,{slotId:'A1',expectedTurn:out.turn,path:[{x:2,y:5},{x:3,y:5},{x:4,y:5},{x:5,y:5}]}));v=out.version;
   out=await svc.command('u1',cmd('needle','ability',v,{slotId:'A1',expectedTurn:out.turn,abilityId:'needle',targetId:'B1'}));v=out.version;
-  assert.equal(out.combat.units.find(u=>u.id==='A1').linkedTargetId,'B1');
+  assert.equal(out.state.combat.units.find(u=>u.id==='A1').linkedTargetId,'B1');
   out=await svc.command('u1',cmd('doll','houganAction',v,{slotId:'A1',expectedTurn:out.turn,action:'doll',position:{x:6,y:5}}));
-  const doll=out.combat.objects.find(o=>o.type==='doll'&&o.alive);
+  const doll=out.state.combat.objects.find(o=>o.type==='doll'&&o.alive);
   assert(doll);assert.equal(doll.linkedTargetId,'B1');assert.equal(doll.maxHp,16);
 });

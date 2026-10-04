@@ -15,17 +15,17 @@ export function confirmedRoutes(previous,next) {
   for(const before of previous.combat.units){
     const after=next.combat.units.find(u=>u.id===before.id);
     if(!before.alive||!after?.alive)continue;
-    let path=[{x:before.x,y:before.y}],valid=true,jump=false;
+    let path=[{x:before.x,y:before.y}],valid=true,jump=false,dash=false;
     for(const batch of batches.filter(b=>b.unitId===before.id)){
       if(!Array.isArray(batch.path)||batch.path.length<2||!same(path.at(-1),batch.path[0])){valid=false;break;}
-      if(batch.kind==='jump')jump=true;
+      if(batch.kind==='jump')jump=true;if(batch.kind==='dash')dash=true;
       for(let i=1;i<batch.path.length;i++){
         const p=batch.path[i],last=path.at(-1);
-        if(!Number.isInteger(p.x)||!Number.isInteger(p.y)||p.x<0||p.y<0||p.x>11||p.y>11||(batch.kind==='jump'?batch.path.length!==2||Math.abs(last.x-p.x)+Math.abs(last.y-p.y)>4:Math.abs(last.x-p.x)+Math.abs(last.y-p.y)!==1)){valid=false;break;}
+        if(!Number.isInteger(p.x)||!Number.isInteger(p.y)||p.x<0||p.y<0||p.x>11||p.y>11||(batch.kind==='dash'?batch.path.length!==2||Math.abs(last.x-p.x)+Math.abs(last.y-p.y)<1||Math.abs(last.x-p.x)+Math.abs(last.y-p.y)>2||(last.x!==p.x&&last.y!==p.y):batch.kind==='jump'?batch.path.length!==2||Math.abs(last.x-p.x)+Math.abs(last.y-p.y)>4:Math.abs(last.x-p.x)+Math.abs(last.y-p.y)!==1)){valid=false;break;}
         path.push({...p});
       }
     }
-    if(valid&&path.length>1&&same(path.at(-1),after))routes.push({unitId:before.id,path,...(jump?{jump:true}:{})});
+    if(valid&&path.length>1&&same(path.at(-1),after))routes.push({unitId:before.id,path,...(jump?{jump:true}:dash?{dash:true}:{})});
   }
   return routes;
 }
@@ -38,7 +38,7 @@ export class MotionTimeline {
     const routes=!this.offline&&!reducedMotion?confirmedRoutes(this.state,state):[];
     this.tracks.clear();this.offline=false;this.state=state;
     // Snapshot gaps may span several moves. Cap visual duration, not server time.
-    for(const route of routes)this.tracks.set(route.unitId,{...route,start:now,stepMs:route.jump?320:Math.min(160,900/(route.path.length-1))});
+    for(const route of routes)this.tracks.set(route.unitId,{...route,start:now,stepMs:route.jump?320:route.dash?240:Math.min(160,900/(route.path.length-1))});
   }
   sample(id,now){
     const t=this.tracks.get(id);if(!t)return null;

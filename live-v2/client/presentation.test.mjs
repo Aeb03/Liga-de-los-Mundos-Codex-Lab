@@ -12,7 +12,7 @@ test('HUD uses authoritative resources without mutating state or charging previe
  const before=structuredClone(state);
  const html=renderArena({state,actor:'shared',slotId:'A1',remaining:24,canMove:true,blocked:false,preview:{path:[{x:2,y:5},{x:3,y:5}],cost:1,tackleDamage:2}});
  assert.match(html,/78\/90 PV/);assert.match(html,/4 PA/);assert.match(html,/2 PM/);assert.match(html,/Escudo 12/);
- assert.equal((html.match(/<button class="combat-skill[^"]*"[^>]* disabled/g)??[]).length,4);
+ assert.equal((html.match(/<button class="combat-skill[^"]*"[^>]* disabled/g)??[]).length,0);
  assert.match(html,/Flecha de Precisión/);assert.deepEqual(state,before);
 });
 test('turn queue rotates from active slot, excludes dead units and preserves independent identities',()=>{

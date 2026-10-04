@@ -74,3 +74,5 @@
 .pillar-action{font-size:9px;padding:2px 4px;min-height:20px}
 
 .live-command .pillar-action{position:absolute;right:8px;bottom:calc(100% + 4px);min-height:24px;padding:2px 7px;font-size:9px}
+
+.arena-obstacle{pointer-events:none}.arena-obstacle image{filter:drop-shadow(0 1px 1px #0006)}

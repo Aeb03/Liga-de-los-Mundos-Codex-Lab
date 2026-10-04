@@ -2,15 +2,15 @@ import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261004-onod1';
-import { renderArena } from './presentation.mjs?v=20261004-onod1';
+import { renderArena } from './presentation.mjs?v=20261004-korgan2';
 import { catalog } from './catalog.mjs';
 import { LiveSession, newId } from './session.mjs?v=20261004-lab2';
-import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations } from '../combat-core.mjs?v=20261004-onod1';
+import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets } from '../combat-core.mjs?v=20261004-korgan2';
 
 const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const errors={CONNECTION_TIMEOUT:'La conexión tardó demasiado. Reintentá; no confirmamos ninguna acción localmente.',UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'La sala ya tiene otro participante.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'No tenés suficientes PA.',ABILITY_LIMIT:'Alcanzaste el límite de usos este turno.',BLOCKED_LOS:'La línea de visión está bloqueada.',OUT_OF_RANGE:'El objetivo está fuera del alcance.',ABILITY_NOT_SELECTED:'La habilidad no está en tus cuatro elegidas.',ONOD_ACTION_UNAVAILABLE:'Germinar o Marchitar no está disponible en esa casilla o este turno.',MARK_UNAVAILABLE:'La Marca ya se usó, está bloqueada o el objetivo no es válido.',INVALID_TARGET:'Ese objetivo no es válido para la acción elegida.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
+const errors={CONNECTION_TIMEOUT:'La conexión tardó demasiado. Reintentá; no confirmamos ninguna acción localmente.',UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'La sala ya tiene otro participante.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'No tenés suficientes PA.',ABILITY_LIMIT:'Alcanzaste el límite de usos este turno.',BLOCKED_LOS:'La línea de visión está bloqueada.',OUT_OF_RANGE:'El objetivo está fuera del alcance.',ABILITY_NOT_SELECTED:'La habilidad no está en tus cuatro elegidas.',ONOD_ACTION_UNAVAILABLE:'Germinar o Marchitar no está disponible en esa casilla o este turno.',KORGAN_ACTION_UNAVAILABLE:'Desarmar Trampa no está disponible.',INVALID_DISTANCE:'Elegí atraer 1 o 2 casillas.',MARK_UNAVAILABLE:'La Marca ya se usó, está bloqueada o el objetivo no es válido.',INVALID_TARGET:'Ese objetivo no es válido para la acción elegida.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
 let notifyTimer;function notify(message){notice.textContent=errors[message]??message;notice.style.display='block';clearTimeout(notifyTimer);notifyTimer=setTimeout(()=>notice.style.display='none',6000);}
 let deadlineExpired=false,hudCollapsed=false,abilitySelection=null;
 let actor=null,joining=false,draft=null,slotId=null,lastRendered='',reloading=false;
@@ -31,7 +31,7 @@ const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
 const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.order[game.state.combat.turnIndex]);
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
 function remaining(){const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
-function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261004-lab2');url.searchParams.set('match',game.state.id);return url.href;}
+function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261004-korgan2');url.searchParams.set('match',game.state.id);return url.href;}
 function roomId(value){
   let id=value.trim();try{const url=new URL(id);id=url.searchParams.get('match')??'';}catch{}
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('Pegá el enlace o el identificador completo de la sala.');return id.toLowerCase();
@@ -64,7 +64,7 @@ function preparation(){
   setupDraft();const s=ownSlot(),locked=Boolean(s?.ready);
   return `<div class="grid"><section class="panel"><h2>Elegí tu campeón</h2>${slotChooser()}<div class="selection">${Object.entries(catalog).map(([id,c])=>{
     const d=championDefinitions()[id];return `<button class="champion ${draft.champion===id?'chosen':''}" data-champion="${id}" ${locked||blocked()?'disabled':''}><img src="../assets/champions/${id}/${id}-avatar.png" alt=""><span>${c.name}<small>${d.hp} PV · ${d.pm} PM · Ini ${d.initiative}</small></span></button>`;
-  }).join('')}</div><p>Elegí cuatro habilidades para la partida. Arfeli, Coloso, Piplus y Onod tienen habilitadas sus seis habilidades y acciones propias. Los otros campeones se incorporarán después.</p><div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando ambos estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala"></aside></div>`;
+  }).join('')}</div><p>Elegí cuatro habilidades para la partida. Arfeli, Coloso, Piplus, Onod y Korgan tienen habilitadas sus seis habilidades y acciones propias. Hougan se incorporará después.</p><div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando ambos estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala"></aside></div>`;
 }
 const key=p=>`${p.x},${p.y}`;
 function blocked(){return joining||game.busy||!game.online||Boolean(game.sync.pendingCommand());}
@@ -91,6 +91,22 @@ async function tapCell(x,y){
   const unit=activeUnit(),selected=game.preview;
   if(abilitySelection){
     const id=abilitySelection.abilityId??'sword';
+    if(['trap_spikes','trap_mine','grenade','hunterstep'].includes(id)){
+      const cells=id==='hunterstep'?hunterStepDestinations(game.state.combat,unit.id):id==='grenade'?korganGrenadeDestinations(game.state.combat,unit.id):korganTrapDestinations(game.state.combat,unit.id,id);
+      if(!cells.some(p=>p.x===x&&p.y===y))return;
+      if(abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};
+      render(true);return;
+    }
+    if(id==='korganDisarm'){
+      const targets=korganDisarmTargets(game.state.combat,unit.id),trap=game.state.combat.traps.find(t=>targets.includes(t.id)&&t.x===x&&t.y===y);
+      if(!trap)return;
+      await send('korganAction',{slotId:unit.id,expectedTurn:game.state.turnSerial,action:'disarm',targetId:trap.id});abilitySelection=null;render(true);return;
+    }
+    if(id==='hook'){
+      const valid=abilityTargets(game.state.combat,unit.id,id),target=game.state.combat.units.find(t=>valid.includes(t.id)&&t.x===x&&t.y===y);
+      if(!target)return;
+      abilitySelection.targetId=target.id;abilitySelection.distance=null;render(true);return;
+    }
     if(['germinate','vines'].includes(id)){
       const cells=id==='germinate'?germinateDestinations(game.state.combat,unit.id):vinesDestinations(game.state.combat,unit.id);if(!cells.some(p=>p.x===x&&p.y===y))return;
       if(abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send(id==='germinate'?'onodAction':'ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,...(id==='germinate'?{action:'germinate'}:{abilityId:id}),position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};render(true);return;
@@ -147,7 +163,9 @@ app.addEventListener('click',async event=>{
   if(target.dataset.champion){draft={slot:slotId,champion:target.dataset.champion,skills:catalog[target.dataset.champion].skills.slice(0,4).map(a=>a.id),dirty:true};render(true);return;}
   switch(target.dataset.action){
     case 'exit':if(canMove()&&!blocked())await send('colosoAction',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial,action:'exit',targetId:activeUnit().id});break;
-    case 'germinate':case 'wither':case 'thorn':case 'vines':case 'sap':case 'spores':case 'awakening':case 'reabsorption':case 'piplusMark':case 'precise':case 'vector':case 'impulse':case 'interference':case 'rupture':case 'fixation':case 'fusion':case 'recycle':case 'bow':case 'stonearmor':case 'absorb':case 'collapse':case 'magnetism':case 'createPillar':case 'hammer':case 'sword':case 'daggers':case 'shield':case 'spear':case 'quake':case 'rock':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId===target.dataset.action?null:{abilityId:target.dataset.action,unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
+    case 'korganDisarm':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId==='korganDisarm'?null:{abilityId:'korganDisarm',unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
+    case 'hookPull1':case 'hookPull2':if(canMove()&&!blocked()&&abilitySelection?.abilityId==='hook'&&abilitySelection.targetId){const distance=target.dataset.action==='hookPull2'?2:1;abilitySelection.distance=distance;render(true);await send('ability',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial,abilityId:'hook',targetId:abilitySelection.targetId,distance});abilitySelection=null;render(true);}break;
+    case 'trap_spikes':case 'trap_mine':case 'grenade':case 'shot':case 'hook':case 'hunterstep':case 'germinate':case 'wither':case 'thorn':case 'vines':case 'sap':case 'spores':case 'awakening':case 'reabsorption':case 'piplusMark':case 'precise':case 'vector':case 'impulse':case 'interference':case 'rupture':case 'fixation':case 'fusion':case 'recycle':case 'bow':case 'stonearmor':case 'absorb':case 'collapse':case 'magnetism':case 'createPillar':case 'hammer':case 'sword':case 'daggers':case 'shield':case 'spear':case 'quake':case 'rock':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId===target.dataset.action?null:{abilityId:target.dataset.action,unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
     case 'moveMode':abilitySelection=null;render(true);break;
     case 'toggleHud':hudCollapsed=!hudCollapsed;render(true);break;
     case 'create':await enter(newId(),true);break;

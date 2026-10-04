@@ -189,8 +189,8 @@ test('cada operación soportada produce estados con round-trip sin pérdida', ()
 test('estados, formatos y comandos fuera de alcance se rechazan explícitamente', () => {
   const a = unit('arfeli', 'a', 'red', { x: 0, y: 0 }), b = unit('houngan', 'b', 'blue', { x: 11, y: 11 });
   errorCode(() => initializeCombat({ units: [a, b, unit('onod', 'c', 'green', { x: 5, y: 5 })], random: 0 }), 'UNSUPPORTED_FORMAT');
-  const state = combat(a, b); state.traps.push({ id: 'trap' });
+  const state = combat(a, b); state.summons.push({ id: 'summon' });
   errorCode(() => serializeState(state), 'UNSUPPORTED_MECHANIC');
-  state.traps = [];
+  state.summons = [];
   errorCode(() => executeCommand(state, { type: 'attack' }), 'UNSUPPORTED_COMMAND');
 });

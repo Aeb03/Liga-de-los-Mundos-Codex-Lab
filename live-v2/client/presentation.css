@@ -66,3 +66,6 @@
 .range-legend{display:inline-flex;gap:6px;flex-wrap:wrap;font-size:9px;margin-right:6px}
 .range-legend span:before{content:'';display:inline-block;width:7px;height:7px;margin-right:3px;border:1px solid currentColor;vertical-align:middle}
 .range-key{color:#72c9ff}.range-key:before{background:#2d6fb3}.blocked-key{color:#8daac3}.blocked-key:before{background:#40566d;border-style:dashed!important}.target-key{color:#ffc18b}.target-key:before{background:#ad443b}.effect-key{color:#fff0bc}.effect-key:before{background:#ed9844}
+
+.live-board .tile.forced-destination{fill:#8856bbaa;stroke:#d6adff;stroke-width:2.5;stroke-dasharray:3 2}
+.live-board .forced-trail{fill:none;stroke:#d6adff;stroke-width:3;pointer-events:none}

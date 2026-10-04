@@ -1,12 +1,12 @@
 import { requestJson } from './request.mjs?v=20261004-connection1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
-import { labUrl, publishableKey } from './lab-config.mjs';
+import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { renderArena } from './presentation.mjs';
 import { catalog } from './catalog.mjs';
-import { LiveSession, newId } from './session.mjs';
+import { LiveSession, newId } from './session.mjs?v=20261004-lab2';
 import { championDefinitions, calculatePath, previewPath } from '../combat-core.mjs';
 
-const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const errors={CONNECTION_TIMEOUT:'La conexión tardó demasiado. Reintentá; no confirmamos ninguna acción localmente.',UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'La sala ya tiene otro participante.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
@@ -113,7 +113,7 @@ app.addEventListener('click',async event=>{
     case 'confirmPosition':await send('confirmPosition',{slotId:ownSlot().id});break;
     case 'start':await send('startCombat',{});break;
     case 'end':await send('endTurn',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial});break;
-    case 'leave':localStorage.removeItem('live-v2-lab-match');history.replaceState(null,'',location.pathname);location.reload();break;
+    case 'leave':localStorage.removeItem('live-v2-lab2-match');history.replaceState(null,'',location.pathname);location.reload();break;
   }
 });
 app.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)&&event.target.dataset.x!=null){event.preventDefault();tapCell(Number(event.target.dataset.x),Number(event.target.dataset.y));}});
@@ -121,5 +121,5 @@ window.addEventListener('offline',()=>game.disconnect());window.addEventListener
 document.addEventListener('visibilitychange',()=>{if(document.hidden){game.preview=null;game.sync.preview=null;}else game.refresh();});
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);
 render(true);
-const invited=new URL(location.href).searchParams.get('match')??localStorage.getItem('live-v2-lab-match');
+const invited=new URL(location.href).searchParams.get('match')??localStorage.getItem('live-v2-lab2-match');
 if(invited){try{await enter(roomId(invited));}catch(error){notify(error.message);}}

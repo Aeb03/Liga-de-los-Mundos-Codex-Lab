@@ -3,7 +3,7 @@ import { createEdgeHandler } from "../../../live-v2/server/edge-handler.mjs";
 import { AuthoritativeService } from "../../../live-v2/server/authoritative-service.mjs";
 import { SupabaseRepository } from "../../../live-v2/server/supabase-repository.mjs";
 const url = Deno.env.get("SUPABASE_URL")!;
-if (url !== "https://szueqtkjclsumoadnien.supabase.co") throw new Error("LAB_ONLY");
+if (url !== "https://nqikacbnbwrlcofuceql.supabase.co") throw new Error("LAB_ONLY");
 const client = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false, autoRefreshToken: false },
 });

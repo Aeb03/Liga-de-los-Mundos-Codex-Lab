@@ -16,15 +16,15 @@ export class LiveSession {
     this.state=null; this.actor=null; this.preview=null; this.online=true; this.refreshing=false;
     this.busy=false; this.offset=0;
     this.sync=new SyncCoordinator({applySnapshot: state=>{
-      this.state=state; this.preview=null; this.storage?.setItem('live-v2-lab-match',state.id);
+      this.state=state; this.preview=null; this.storage?.setItem('live-v2-lab2-match',state.id);
       this.onChange();
     }});
   }
   async attach(actor, state) {
     this.actor=actor;
     this.sync.applyEnvelope({version:state.version,state});
-    const saved=this.storage?.getItem(`live-v2-lab-pending:${actor}:${state.id}`);
-    if(saved){try{this.sync.beginCommand(JSON.parse(saved));}catch{this.storage.removeItem(`live-v2-lab-pending:${actor}:${state.id}`);}}
+    const saved=this.storage?.getItem(`live-v2-lab2-pending:${actor}:${state.id}`);
+    if(saved){try{this.sync.beginCommand(JSON.parse(saved));}catch{this.storage.removeItem(`live-v2-lab2-pending:${actor}:${state.id}`);}}
     this.onChange();
     await this.refresh();
   }
@@ -33,7 +33,7 @@ export class LiveSession {
   canAct(){return this.online&&!this.busy&&!this.sync.pendingCommand()&&this.state?.phase==='combat'&&this.remaining()>0;}
   persistPending(){
     if(!this.actor||!this.state)return;
-    const key=`live-v2-lab-pending:${this.actor}:${this.state.id}`;
+    const key=`live-v2-lab2-pending:${this.actor}:${this.state.id}`;
     const pending=this.sync.pendingCommand();
     if(pending)this.storage?.setItem(key,JSON.stringify(pending.command));else this.storage?.removeItem(key);
   }

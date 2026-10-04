@@ -1,13 +1,13 @@
-import { requestJson } from './request.mjs?v=20261004-connection1';
+import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
-import { labUrl, publishableKey } from './lab-config.mjs';
+import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261004-onod1';
 import { renderArena } from './presentation.mjs?v=20261004-onod1';
 import { catalog } from './catalog.mjs';
-import { LiveSession, newId } from './session.mjs';
+import { LiveSession, newId } from './session.mjs?v=20261004-lab2';
 import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations } from '../combat-core.mjs?v=20261004-onod1';
 
-const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const errors={CONNECTION_TIMEOUT:'La conexión tardó demasiado. Reintentá; no confirmamos ninguna acción localmente.',UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'La sala ya tiene otro participante.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'No tenés suficientes PA.',ABILITY_LIMIT:'Alcanzaste el límite de usos este turno.',BLOCKED_LOS:'La línea de visión está bloqueada.',OUT_OF_RANGE:'El objetivo está fuera del alcance.',ABILITY_NOT_SELECTED:'La habilidad no está en tus cuatro elegidas.',ONOD_ACTION_UNAVAILABLE:'Germinar o Marchitar no está disponible en esa casilla o este turno.',MARK_UNAVAILABLE:'La Marca ya se usó, está bloqueada o el objetivo no es válido.',INVALID_TARGET:'Ese objetivo no es válido para la acción elegida.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
@@ -31,7 +31,7 @@ const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
 const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.order[game.state.combat.turnIndex]);
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
 function remaining(){const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
-function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261004-connection1');url.searchParams.set('match',game.state.id);return url.href;}
+function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261004-lab2');url.searchParams.set('match',game.state.id);return url.href;}
 function roomId(value){
   let id=value.trim();try{const url=new URL(id);id=url.searchParams.get('match')??'';}catch{}
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('Pegá el enlace o el identificador completo de la sala.');return id.toLowerCase();
@@ -162,7 +162,7 @@ app.addEventListener('click',async event=>{
     case 'confirmPosition':await send('confirmPosition',{slotId:ownSlot().id});break;
     case 'start':await send('startCombat',{});break;
     case 'end':await send('endTurn',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial});break;
-    case 'leave':localStorage.removeItem('live-v2-lab-match');history.replaceState(null,'',location.pathname);location.reload();break;
+    case 'leave':localStorage.removeItem('live-v2-lab2-match');history.replaceState(null,'',location.pathname);location.reload();break;
   }
 });
 app.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)&&event.target.dataset.action==='moveMode'){event.preventDefault();abilitySelection=null;render(true);return;}if(['Enter',' '].includes(event.key)&&event.target.dataset.x!=null){event.preventDefault();tapCell(Number(event.target.dataset.x),Number(event.target.dataset.y));}});
@@ -170,5 +170,5 @@ window.addEventListener('offline',()=>game.disconnect());window.addEventListener
 document.addEventListener('visibilitychange',()=>{if(document.hidden){game.preview=null;game.sync.preview=null;}else game.refresh();});
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);
 render(true);
-const invited=new URL(location.href).searchParams.get('match')??localStorage.getItem('live-v2-lab-match');
+const invited=new URL(location.href).searchParams.get('match')??localStorage.getItem('live-v2-lab2-match');
 if(invited){try{await enter(roomId(invited));}catch(error){notify(error.message);}}

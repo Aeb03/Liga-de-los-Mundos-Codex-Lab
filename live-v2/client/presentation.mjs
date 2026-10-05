@@ -1,6 +1,6 @@
 import { abilityOverlay } from './ability-overlay.mjs?v=20261005-houganadv1';
-import { spriteSource } from './motion.mjs?v=20261005-skills1';
-import { normalizeHudSettings, hudClass, hudControls, rotateCell, rotateFacing, cameraParallax } from './hud-camera.mjs?v=20261005-skills1';
+import { spriteSource } from './motion.mjs?v=20261005-skills2';
+import { normalizeHudSettings, hudClass, hudControls, rotateCell, rotateFacing, cameraParallax } from './hud-camera.mjs?v=20261005-skills2';
 import { catalog } from './catalog.mjs?v=20261005-houganadv1';
 import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable } from '../combat-core.mjs?v=20261005-houganadv1';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

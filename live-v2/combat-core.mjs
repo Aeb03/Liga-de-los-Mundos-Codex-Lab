@@ -281,17 +281,21 @@ export function previewPath(state, unitId, path) {
     if (broken.length) tackle.push({ step: index, enemyIds: broken.map(e => e.id), damage: broken.length * 2 });
   }
   const tackleDamage = tackle.reduce((sum, item) => sum + item.damage, 0);
-  const simulated = clone(unit), steps = [];
+  const tackleState=clone(state),tackleUnit=unitById(tackleState,unitId),tackleEvents=[];
+  for(const item of tackle){if(!tackleUnit.alive)break;damageWithDollEffect(tackleState,tackleUnit,item.damage,true,tackleEvents,'tackle.preview');}
+  const simulatedState=clone(state),simulated=unitById(simulatedState,unitId),steps=[],simulationEvents=[];
   for (let index = 1; index < path.length && simulated.alive; index++) {
     const tackleAmount = tackle.find(item => item.step === index)?.damage ?? 0;
-    if (tackleAmount) applyDamageToUnit(simulated, tackleAmount, true);
+    if (tackleAmount) damageWithDollEffect(simulatedState,simulated,tackleAmount,true,simulationEvents,'tackle.preview');
     if (!simulated.alive) break;
     simulated.x = path[index].x; simulated.y = path[index].y;
-    const wound = applyDamageToUnit(simulated, simulated.status.wound, false);
-    steps.push({ step: index, position: clone(path[index]), woundDamage: simulated.status.wound, ...wound, hp: simulated.hp });
+    const beforeHp=simulated.hp;
+    if(simulated.status.wound)damageWithDollEffect(simulatedState,simulated,simulated.status.wound,false,simulationEvents,'wound.preview');
+    const hpLost=beforeHp-simulated.hp;
+    steps.push({ step: index, position: clone(path[index]), woundDamage: simulated.status.wound, absorbed:Math.max(0,simulated.status.wound-hpLost),hpLost,killed:!simulated.alive,hp: simulated.hp });
   }
   return { path: clone(path), destination: clone(path.at(-1)), cost: path.length - 1, tackle, tackleDamage,
-    lethal: tackleDamage >= unit.hp, steps, woundDamage: steps.reduce((n, step) => n + step.woundDamage, 0),
+    lethal: !tackleUnit.alive, steps, woundDamage: steps.reduce((n, step) => n + step.woundDamage, 0),
     hpLost: unit.hp - simulated.hp, remainingHp: simulated.hp, diesDuringPath: !simulated.alive,
     resolvedDestination: { x: simulated.x, y: simulated.y } };
 }
@@ -301,10 +305,7 @@ export function resolvePath(state, unitId, path) {
   if (preview.lethal) fail('LETHAL_TACKLE', 'El placaje acumulado sería mortal; se rechaza el recorrido completo');
   const next = clone(state), unit = unitById(next, unitId), events = [], travelled = [clone(path[0])];
   function damage(amount, source, step, ignoreShield, enemyIds) {
-    const result = applyDamageToUnit(unit, amount, ignoreShield);
-    events.push({ type: 'damage.applied', targetId: unit.id, amount, ...result, source, step, ignoreShield,
-      ...(enemyIds ? { enemyIds } : {}) });
-    if (result.killed) events.push({ type: 'unit.died', unitId });
+    return damageWithDollEffect(next,unit,amount,ignoreShield,events,source,{step,...(enemyIds?{enemyIds}:{})});
   }
   for (let index = 1; index < path.length && unit.alive; index++) {
     const tackle = preview.tackle.find(item => item.step === index);
@@ -367,9 +368,7 @@ function beginTurn(state) {
   if (unit.championId === 'onod') Object.assign(unit, { onodTurnSerial: unit.onodTurnSerial + 1, onodGerminateUses: 0, onodWitherUsedThisTurn: false, onodGerminateBlockedThisTurn: false, onodReabsorptionUsedThisTurn: false });
   if (unit.championId === 'korgan') Object.assign(unit, { korganTurnSerial: unit.korganTurnSerial + 1, korganDisarmUsedThisTurn: false });
   if (unit.status.burn > 0) {
-    const damage = unit.status.burn, result = applyDamageToUnit(unit, damage, false);
-    events.push({ type: 'damage.applied', targetId: unit.id, amount: damage, absorbed: result.absorbed, hpLost: result.hpLost, ignoreShield: false, source: 'burn.start' });
-    if (result.killed) events.push({ type: 'unit.died', unitId: unit.id });
+    damageWithDollEffect(next,unit,unit.status.burn,false,events,'burn.start');
   }
   events.push({ type: 'turn.started', unitId: unit.id, round: next.round, pa: unit.pa, pm: unit.pm });
   finishIfNeeded(next, events);
@@ -829,7 +828,7 @@ function usePiplusImpulse(state,unit,position){
   if(!impulseDestinations(state,unit.id).some(p=>p.x===position?.x&&p.y===position?.y))fail('INVALID_POSITION','Impulso requiere una casilla cardinal libre a distancia 1 o 2');
   const next=clone(state),u=unitById(next,unit.id),events=[];u.pa-=2;u.skillUsesThisTurn.impulse=(u.skillUsesThisTurn.impulse??0)+1;
   events.push({type:'ability.used',unitId:u.id,abilityId:'impulse',position:clone(position),cost:2});
-  const damage=(target,amount,source)=>{const result=applyDamageToUnit(target,amount,false);events.push({type:'damage.applied',targetId:target.id,amount,...result,ignoreShield:false,source});if(source==='poison.ability')poisonSymbiosis(next,target,result.hpLost,events);if(result.killed)events.push(target.kind==='object'?{type:'object.destroyed',objectId:target.id}:{type:'unit.died',unitId:target.id});};
+  const damage=(target,amount,source)=>{const result=damageWithDollEffect(next,target,amount,false,events,source);if(source==='poison.ability')poisonSymbiosis(next,target,result.hpLost,events);};
   if(u.status.poison)damage(u,u.status.poison,'poison.ability');
   if(!u.alive){finishIfNeeded(next,events);return {state:next,events};}
   const dx=Math.sign(position.x-u.x),dy=Math.sign(position.y-u.y);
@@ -970,18 +969,32 @@ function applyDollEffect(state,doll,realLost,events,associationActive=dollAssoci
   if(realLost<=0||!associationActive)return;
   const target=state.units.find(u=>u.id===doll.linkedTargetId);if(!target?.alive)return;
   const effect=Math.ceil(realLost/2);
-  if(doll.linkMode==='enemy'){
-    const result=applyDamageToUnit(target,effect,false);
-    events.push({type:'damage.applied',targetId:target.id,amount:effect,...result,ignoreShield:false,source:'doll.enemy'});
-    if(result.killed)events.push({type:'unit.died',unitId:target.id});
-  }else healEntity(target,effect,events,'doll.ally');
+  if(doll.linkMode==='enemy')damageWithDollEffect(state,target,effect,false,events,'doll.enemy');
+  else healEntity(target,effect,events,'doll.ally');
 }
-function damageWithDollEffect(state,target,amount,ignoreShield,events,source){
+function damageWithDollEffect(state,target,amount,ignoreShield,events,source,meta={},options={}){
+  if(target?.alive&&target.championId==='houngan'&&!options.bypassPainTransfer&&Number(amount)>0){
+    if(target.houganPainTransfer&&!painTransferStateValid(state,target))pruneHouganStates(state,target,events,'paintransfer_invalid');
+    if(painTransferStateValid(state,target)){
+      const active=target.houganPainTransfer,doll=state.objects.find(o=>o.id===active.dollId&&o.alive);
+      if(doll){
+        const requested=Math.max(0,Number(amount)||0),houganShare=Math.ceil(requested/2),dollShare=Math.floor(requested/2);
+        events.push({type:'hougan.paintransfer.split',unitId:target.id,dollId:doll.id,amount:requested,houganShare,dollShare,source});
+        const result=applyDamageToUnit(target,houganShare,ignoreShield);
+        events.push({type:'damage.applied',targetId:target.id,amount:houganShare,...result,ignoreShield,source,...meta,painTransfer:true,requestedAmount:requested});
+        if(result.killed)events.push({type:'unit.died',unitId:target.id});
+        if(dollShare>0&&doll.alive)damageWithDollEffect(state,doll,dollShare,ignoreShield,events,`paintransfer.${source}`,{}, {bypassPainTransfer:true});
+        pruneHouganStates(state,target,events,doll.alive?'':'doll_destroyed');
+        return result;
+      }
+    }
+  }
   const associationActive=target.type==='doll'&&dollAssociationActive(state,target);
   const result=applyDamageToUnit(target,amount,ignoreShield);
-  events.push({type:'damage.applied',targetId:target.id,amount,...result,ignoreShield,source});
+  events.push({type:'damage.applied',targetId:target.id,amount,...result,ignoreShield,source,...meta});
   if(target.type==='doll'&&result.hpLost>0)applyDollEffect(state,target,result.hpLost,events,associationActive);
   if(result.killed)events.push(target.kind==='object'?{type:'object.destroyed',objectId:target.id}:{type:'unit.died',unitId:target.id});
+  pruneAllHouganStates(state,events,result.killed?'entity_destroyed':'');
   return result;
 }
 export function houganDollDestinations(state,unitId){

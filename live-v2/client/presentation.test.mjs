@@ -118,24 +118,24 @@ test('paneles laterales admiten horizontal/vertical y ronda/comando permanecen h
 });
 
 
-test('barra offline muestra Mover Habilidades Fin turno y el cajón se abre/cierra',()=>{
+test('HUD mantiene las cuatro habilidades visibles y sólo Mover + Fin turno como acciones',()=>{
   const state=fixture();
-  let html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,skillsOpen:false,moveMode:false});
+  const html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true});
   assert.match(html,/data-action="moveMode"/);
-  assert.match(html,/data-action="toggleSkills"/);
   assert.match(html,/data-action="end"/);
-  assert.match(html,/skill-drawer closed/);
+  assert.doesNotMatch(html,/data-action="toggleSkills"/);
+  assert.doesNotMatch(html,/skill-drawer/);
   assert.match(html,/data-skill="precise"/);
-  html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,skillsOpen:true,moveMode:false});
-  assert.match(html,/skill-drawer open/);
-  assert.match(html,/aria-expanded="true"/);
+  assert.match(html,/data-skill="vector"/);
+  assert.match(html,/data-skill="impulse"/);
+  assert.match(html,/data-skill="interference"/);
+  assert.match(html,/tile\s+reachable/);
 });
 
-test('movimiento sólo resalta casillas cuando Mover está seleccionado',()=>{
+test('campeones tienen hitbox táctil para inspección directa desde la arena',()=>{
   const state=fixture();
-  let html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,skillsOpen:false,moveMode:false});
-  assert.doesNotMatch(html,/tile reachable/);
-  html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,skillsOpen:false,moveMode:true});
-  assert.match(html,/tile\s+reachable/);
-  assert.match(html,/move-action active-action/);
+  const html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,inspectedId:'B1'});
+  assert.match(html,/data-inspect-id="B1" class="inspected-entity"/);
+  assert.match(html,/class="piece-hitbox"/);
+  assert.match(html,/Coloso · B1/);
 });

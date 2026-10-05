@@ -86,9 +86,9 @@ test('Muñeco enemigo usa variante 02 y aliado usa variante 01, también en dato
 test('cámara rota vista isométrica sin cambiar coordenadas lógicas ni acciones',()=>{
  const state=fixture();
  assert.deepEqual(boardPoint(2,5,1),boardPoint(6,2,0));
- const html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,camera:{x:12,y:-8,rotation:1}});
+ const html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,camera:{x:12,y:-8,rotation:1,zoom:1.25}});
  assert.match(html,/data-arena-rotation="1"/);
- assert.match(html,/arena-scene" style="transform:translate\(12px,-8px\)"/);
+ assert.match(html,/arena-scene" style="transform:translate\(12px,-8px\) scale\(1\.25\)"/);
  assert.match(html,/data-action="rotateCameraLeft"/);
  assert.match(html,/data-action="rotateCameraRight"/);
  assert.match(html,/data-hud-panel="round"/);

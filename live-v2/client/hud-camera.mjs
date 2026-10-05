@@ -61,17 +61,19 @@ function setHudCoords(panel,x,y){
   panel.style.setProperty('bottom','auto','important');
   panel.style.setProperty('transform','none','important');
 }
+function hudIsFixed(panel){return globalThis.getComputedStyle?.(panel)?.position==='fixed';}
+function hudBox(root,panel){return hudIsFixed(panel)?viewportBox():root.getBoundingClientRect();}
 export function applyStoredHudPositions(root,settings){
   if(!root)return;
   const all=normalizeHudSettings(settings);
   for(const panel of root.querySelectorAll('[data-hud-panel]')){
     const key=panel.dataset.hudPanel,pos=all[key];
     if(!pos||pos.x==null||pos.y==null)continue;
-    const cr=viewportBox(),pr=panel.getBoundingClientRect();
-    const maxX=Math.max(2,cr.width-pr.width-2),maxY=Math.max(2,cr.height-pr.height-2);
-    const relX=Math.round(clamp(pos.x,0,1)*Math.max(1,cr.width-pr.width));
-    const relY=Math.round(clamp(pos.y,0,1)*Math.max(1,cr.height-pr.height));
-    setHudCoords(panel,cr.left+clamp(relX,2,maxX),cr.top+clamp(relY,2,maxY));
+    const fixed=hudIsFixed(panel),cr=hudBox(root,panel),pr=panel.getBoundingClientRect();
+    const usableX=Math.max(1,cr.width-pr.width),usableY=Math.max(1,cr.height-pr.height);
+    const relX=clamp(Math.round(clamp(pos.x,0,1)*usableX),2,Math.max(2,usableX-2));
+    const relY=clamp(Math.round(clamp(pos.y,0,1)*usableY),2,Math.max(2,usableY-2));
+    setHudCoords(panel,fixed?cr.left+relX:relX,fixed?cr.top+relY:relY);
   }
 }
 export function bindDraggableHud(root,{storage=globalThis.localStorage,onStored=()=>{}}={}){
@@ -87,8 +89,8 @@ export function bindDraggableHud(root,{storage=globalThis.localStorage,onStored=
       if(event.pointerType==='mouse'&&event.button!==0)return;
       event.preventDefault();event.stopPropagation();
       pointer=event.pointerId;moved=false;
-      const pr=panel.getBoundingClientRect();
-      startX=event.clientX;startY=event.clientY;left=pr.left;top=pr.top;
+      const pr=panel.getBoundingClientRect(),fixed=hudIsFixed(panel),cr=hudBox(root,panel);
+      startX=event.clientX;startY=event.clientY;left=fixed?pr.left:(pr.left-cr.left);top=fixed?pr.top:(pr.top-cr.top);
       handle.setPointerCapture?.(pointer);panel.classList.add('dragging');
     });
     handle.addEventListener('pointermove',event=>{
@@ -96,16 +98,17 @@ export function bindDraggableHud(root,{storage=globalThis.localStorage,onStored=
       const dx=event.clientX-startX,dy=event.clientY-startY;
       if(!moved&&Math.hypot(dx,dy)<1.5)return;
       moved=true;event.preventDefault();
-      const pr=panel.getBoundingClientRect(),cr=viewportBox();
-      nextX=clamp(left+dx,cr.left,cr.left+cr.width-pr.width-2);
-      nextY=clamp(top+dy,cr.top,cr.top+cr.height-pr.height-2);
+      const pr=panel.getBoundingClientRect(),fixed=hudIsFixed(panel),cr=hudBox(root,panel);
+      const minX=fixed?cr.left:2,minY=fixed?cr.top:2,maxX=fixed?cr.left+cr.width-pr.width-2:cr.width-pr.width-2,maxY=fixed?cr.top+cr.height-pr.height-2:cr.height-pr.height-2;
+      nextX=clamp(left+dx,minX,Math.max(minX,maxX));
+      nextY=clamp(top+dy,minY,Math.max(minY,maxY));
       if(!raf)raf=requestAnimationFrame(paint);
     });
     const finish=event=>{
       if(pointer!==event.pointerId)return;
       if(raf){cancelAnimationFrame(raf);raf=0;paint();}
       if(moved){
-        const pr=panel.getBoundingClientRect(),cr=viewportBox();
+        const pr=panel.getBoundingClientRect(),cr=hudBox(root,panel);
         const usableX=Math.max(1,cr.width-pr.width),usableY=Math.max(1,cr.height-pr.height);
         settings=saveHudSetting(storage,key,{
           x:clamp((pr.left-cr.left)/usableX,0,1),

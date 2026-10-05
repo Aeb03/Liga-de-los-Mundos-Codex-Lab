@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderArena, turnSequence, unitIndicators } from './presentation.mjs';
+import { renderArena, turnSequence, unitIndicators, compactStatusIcons, statusChipLabels, shieldTotal, dollVariant } from './presentation.mjs';
 import { createUnit, initializeCombat } from '../combat-core.mjs';
 function fixture() {
  const slots={A1:{id:'A1',team:'A',controllerId:'shared',championId:'piplus',position:{x:2,y:5},skills:['precise','vector','impulse','interference']},B1:{id:'B1',team:'B',controllerId:'rival',championId:'coloso',position:{x:9,y:5},skills:['rock','stonearmor','absorb','quake']}};
@@ -40,4 +40,44 @@ test('Dagas preview names wound and movement preview distinguishes normal wound 
  const args={state,actor:'shared',slotId:'A1',remaining:24,blocked:false,canMove:true,abilitySelection:{abilityId:'daggers',targetId:'B1'}};
  const before=structuredClone(state);let html=renderArena(args);assert.match(html,/Dagas Danzantes: 10 daño \+ Herida 2 · 3 PA/);assert.match(html,/data-action="daggers"  title/);assert.deepEqual(state,before);
  html=renderArena({...args,abilitySelection:null,preview:{path:[{x:2,y:5},{x:2,y:6}],cost:1,tackleDamage:2,woundDamage:2,remainingHp:0,diesDuringPath:true}});assert.match(html,/Herida: 2 daño · PV final: 0 · MUERTE DURANTE EL RECORRIDO/);
+});
+
+
+test('paridad visual: estados compactos van sobre PV y Escudo queda en línea separada',()=>{
+ const state=fixture(),u=state.combat.units.find(u=>u.id==='A1'),enemy=state.combat.units.find(u=>u.id==='B1');
+ u.status.wound=2;u.status.poison=3;u.status.burn=4;u.status.paPenaltyNext=1;u.status.pmPenaltyNext=2;u.shield=[{amount:7,sourceId:'A1'}];u.monolith=true;
+ const hougan={id:'H',alive:true,championId:'houngan',linkedTargetId:'A1'};
+ const marker={id:'M',alive:true,championId:'piplus',markedTargetId:'A1'};
+ assert.equal(shieldTotal(u),7);
+ assert.deepEqual(compactStatusIcons(u,{units:[marker,hougan]}),['🩸2','☠️3','🔨-1PA','🌿-2PM','🎯','🪡','🗿']);
+ assert.deepEqual(statusChipLabels(u,{units:[marker,hougan]}),['🩸 Herida 2','☠️ Veneno 3','🔥 Quemadura 4','🔨 PA -1 próximo','🌿 PM -2 próximo','🎯 Marcado','🪡 Vinculado','🗿 Monolito']);
+ const html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,inspectedId:'A1'});
+ assert.match(html,/class="piece-status"[^>]*>🩸2 ☠️3 🔨-1PA 🌿-2PM 🗿</);
+ assert.match(html,/class="piece-shield"[^>]*>🛡️7</);
+ assert.match(html,/🩸 Herida 2/);assert.match(html,/🔥 Quemadura 4/);
+});
+
+test('paridad visual: inspección puede mostrar rival u objeto sin cambiar al campeón activo',()=>{
+ const state=fixture();
+ let html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,inspectedId:'B1'});
+ assert.match(html,/Coloso · B1/);assert.match(html,/data-inspect-id="B1"/);assert.match(html,/Flecha de Precisión/);
+ const object={id:'pillar1',number:1,kind:'object',type:'pillar',ownerId:'B1',team:'B',x:8,y:5,hp:12,maxHp:15,alive:true,shield:[{amount:3,sourceId:'B1'}],blocksLOS:true,createdByColosoTurn:0};
+ state.combat.objects.push(object);state.combat.nextPillarId=2;
+ html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,inspectedId:'pillar1'});
+ assert.match(html,/Pilar 1/);assert.match(html,/12\/15 PV/);assert.match(html,/Escudo 3/);assert.match(html,/Bloquea movimiento y línea de visión/);
+});
+
+test('Muñeco enemigo usa variante 02 y aliado usa variante 01, también en datos de animación',()=>{
+ const slots={
+   A1:{id:'A1',team:'A',controllerId:'shared',championId:'houngan',position:{x:2,y:5},skills:['needle','transfer','ritual','curse']},
+   B1:{id:'B1',team:'B',controllerId:'rival',championId:'piplus',position:{x:9,y:5},skills:['precise','vector','impulse','interference']}
+ };
+ const state={phase:'combat',slots,combat:initializeCombat({units:Object.values(slots).map(s=>createUnit({...s,slot:1}))}).state};
+ const owner=state.combat.units.find(u=>u.id==='A1');owner.linkedTargetId='B1';
+ state.combat.objects.push({id:'doll1',number:1,kind:'object',type:'doll',ownerId:'A1',team:'A',x:4,y:5,hp:16,maxHp:16,alive:true,shield:[],blocksLOS:false,linkedTargetId:'B1',linkMode:'enemy',movePm:3});
+ state.combat.nextDollId=2;
+ let html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true});
+ assert.match(html,/muneco-houngan-02\/down-right\.png/);assert.match(html,/data-doll-variant="muneco-houngan-02"/);
+ assert.equal(dollVariant({linkMode:'ally'}),'muneco-houngan-01');
+ assert.equal(dollVariant({linkMode:'enemy'}),'muneco-houngan-02');
 });

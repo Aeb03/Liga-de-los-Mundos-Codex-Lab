@@ -69,11 +69,11 @@ export class MotionPresenter {
         const image=group.querySelector('image');image.setAttribute('href',spriteSource(group.dataset.champion,sample.direction,group.dataset.monolith==='true'));
       }
       for(const group of root.querySelectorAll('[data-motion-object]')){
-        const id=group.dataset.motionObject,sample=this.timeline.sample(id,this.clock()),image=group.querySelector('image');
-        if(!sample){group.removeAttribute('transform');image.setAttribute('href',`../assets/tactical/objects/muneco-houngan-01/${group.dataset.facing??'down-right'}.png`);continue;}
+        const id=group.dataset.motionObject,sample=this.timeline.sample(id,this.clock()),image=group.querySelector('image'),variant=group.dataset.dollVariant??'muneco-houngan-01';
+        if(!sample){group.removeAttribute('transform');image.setAttribute('href',`../assets/tactical/objects/${variant}/${group.dataset.facing??'down-right'}.png`);continue;}
         const dx=sample.x-Number(group.dataset.x),dy=sample.y-Number(group.dataset.y);
         group.setAttribute('transform',`translate(${(dx-dy)*20} ${(dx+dy)*10})`);
-        image.setAttribute('href',`../assets/tactical/objects/muneco-houngan-01/${sample.direction}.png`);
+        image.setAttribute('href',`../assets/tactical/objects/${variant}/${sample.direction}.png`);
       }
       if(this.timeline.tracks.size)this.frameId=this.frame(tick);
     };

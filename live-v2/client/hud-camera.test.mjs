@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   HUD_STORAGE_KEY, normalizeHudSettings, loadHudSettings, saveHudSetting, resetHudSettings,
-  rotateCell, rotateFacing, clampCamera, cameraParallax
+  rotateCell, rotateFacing, clampCamera, cameraParallax, clampZoom, cameraForPinch, CAMERA_MIN_ZOOM, CAMERA_MAX_ZOOM
 } from './hud-camera.mjs';
 
 function fakeStorage(){
@@ -57,7 +57,27 @@ test('facings tácticos giran junto con la cámara',()=>{
 
 test('clamp y parallax usan los límites extraídos del offline',()=>{
   const camera=clampCamera({x:999,y:-999,rotation:5},400,200);
-  assert.deepEqual(camera,{x:184,y:-92,rotation:1});
+  assert.deepEqual(camera,{x:184,y:-92,rotation:1,zoom:1});
   assert.deepEqual(cameraParallax({x:100,y:50}),{x:22,y:7.000000000000001});
   assert.deepEqual(cameraParallax({x:999,y:-999}),{x:56,y:-20});
+});
+
+
+test('zoom táctil queda limitado a un rango razonable',()=>{
+  assert.equal(clampZoom(.1),CAMERA_MIN_ZOOM);
+  assert.equal(clampZoom(99),CAMERA_MAX_ZOOM);
+  assert.equal(clampZoom(1.25),1.25);
+  assert.deepEqual(clampCamera({x:999,y:-999,rotation:0,zoom:1.6},400,200),{x:294.40000000000003,y:-147.20000000000002,rotation:0,zoom:1.6});
+});
+
+test('pinch mantiene estable el punto bajo los dedos y permite acercar o alejar',()=>{
+  const base={x:10,y:-5,rotation:0,zoom:1};
+  const stageCenter={x:200,y:100};
+  const zoomIn=cameraForPinch(base,{x:220,y:110},{x:220,y:110},100,150,stageCenter,400,200);
+  assert.equal(zoomIn.zoom,1.5);
+  assert.equal(zoomIn.x,5);
+  assert.equal(zoomIn.y,-12.5);
+  const zoomOut=cameraForPinch(base,{x:220,y:110},{x:230,y:120},100,50,stageCenter,400,200);
+  assert.equal(zoomOut.zoom,CAMERA_MIN_ZOOM);
+  assert.ok(Number.isFinite(zoomOut.x)&&Number.isFinite(zoomOut.y));
 });

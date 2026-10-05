@@ -313,8 +313,8 @@ export class AuthoritativeService {
         if (moves.length) {
           const presentation = m.presentation ?? { moves: [], facings: {} };
           for (const event of moves) {
-            const path = structuredClone(event.path), entityId=event.unitId??event.objectId;
-            presentation.moves.push({ version: m.version, ...(event.unitId?{unitId:event.unitId}:{objectId:event.objectId}), path, ...(event.kind?{kind:event.kind}:{}) });
+            const path = structuredClone(event.path), isObject=event.type==="object.moved", entityId=isObject?event.objectId:event.unitId;
+            presentation.moves.push({ version: m.version, ...(isObject?{objectId:event.objectId}:{unitId:event.unitId}), path, ...(event.kind?{kind:event.kind}:{}) });
             const a = path.at(-2), b = path.at(-1);
             presentation.facings[entityId] = b.x > a.x ? "down-right" : b.x < a.x ? "up-left" : b.y > a.y ? "down-left" : "up-right";
           }

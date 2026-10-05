@@ -165,3 +165,5 @@
   .camera-hud-panel{top:70px}
   .live-roster.hud-horizontal{width:190px}
 }
+
+.live-roster.collapsed .roster-body{display:none!important}

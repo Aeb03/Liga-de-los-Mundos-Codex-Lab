@@ -14,7 +14,7 @@ const app=document.querySelector('#app'),notice=document.querySelector('#notice'
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const errors={CONNECTION_TIMEOUT:'La conexión tardó demasiado. Reintentá; no confirmamos ninguna acción localmente.',UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'La sala ya tiene otro participante.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'No tenés suficientes PA.',ABILITY_LIMIT:'Alcanzaste el límite de usos este turno.',BLOCKED_LOS:'La línea de visión está bloqueada.',OUT_OF_RANGE:'El objetivo está fuera del alcance.',ABILITY_NOT_SELECTED:'La habilidad no está en tus cuatro elegidas.',ONOD_ACTION_UNAVAILABLE:'Germinar o Marchitar no está disponible en esa casilla o este turno.',KORGAN_ACTION_UNAVAILABLE:'Desarmar Trampa no está disponible.',HOUGAN_ACTION_UNAVAILABLE:'Muñeco Vudú no está disponible.',DOLL_PHASE_ACTIVE:'Primero resolvé el movimiento del Muñeco Vudú.',DOLL_PHASE_INACTIVE:'La fase del Muñeco ya terminó.',INVALID_DISTANCE:'Elegí atraer 1 o 2 casillas.',MARK_UNAVAILABLE:'La Marca ya se usó, está bloqueada o el objetivo no es válido.',INVALID_TARGET:'Ese objetivo no es válido para la acción elegida.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
 let notifyTimer;function notify(message){notice.textContent=errors[message]??message;notice.style.display='block';clearTimeout(notifyTimer);notifyTimer=setTimeout(()=>notice.style.display='none',6000);}
-let deadlineExpired=false,abilitySelection=null,inspectedId=null,lastInspectionFocus='',skillsOpen=false,moveMode=false,lastActionTurn='';
+let deadlineExpired=false,abilitySelection=null,inspectedId=null,lastInspectionFocus='';
 let skillHoldCleanup=()=>{};
 let hudSettings=loadHudSettings(localStorage),camera={x:0,y:0,rotation:0,zoom:1},cameraMatchId=null;
 let actor=null,joining=false,draft=null,slotId=null,lastRendered='',reloading=false;
@@ -72,11 +72,6 @@ function preparation(){
 }
 const key=p=>`${p.x},${p.y}`;
 function blocked(){return joining||game.busy||!game.online||Boolean(game.sync.pendingCommand());}
-function syncActionMode(){
-  const active=activeUnit(),phase=game.state?.combat?.dollPhase,focus=`${game.state?.turnSerial??''}:${active?.id??''}:${phase?.dollId??''}`;
-  if(focus!==lastActionTurn){lastActionTurn=focus;skillsOpen=false;moveMode=false;game.preview=null;}
-  if(phase){skillsOpen=false;moveMode=false;}
-}
 function syncInspection(){
   const active=activeUnit(),dollId=game.state?.combat?.dollPhase?.dollId??null,focus=dollId??active?.id??'';
   if(focus!==lastInspectionFocus){lastInspectionFocus=focus;inspectedId=focus||null;}
@@ -84,8 +79,8 @@ function syncInspection(){
   if(inspectedId&&!entities.some(entity=>entity.id===inspectedId&&entity.alive!==false))inspectedId=focus||null;
 }
 function arena(){
-  setupDraft();syncActionMode();syncInspection();
-  return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudSettings,camera,abilitySelection,inspectedId,skillsOpen,moveMode});
+  setupDraft();syncInspection();
+  return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudSettings,camera,abilitySelection,inspectedId});
 }
 function render(force=false){
   if(game.state?.id&&game.state.id!==cameraMatchId){cameraMatchId=game.state.id;camera={x:0,y:0,rotation:0,zoom:1};}
@@ -93,7 +88,7 @@ function render(force=false){
   motion.receive(game.state,{connected:game.online,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches});
   document.body.classList.toggle('in-arena',Boolean(game.state&&game.state.phase!=='preparation'));
   const indicator=document.querySelector('#connection');indicator.textContent=game.state?(game.sync.pendingCommand()?'Acción pendiente':game.online?'Conectado al Lab':'Sin conexión'):'Supabase Lab';indicator.classList.toggle('offline',!game.online);
-  const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings,skillsOpen,moveMode]);
+  const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings]);
   if(!force&&signature===lastRendered){remaining();return;}lastRendered=signature;
   if(!game.state){app.innerHTML=`<section class="panel welcome"><span class="tag">Prueba LIVE v2 · 1v1</span><h2>Dos celulares, una partida</h2><p>Creá una sala y compartí su enlace. Cada celular controlará un campeón.</p><button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><form class="join-form" id="join"><input type="text" id="room" placeholder="Pegá el enlace o identificador de sala" aria-label="Enlace de sala"><button ${joining?'disabled':''}>Unirme</button></form><p class="phase-text">Se conserva tu sesión en este navegador para reconectar.</p></section>`;return;}
   skillHoldCleanup();skillHoldCleanup=()=>{};
@@ -118,8 +113,7 @@ async function tapCell(x,y){
     if(phase.ownerId!==unit.id)return;
     try{
       const path=calculateHouganDollPath(game.state.combat,unit.id,{x,y});
-      if(!moveMode)return;
-  if(selected&&key(selected.path.at(-1))===`${x},${y}`){
+      if(selected&&key(selected.path.at(-1))===`${x},${y}`){
         await send('houganDollMove',{slotId:unit.id,expectedTurn:game.state.turnSerial,path:selected.path});game.preview=null;render(true);return;
       }
       game.preview={path,cost:path.length-1,tackleDamage:0,woundDamage:0,remainingHp:game.state.combat.objects.find(o=>o.id===phase.dollId)?.hp??0};render(true);return;
@@ -205,7 +199,8 @@ app.addEventListener('click',async event=>{
   if(target.dataset.hudOrient){const key=target.dataset.hudOrient,current=hudSettings[key]?.orientation??'vertical';hudSettings=saveHudSetting(localStorage,key,{orientation:current==='vertical'?'horizontal':'vertical'});render(true);return;}
   if(target.dataset.inspectId){
     const entity=[...(game.state?.combat?.units??[]),...(game.state?.combat?.objects??[])].find(item=>item.id===target.dataset.inspectId&&item.alive!==false);
-    if(entity&&abilitySelection&&canMove()){await tapCell(entity.x,entity.y);return;}
+    const fromRoster=Boolean(target.closest?.('.live-roster'));
+    if(entity&&abilitySelection&&canMove()&&!fromRoster){await tapCell(entity.x,entity.y);return;}
     inspectedId=entity?.id??null;render(true);return;
   }
   if(target.dataset.x!=null){await tapCell(Number(target.dataset.x),Number(target.dataset.y));return;}
@@ -214,12 +209,11 @@ app.addEventListener('click',async event=>{
     case 'exit':if(canMove()&&!blocked())await send('colosoAction',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial,action:'exit',targetId:activeUnit().id});break;
     case 'dollMoveMode':game.preview=null;abilitySelection=null;render(true);break;
     case 'dollEnd':if(canMove()&&!blocked()&&game.state.combat?.dollPhase){await send('houganDollEnd',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial});game.preview=null;render(true);}break;
-    case 'houganDoll':if(canMove()&&!blocked()){moveMode=false;skillsOpen=true;abilitySelection=abilitySelection?.abilityId==='houganDoll'?null:{abilityId:'houganDoll',unitId:activeUnit().id,version:game.state.version,targetId:null,position:null};game.preview=null;render(true);}break;
-    case 'korganDisarm':if(canMove()&&!blocked()){moveMode=false;skillsOpen=true;abilitySelection=abilitySelection?.abilityId==='korganDisarm'?null:{abilityId:'korganDisarm',unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
+    case 'houganDoll':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId==='houganDoll'?null:{abilityId:'houganDoll',unitId:activeUnit().id,version:game.state.version,targetId:null,position:null};game.preview=null;render(true);}break;
+    case 'korganDisarm':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId==='korganDisarm'?null:{abilityId:'korganDisarm',unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
     case 'hookPull1':case 'hookPull2':if(canMove()&&!blocked()&&abilitySelection?.abilityId==='hook'&&abilitySelection.targetId){const distance=target.dataset.action==='hookPull2'?2:1;abilitySelection.distance=distance;render(true);await send('ability',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial,abilityId:'hook',targetId:abilitySelection.targetId,distance});abilitySelection=null;render(true);}break;
-    case 'needle':case 'transfer':case 'ritual':case 'curse':case 'paintransfer':case 'dance':case 'trap_spikes':case 'trap_mine':case 'grenade':case 'shot':case 'hook':case 'hunterstep':case 'germinate':case 'wither':case 'thorn':case 'vines':case 'sap':case 'spores':case 'awakening':case 'reabsorption':case 'piplusMark':case 'precise':case 'vector':case 'impulse':case 'interference':case 'rupture':case 'fixation':case 'fusion':case 'recycle':case 'bow':case 'stonearmor':case 'absorb':case 'collapse':case 'magnetism':case 'createPillar':case 'hammer':case 'sword':case 'daggers':case 'shield':case 'spear':case 'quake':case 'rock':if(canMove()&&!blocked()){moveMode=false;skillsOpen=true;abilitySelection=abilitySelection?.abilityId===target.dataset.action?null:{abilityId:target.dataset.action,unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
-    case 'moveMode':if(canMove()&&!blocked()){moveMode=!moveMode;skillsOpen=false;abilitySelection=null;game.preview=null;render(true);}break;
-    case 'toggleSkills':if(canMove()&&!blocked()){skillsOpen=!skillsOpen;if(skillsOpen){moveMode=false;game.preview=null;}render(true);}break;
+    case 'needle':case 'transfer':case 'ritual':case 'curse':case 'paintransfer':case 'dance':case 'trap_spikes':case 'trap_mine':case 'grenade':case 'shot':case 'hook':case 'hunterstep':case 'germinate':case 'wither':case 'thorn':case 'vines':case 'sap':case 'spores':case 'awakening':case 'reabsorption':case 'piplusMark':case 'precise':case 'vector':case 'impulse':case 'interference':case 'rupture':case 'fixation':case 'fusion':case 'recycle':case 'bow':case 'stonearmor':case 'absorb':case 'collapse':case 'magnetism':case 'createPillar':case 'hammer':case 'sword':case 'daggers':case 'shield':case 'spear':case 'quake':case 'rock':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId===target.dataset.action?null:{abilityId:target.dataset.action,unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
+    case 'moveMode':abilitySelection=null;game.preview=null;render(true);break;
     case 'resetHud':hudSettings=resetHudSettings(localStorage);render(true);break;
     case 'rotateCameraLeft':case 'rotateCameraRight':{
       const focus=inspectedId??activeUnit()?.id,step=target.dataset.action==='rotateCameraLeft'?-1:1;
@@ -251,7 +245,7 @@ app.addEventListener('click',async event=>{
     }
   }
 });
-app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;if(event.target.dataset.inspectId){event.preventDefault();inspectedId=event.target.dataset.inspectId;render(true);return;}if(event.target.dataset.action==='moveMode'){event.preventDefault();moveMode=!moveMode;skillsOpen=false;abilitySelection=null;game.preview=null;render(true);return;}if(event.target.dataset.x!=null){event.preventDefault();tapCell(Number(event.target.dataset.x),Number(event.target.dataset.y));}});
+app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;if(event.target.dataset.inspectId){event.preventDefault();inspectedId=event.target.dataset.inspectId;render(true);return;}if(event.target.dataset.action==='moveMode'){event.preventDefault();abilitySelection=null;game.preview=null;render(true);return;}if(event.target.dataset.x!=null){event.preventDefault();tapCell(Number(event.target.dataset.x),Number(event.target.dataset.y));}});
 window.addEventListener('offline',()=>game.disconnect());window.addEventListener('online',()=>game.refresh());
 document.addEventListener('visibilitychange',()=>{if(document.hidden){game.preview=null;game.sync.preview=null;}else game.refresh();});
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);

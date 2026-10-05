@@ -1,3 +1,4 @@
+import { rotateFacing } from './hud-camera.mjs?v=20261005-parityv2';
 // Presentation only. Every animated cell comes from an accepted server event.
 export const stepDirection=(a,b)=>b.x>a.x?'down-right':b.x<a.x?'up-left':b.y>a.y?'down-left':'up-right';
 export function spriteSource(championId,direction='down-right',monolith=false) {
@@ -66,14 +67,14 @@ export class MotionPresenter {
         // Isometric offset from the authoritative final position; no state mutation.
         const dx=sample.x-Number(group.dataset.x),dy=sample.y-Number(group.dataset.y);
         group.setAttribute('transform',`translate(${(dx-dy)*20} ${(dx+dy)*10-(sample.lift??0)})`);
-        const image=group.querySelector('image');image.setAttribute('href',spriteSource(group.dataset.champion,sample.direction,group.dataset.monolith==='true'));
+        const image=group.querySelector('image'),direction=rotateFacing(sample.direction,Number(group.dataset.cameraRotation)||0);image.setAttribute('href',spriteSource(group.dataset.champion,direction,group.dataset.monolith==='true'));
       }
       for(const group of root.querySelectorAll('[data-motion-object]')){
         const id=group.dataset.motionObject,sample=this.timeline.sample(id,this.clock()),image=group.querySelector('image'),variant=group.dataset.dollVariant??'muneco-houngan-01';
         if(!sample){group.removeAttribute('transform');image.setAttribute('href',`../assets/tactical/objects/${variant}/${group.dataset.facing??'down-right'}.png`);continue;}
         const dx=sample.x-Number(group.dataset.x),dy=sample.y-Number(group.dataset.y);
         group.setAttribute('transform',`translate(${(dx-dy)*20} ${(dx+dy)*10})`);
-        image.setAttribute('href',`../assets/tactical/objects/${variant}/${sample.direction}.png`);
+        image.setAttribute('href',`../assets/tactical/objects/${variant}/${rotateFacing(sample.direction,Number(group.dataset.cameraRotation)||0)}.png`);
       }
       if(this.timeline.tracks.size)this.frameId=this.frame(tick);
     };

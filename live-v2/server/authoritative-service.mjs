@@ -27,7 +27,7 @@ export const EFFECTIVE_SKILLS = {
   ],
   onod: ["thorn", "vines", "sap", "spores", "awakening", "reabsorption"],
   korgan: ["trap_spikes", "trap_mine", "grenade", "shot", "hook", "hunterstep"],
-  houngan: ["needle", "transfer", "ritual", "curse"],
+  houngan: ["needle", "transfer", "ritual", "curse", "paintransfer", "dance"],
 };
 const DEPLOY = {
   A: new Set(["0,3", "1,3", "0,4", "2,5", "1,6", "2,6"]),

@@ -5,6 +5,8 @@ import { MotionPresenter, spriteSource } from './motion.mjs?v=20261005-skills2';
 import { renderArena } from './presentation.mjs?v=20261005-skills2';
 import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261005-skills2';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261005-skills2';
+import { abilityOverlay } from './ability-overlay.mjs?v=20261005-aoe1';
+import { createAoEState, bindAoEGesture, sameCell } from './aoe-preview.mjs?v=20261005-aoe1';
 import { catalog } from './catalog.mjs?v=20261005-houganadv1';
 import { LiveSession, newId } from './session.mjs?v=20261004-lab2';
 import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261005-houganadv1';
@@ -15,7 +17,7 @@ const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 const errors={CONNECTION_TIMEOUT:'La conexión tardó demasiado. Reintentá; no confirmamos ninguna acción localmente.',UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'La sala ya tiene otro participante.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'No tenés suficientes PA.',ABILITY_LIMIT:'Alcanzaste el límite de usos este turno.',BLOCKED_LOS:'La línea de visión está bloqueada.',OUT_OF_RANGE:'El objetivo está fuera del alcance.',ABILITY_NOT_SELECTED:'La habilidad no está en tus cuatro elegidas.',ONOD_ACTION_UNAVAILABLE:'Germinar o Marchitar no está disponible en esa casilla o este turno.',KORGAN_ACTION_UNAVAILABLE:'Desarmar Trampa no está disponible.',HOUGAN_ACTION_UNAVAILABLE:'Muñeco Vudú no está disponible.',DOLL_PHASE_ACTIVE:'Primero resolvé el movimiento del Muñeco Vudú.',DOLL_PHASE_INACTIVE:'La fase del Muñeco ya terminó.',INVALID_DISTANCE:'Elegí atraer 1 o 2 casillas.',MARK_UNAVAILABLE:'La Marca ya se usó, está bloqueada o el objetivo no es válido.',INVALID_TARGET:'Ese objetivo no es válido para la acción elegida.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
 let notifyTimer;function notify(message){notice.textContent=errors[message]??message;notice.style.display='block';clearTimeout(notifyTimer);notifyTimer=setTimeout(()=>notice.style.display='none',6000);}
 let deadlineExpired=false,abilitySelection=null,inspectedId=null,lastInspectionFocus='';
-let skillHoldCleanup=()=>{};
+let skillHoldCleanup=()=>{},aoeCleanup=()=>{};
 let hudSettings=loadHudSettings(localStorage),camera={x:0,y:0,rotation:0,zoom:1},cameraMatchId=null;
 let actor=null,joining=false,draft=null,slotId=null,lastRendered='',reloading=false;
 async function ensureAuth(){
@@ -78,6 +80,85 @@ function syncInspection(){
   const entities=[...(game.state?.combat?.units??[]),...(game.state?.combat?.objects??[])];
   if(inspectedId&&!entities.some(entity=>entity.id===inspectedId&&entity.alive!==false))inspectedId=focus||null;
 }
+function insideBoard(cell){return !!cell&&cell.x>=0&&cell.y>=0&&cell.x<12&&cell.y<12;}
+function selectionForAbility(id){
+  const unit=activeUnit(),base={abilityId:id,unitId:unit.id,version:game.state.version,targetId:null};
+  if(['vines','grenade'].includes(id))base.aoe=createAoEState(id);
+  if(id==='awakening'){
+    const valid=abilityTargets(game.state.combat,unit.id,id);
+    if(valid.includes(unit.id)){
+      base.targetId=unit.id;
+      base.aoe=createAoEState(id,{target:{x:unit.x,y:unit.y},locked:true,mode:'fixed'});
+    }
+  }
+  return base;
+}
+function initialCollapseDirection(pillar,unit){
+  const enemies=game.state.combat.units.filter(candidate=>candidate.alive&&candidate.team!==unit.team);
+  const nearest=enemies.slice().sort((a,b)=>(Math.abs(a.x-pillar.x)+Math.abs(a.y-pillar.y))-(Math.abs(b.x-pillar.x)+Math.abs(b.y-pillar.y)))[0]??null;
+  const candidates=[[1,0],[-1,0],[0,1],[0,-1]]
+    .map(([dx,dy])=>({dx,dy,x:pillar.x+dx,y:pillar.y+dy}))
+    .filter(insideBoard);
+  if(nearest)candidates.sort((a,b)=>(Math.abs(a.x-nearest.x)+Math.abs(a.y-nearest.y))-(Math.abs(b.x-nearest.x)+Math.abs(b.y-nearest.y)));
+  return candidates[0]??null;
+}
+function aoeValidCell(cell,state=abilitySelection?.aoe){
+  const unit=activeUnit(),id=state?.abilityId;
+  if(!unit||!state?.active||!insideBoard(cell))return false;
+  if(id==='vines')return vinesDestinations(game.state.combat,unit.id).some(p=>sameCell(p,cell));
+  if(id==='grenade')return korganGrenadeDestinations(game.state.combat,unit.id).some(p=>sameCell(p,cell));
+  if(id==='collapse'){
+    const pillar=game.state.combat.objects.find(p=>p.alive&&p.id===abilitySelection?.targetId);
+    return !!pillar&&Math.abs(cell.x-pillar.x)+Math.abs(cell.y-pillar.y)===1;
+  }
+  if(id==='spores'){
+    const sprout=game.state.combat.objects.find(p=>p.alive&&p.id===abilitySelection?.targetId);
+    return !!sprout&&sameCell(sprout,cell);
+  }
+  if(id==='awakening')return sameCell(unit,cell);
+  return false;
+}
+function syncAoeSelection(next){
+  if(!abilitySelection||!next)return;
+  abilitySelection.aoe=next;
+  const id=next.abilityId,target=next.target;
+  if(!target)return;
+  if(['vines','grenade'].includes(id))abilitySelection.position={x:target.x,y:target.y};
+  if(id==='collapse'){
+    const pillar=game.state.combat.objects.find(p=>p.id===abilitySelection.targetId);
+    if(pillar)abilitySelection.direction={x:target.x-pillar.x,y:target.y-pillar.y};
+  }
+}
+function aoeEffectFor(state){
+  const unit=activeUnit();if(!unit||!state?.target)return [];
+  const context={...abilitySelection,aoe:state};
+  if(['vines','grenade'].includes(state.abilityId))context.position={x:state.target.x,y:state.target.y};
+  if(state.abilityId==='collapse'){
+    const pillar=game.state.combat.objects.find(p=>p.id===abilitySelection?.targetId);
+    if(!pillar)return [];
+    context.direction={x:state.target.x-pillar.x,y:state.target.y-pillar.y};
+  }
+  return abilityOverlay(game.state.combat,unit.id,state.abilityId,context.targetId,context).effect??[];
+}
+async function commitAoE(state){
+  if(!abilitySelection||!state?.locked||!state.target||blocked()||!canMove())return false;
+  const unit=activeUnit(),id=state.abilityId;let confirmed=false;
+  if(['vines','grenade'].includes(id)){
+    confirmed=await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,position:{x:state.target.x,y:state.target.y}});
+  }else if(id==='collapse'){
+    const pillar=game.state.combat.objects.find(p=>p.alive&&p.id===abilitySelection.targetId);
+    if(!pillar)return false;
+    const direction={x:state.target.x-pillar.x,y:state.target.y-pillar.y};
+    confirmed=await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,targetId:pillar.id,direction});
+  }else if(id==='spores'){
+    confirmed=await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,targetId:abilitySelection.targetId});
+  }else if(id==='awakening'){
+    confirmed=await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,targetId:unit.id});
+  }
+  if(confirmed)abilitySelection=null;
+  render(true);return Boolean(confirmed);
+}
+
 function arena(){
   setupDraft();syncInspection();
   return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudSettings,camera,abilitySelection,inspectedId});
@@ -91,7 +172,7 @@ function render(force=false){
   const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings]);
   if(!force&&signature===lastRendered){remaining();return;}lastRendered=signature;
   if(!game.state){app.innerHTML=`<section class="panel welcome"><span class="tag">Prueba LIVE v2 · 1v1</span><h2>Dos celulares, una partida</h2><p>Creá una sala y compartí su enlace. Cada celular controlará un campeón.</p><button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><form class="join-form" id="join"><input type="text" id="room" placeholder="Pegá el enlace o identificador de sala" aria-label="Enlace de sala"><button ${joining?'disabled':''}>Unirme</button></form><p class="phase-text">Se conserva tu sesión en este navegador para reconectar.</p></section>`;return;}
-  skillHoldCleanup();skillHoldCleanup=()=>{};
+  skillHoldCleanup();skillHoldCleanup=()=>{};aoeCleanup();aoeCleanup=()=>{};
   app.innerHTML=roomBar()+(game.state.phase==='preparation'?preparation():arena());
   motion.paint(app);
   if(game.state.phase!=='preparation'){
@@ -100,6 +181,20 @@ function render(force=false){
     Object.assign(camera,applyCameraDom(battle,camera));
     bindBattleCamera(battle,camera);
     skillHoldCleanup=bindSkillHoldInfo(battle,{getInfo:id=>offlineSkillInfo(activeUnit()?.championId,id)});
+    if(abilitySelection?.aoe?.active){
+      const board=battle.querySelector('.live-board');
+      aoeCleanup=bindAoEGesture(board,{
+        getState:()=>abilitySelection?.aoe??null,
+        setState:next=>syncAoeSelection(next),
+        isValid:(cell,state)=>aoeValidCell(cell,state),
+        effectFor:state=>aoeEffectFor(state),
+        onCommit:state=>commitAoE(state),
+        onChange:(state,meta)=>{
+          syncAoeSelection(state);
+          if(meta.phase==='up'&&!meta.commit)render(true);
+        }
+      });
+    }
   }
 }
 async function send(type,args){try{const confirmed=await game.send(type,args);await game.refresh();return confirmed;}catch(error){notify(error.message);return false;}}
@@ -121,7 +216,7 @@ async function tapCell(x,y){
   }
   if(abilitySelection){
     const id=abilitySelection.abilityId??'sword';
-    if(['trap_spikes','trap_mine','grenade','hunterstep'].includes(id)){
+    if(['trap_spikes','trap_mine','hunterstep'].includes(id)){
       const cells=id==='hunterstep'?hunterStepDestinations(game.state.combat,unit.id):id==='grenade'?korganGrenadeDestinations(game.state.combat,unit.id):korganTrapDestinations(game.state.combat,unit.id,id);
       if(!cells.some(p=>p.x===x&&p.y===y))return;
       if(abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};
@@ -143,9 +238,27 @@ async function tapCell(x,y){
       if(!target)return;
       abilitySelection.targetId=target.id;abilitySelection.distance=null;render(true);return;
     }
-    if(['germinate','vines'].includes(id)){
-      const cells=id==='germinate'?germinateDestinations(game.state.combat,unit.id):vinesDestinations(game.state.combat,unit.id);if(!cells.some(p=>p.x===x&&p.y===y))return;
+    if(id==='germinate'){
+      const cells=germinateDestinations(game.state.combat,unit.id);if(!cells.some(p=>p.x===x&&p.y===y))return;
       if(abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send(id==='germinate'?'onodAction':'ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,...(id==='germinate'?{action:'germinate'}:{abilityId:id}),position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};render(true);return;
+    }
+    if(['vines','grenade'].includes(id)){
+      if(!aoeValidCell({x,y},abilitySelection.aoe))return;
+      if(abilitySelection.aoe?.locked&&sameCell(abilitySelection.aoe.target,{x,y})){await commitAoE(abilitySelection.aoe);return;}
+      const next=createAoEState(id,{target:{x,y},locked:true});syncAoeSelection(next);render(true);return;
+    }
+    if(id==='spores'){
+      const valid=abilityTargets(game.state.combat,unit.id,id),sprout=game.state.combat.objects.find(o=>o.alive&&valid.includes(o.id)&&o.x===x&&o.y===y);
+      if(!sprout)return;
+      if(abilitySelection.aoe?.locked&&abilitySelection.targetId===sprout.id){await commitAoE(abilitySelection.aoe);return;}
+      abilitySelection.targetId=sprout.id;
+      abilitySelection.aoe=createAoEState('spores',{target:{x:sprout.x,y:sprout.y},locked:true,mode:'fixed'});
+      render(true);return;
+    }
+    if(id==='awakening'){
+      if(x!==unit.x||y!==unit.y||!abilityTargets(game.state.combat,unit.id,id).includes(unit.id))return;
+      if(abilitySelection.aoe?.locked){await commitAoE(abilitySelection.aoe);return;}
+      abilitySelection.targetId=unit.id;abilitySelection.aoe=createAoEState('awakening',{target:{x:unit.x,y:unit.y},locked:true,mode:'fixed'});render(true);return;
     }
     if(id==='wither'){
       const targets=onodActionTargets(game.state.combat,unit.id,'wither'),target=game.state.combat.objects.find(s=>targets.includes(s.id)&&s.x===x&&s.y===y);if(!target)return;
@@ -167,9 +280,21 @@ async function tapCell(x,y){
       const valid=colosoActionTargets(game.state.combat,unit.id,id),target=game.state.combat.objects.find(p=>valid.includes(p.id)&&p.x===x&&p.y===y);if(!target)return;
       if(abilitySelection.targetId===target.id){await send('colosoAction',{slotId:unit.id,expectedTurn:game.state.turnSerial,action:id,targetId:target.id});abilitySelection=null;}else abilitySelection.targetId=target.id;render(true);return;
     }
-    if(id==='collapse'&&abilitySelection.targetId){
-      const pillar=game.state.combat.objects.find(p=>p.id===abilitySelection.targetId),direction={x:x-pillar.x,y:y-pillar.y};if(Math.abs(direction.x)+Math.abs(direction.y)!==1)return;
-      if(abilitySelection.direction?.x===direction.x&&abilitySelection.direction?.y===direction.y){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,targetId:pillar.id,direction});abilitySelection=null;}else abilitySelection.direction=direction;render(true);return;
+    if(id==='collapse'){
+      if(!abilitySelection.targetId){
+        const valid=abilityTargets(game.state.combat,unit.id,id),pillar=game.state.combat.objects.find(p=>p.alive&&valid.includes(p.id)&&p.x===x&&p.y===y);
+        if(!pillar)return;
+        const initial=initialCollapseDirection(pillar,unit);if(!initial)return;
+        abilitySelection.targetId=pillar.id;
+        abilitySelection.direction={x:initial.dx,y:initial.dy};
+        abilitySelection.aoe=createAoEState('collapse',{target:{x:initial.x,y:initial.y},locked:true});
+        render(true);return;
+      }
+      const pillar=game.state.combat.objects.find(p=>p.alive&&p.id===abilitySelection.targetId);
+      if(!pillar)return;
+      const cell={x,y};if(!aoeValidCell(cell,abilitySelection.aoe))return;
+      if(abilitySelection.aoe?.locked&&sameCell(abilitySelection.aoe.target,cell)){await commitAoE(abilitySelection.aoe);return;}
+      const next=createAoEState('collapse',{target:cell,locked:true});syncAoeSelection(next);render(true);return;
     }
     if(id==='magnetism'&&abilitySelection.targetId){
       const valid=magnetismTargets(game.state.combat,unit.id,abilitySelection.targetId),target=game.state.combat.units.find(p=>valid.includes(p.id)&&p.x===x&&p.y===y);if(!target)return;
@@ -212,7 +337,7 @@ app.addEventListener('click',async event=>{
     case 'houganDoll':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId==='houganDoll'?null:{abilityId:'houganDoll',unitId:activeUnit().id,version:game.state.version,targetId:null,position:null};game.preview=null;render(true);}break;
     case 'korganDisarm':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId==='korganDisarm'?null:{abilityId:'korganDisarm',unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
     case 'hookPull1':case 'hookPull2':if(canMove()&&!blocked()&&abilitySelection?.abilityId==='hook'&&abilitySelection.targetId){const distance=target.dataset.action==='hookPull2'?2:1;abilitySelection.distance=distance;render(true);await send('ability',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial,abilityId:'hook',targetId:abilitySelection.targetId,distance});abilitySelection=null;render(true);}break;
-    case 'needle':case 'transfer':case 'ritual':case 'curse':case 'paintransfer':case 'dance':case 'trap_spikes':case 'trap_mine':case 'grenade':case 'shot':case 'hook':case 'hunterstep':case 'germinate':case 'wither':case 'thorn':case 'vines':case 'sap':case 'spores':case 'awakening':case 'reabsorption':case 'piplusMark':case 'precise':case 'vector':case 'impulse':case 'interference':case 'rupture':case 'fixation':case 'fusion':case 'recycle':case 'bow':case 'stonearmor':case 'absorb':case 'collapse':case 'magnetism':case 'createPillar':case 'hammer':case 'sword':case 'daggers':case 'shield':case 'spear':case 'quake':case 'rock':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId===target.dataset.action?null:{abilityId:target.dataset.action,unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
+    case 'needle':case 'transfer':case 'ritual':case 'curse':case 'paintransfer':case 'dance':case 'trap_spikes':case 'trap_mine':case 'grenade':case 'shot':case 'hook':case 'hunterstep':case 'germinate':case 'wither':case 'thorn':case 'vines':case 'sap':case 'spores':case 'awakening':case 'reabsorption':case 'piplusMark':case 'precise':case 'vector':case 'impulse':case 'interference':case 'rupture':case 'fixation':case 'fusion':case 'recycle':case 'bow':case 'stonearmor':case 'absorb':case 'collapse':case 'magnetism':case 'createPillar':case 'hammer':case 'sword':case 'daggers':case 'shield':case 'spear':case 'quake':case 'rock':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId===target.dataset.action?null:selectionForAbility(target.dataset.action);game.preview=null;render(true);}break;
     case 'moveMode':abilitySelection=null;game.preview=null;render(true);break;
     case 'resetHud':hudSettings=resetHudSettings(localStorage);render(true);break;
     case 'rotateCameraLeft':case 'rotateCameraRight':{

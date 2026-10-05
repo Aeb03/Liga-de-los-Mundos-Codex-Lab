@@ -92,3 +92,76 @@
 .fighter-states.chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
 .state-chip{display:inline-flex;align-items:center;min-height:17px;padding:1px 5px;border:1px solid #8f7b4b;border-radius:8px;background:#10232de8;color:#eadfbf;font-size:8px;line-height:1.1;white-space:nowrap}
 .state-empty{font-size:8px;opacity:.65}
+
+
+/* Offline parity v2 — HUD móvil + cámara/parallax. El color de rango LIVE v2 no cambia. */
+.live-battle{
+  --arena-bg-parallax-x:0px;
+  --arena-bg-parallax-y:0px;
+  background-image:url('../../assets/arenas/central/arena-central-background.png');
+  background-repeat:no-repeat;
+  background-size:110% auto;
+  background-position:calc(50% + var(--arena-bg-parallax-x)) calc(-18px + var(--arena-bg-parallax-y));
+  background-color:#0d1511;
+}
+.arena-stage{touch-action:none}
+.arena-scene{position:absolute;inset:0;will-change:transform}
+.arena-scene .arena-platform{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none}
+.arena-scene .live-board{position:absolute;left:14%;top:14%;width:72%;height:72%;max-height:none;overflow:visible}
+.hud-drag-handle{touch-action:none;cursor:grab}
+.dragging .hud-drag-handle{cursor:grabbing}
+.hud-module-tools,.round-hud-tools,.command-hud-tools{display:flex;align-items:center;gap:2px}
+.hud-tool,.camera-hud-btn,.reset-hud{
+  min-width:22px;min-height:22px;padding:0 4px;border:1px solid #9f8750;border-radius:4px;
+  background:#10231de8;color:#f0d98e;font:700 13px/1 sans-serif;text-shadow:0 1px 1px #000;
+}
+.hud-tool:active,.camera-hud-btn:active,.reset-hud:active{transform:translateY(1px)}
+.round-hud-tools{position:absolute;left:-4px;top:-18px;z-index:6}
+.command-hud-tools{position:absolute;right:-7px;top:-18px;z-index:7}
+.live-roster h2{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.live-roster h2 .hud-module-tools{margin-left:auto}
+.live-roster.collapsed{width:auto!important;min-width:96px;padding-bottom:0}
+.live-roster.collapsed .roster-body{display:none}
+.live-roster.collapsed h2{margin-bottom:0}
+.live-round.collapsed .round-order-wrap{display:none}
+.live-round.collapsed{width:auto!important;min-width:210px}
+.live-command.collapsed{width:auto!important;min-width:110px;padding:5px 10px}
+.live-command.collapsed .command-main,.live-command.collapsed .command-feedback{display:none!important}
+.live-command.collapsed .command-hud-tools{position:static;justify-content:center}
+.live-roster.hud-vertical{width:140px}
+.live-roster.hud-vertical.own{border-image-source:url('../../assets/ui/hud/team/team-panel-vertical-blue.png');border-image-slice:185 95 150 95 fill}
+.live-roster.hud-vertical.rival{border-image-source:url('../../assets/ui/hud/team/team-panel-vertical-red.png');border-image-slice:170 86 138 86 fill}
+.live-roster.hud-vertical .roster-body{display:block}
+.live-roster.hud-horizontal{width:220px}
+.live-roster.hud-horizontal.own{border-image-source:url('../../assets/ui/hud/team/team-panel-horizontal-blue.png');border-image-slice:72 64 60 64 fill}
+.live-roster.hud-horizontal.rival{border-image-source:url('../../assets/ui/hud/team/team-panel-horizontal-red.png');border-image-slice:66 66 56 66 fill}
+.live-roster.hud-horizontal .roster-body{display:flex;gap:4px;overflow-x:auto}
+.live-roster.hud-horizontal .roster-entry{min-width:132px;flex:1}
+.camera-hud-panel{
+  position:absolute;z-index:5;left:50%;top:70px;transform:translateX(-50%);
+  display:flex;gap:3px;padding:4px;border:1px solid #9c8248;border-radius:7px;
+  background:#071a2ad9;box-shadow:0 3px 7px #0008;color:#f4eedc
+}
+.camera-hud-panel .camera-drag{font-size:15px}
+.reset-hud{margin-left:2px}
+.pillar-piece[data-inspect-id]{pointer-events:auto;cursor:pointer}
+
+@media(orientation:landscape) and (max-height:500px){
+  .camera-hud-panel{top:48px;padding:2px}
+  .hud-tool,.camera-hud-btn,.reset-hud{min-width:19px;min-height:19px;font-size:11px}
+  .live-roster.hud-vertical{width:115px}
+  .live-roster.hud-horizontal{width:190px}
+}
+@media(orientation:landscape) and (max-height:300px){
+  .camera-hud-panel{top:35px}
+  .live-roster.hud-vertical{width:100px}
+  .live-roster.hud-horizontal{width:165px}
+}
+@media(orientation:portrait){
+  .live-battle{
+    background-size:cover;
+    background-position:calc(50% + var(--arena-bg-parallax-x)) calc(30% + var(--arena-bg-parallax-y));
+  }
+  .camera-hud-panel{top:70px}
+  .live-roster.hud-horizontal{width:190px}
+}

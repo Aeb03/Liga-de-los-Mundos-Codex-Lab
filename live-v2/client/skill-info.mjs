@@ -1,4 +1,4 @@
-import { catalog } from './catalog.mjs?v=20261005-skills1';
+import { catalog } from './catalog.mjs?v=20261005-skills2';
 
 export const HOLD_MS=1500;
 export const MOVE_TOLERANCE=14;

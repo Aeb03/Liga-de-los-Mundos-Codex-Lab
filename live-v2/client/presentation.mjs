@@ -54,8 +54,8 @@ function statusChipsMarkup(unit,combat){
 }
 function objectLabel(object){
   if(object?.type==='pillar')return `Pilar ${object.number??''}`.trim();
-  if(object?.type==='sprout')return 'Brote';
-  if(object?.type==='doll')return 'Muñeco Vudú';
+  if(object?.type==='sprout')return `Brote ${object.number??''}`.trim();
+  if(object?.type==='doll')return `Muñeco Vudú ${object.number??''}`.trim();
   return 'Objeto de combate';
 }
 function objectDescription(object){
@@ -66,7 +66,7 @@ function objectDescription(object){
     :'Muñeco Vudú enemigo. Daña al Vinculado por la mitad de los PV reales que pierde y puede moverse 3 PM tras Hougan.';
   return 'Objeto de combate.';
 }
-function dollVariant(object){return object?.linkMode==='enemy'?'muneco-houngan-02':'muneco-houngan-01';}
+export function dollVariant(object){return object?.linkMode==='enemy'?'muneco-houngan-02':'muneco-houngan-01';}
 export function turnSequence(combat) {
   if (!combat) return [];
   const ordered = [...combat.order.slice(combat.turnIndex), ...combat.order.slice(0,combat.turnIndex)];

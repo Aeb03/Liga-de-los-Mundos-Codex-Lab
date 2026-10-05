@@ -4,6 +4,7 @@ export const HOLD_MS=1500;
 export const MOVE_TOLERANCE=14;
 
 // Textos extraídos de los reworks offline efectivos congelados en 0b498395.
+// Única corrección posterior ya aprobada por Adrián: Mina Eléctrica resta 1 PA inmediatamente al activarse.
 export const OFFLINE_SKILL_TEXT=Object.freeze({
   sword:'10 de daño. Alcance 1. Máximo 2 usos por turno. Maestría con Armas puede aumentar el daño.',
   daggers:'10 de daño + Herida 2. Alcance 1. Máximo 1 uso por turno. Maestría con Armas puede aumentar el daño.',
@@ -30,7 +31,7 @@ export const OFFLINE_SKILL_TEXT=Object.freeze({
   awakening:'Activa simultáneamente TODOS los Brotes propios sin consumirlos. Cada Brote inflige 8 de daño a enemigos ortogonalmente adyacentes. El daño se acumula: un enemigo alcanzado por 2 Brotes recibe 16; por 3, recibe 24.',
   reabsorption:'Absorbe obligatoriamente TODOS los Brotes propios creados en turnos anteriores. Los Brotes creados este turno no pueden absorberse. Cada Brote absorbido desaparece y otorga +1 PA. Después de usar Reabsorción, Germinar queda bloqueado durante el resto del turno.',
   trap_spikes:'Coloca una trampa invisible a alcance 3. Máximo 2 colocaciones por turno y máximo 3 trampas activas. Al activarse: 10 de daño + Herida 1. Se consume.',
-  trap_mine:'Coloca una mina invisible a alcance 3. Máximo 1 colocación por turno y máximo 3 trampas activas. Al activarse: 8 de daño y el combatiente pierde 1 PA en su próximo turno. Se consume.',
+  trap_mine:'Coloca una mina invisible a alcance 3. Máximo 1 colocación por turno y máximo 3 trampas activas. Al activarse: 8 de daño y el combatiente pierde 1 PA inmediatamente. Se consume.',
   grenade:'Elegí una casilla, incluso vacía, a alcance 3 con línea de visión. Área en cruz: centro 10 de daño sin empuje; las 4 cardinales reciben 6 de daño y, si son combatientes, empuje 1 hacia afuera. El área se previsualiza antes de lanzar.',
   shot:'10 de daño. Alcance 5, sólo en la misma fila o columna que Korgan. Requiere línea de visión.',
   hook:'6 de daño a un combatiente enemigo a alcance 3 con línea de visión. Korgan elige atraerlo 1 o 2 casillas, paso a paso. Herida y trampas se activan normalmente durante la atracción.',

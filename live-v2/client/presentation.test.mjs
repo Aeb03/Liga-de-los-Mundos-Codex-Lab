@@ -116,3 +116,26 @@ test('paneles laterales admiten horizontal/vertical y ronda/comando permanecen h
  assert.doesNotMatch(html,/data-hud-orient="round"/);
  assert.doesNotMatch(html,/data-hud-orient="command"/);
 });
+
+
+test('barra offline muestra Mover Habilidades Fin turno y el cajón se abre/cierra',()=>{
+  const state=fixture();
+  let html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,skillsOpen:false,moveMode:false});
+  assert.match(html,/data-action="moveMode"/);
+  assert.match(html,/data-action="toggleSkills"/);
+  assert.match(html,/data-action="end"/);
+  assert.match(html,/skill-drawer closed/);
+  assert.match(html,/data-skill="precise"/);
+  html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,skillsOpen:true,moveMode:false});
+  assert.match(html,/skill-drawer open/);
+  assert.match(html,/aria-expanded="true"/);
+});
+
+test('movimiento sólo resalta casillas cuando Mover está seleccionado',()=>{
+  const state=fixture();
+  let html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,skillsOpen:false,moveMode:false});
+  assert.doesNotMatch(html,/tile reachable/);
+  html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,skillsOpen:false,moveMode:true});
+  assert.match(html,/tile reachable/);
+  assert.match(html,/move-action active-action/);
+});

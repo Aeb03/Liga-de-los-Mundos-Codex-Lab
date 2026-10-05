@@ -126,7 +126,7 @@ export function bindDraggableHud(root,{storage=globalThis.localStorage,onStored=
   }
 }
 
-export const CAMERA_MIN_ZOOM=.72;
+export const CAMERA_MIN_ZOOM=.90;
 export const CAMERA_MAX_ZOOM=1.6;
 export function clampZoom(value){return clamp(Number(value)||1,CAMERA_MIN_ZOOM,CAMERA_MAX_ZOOM);}
 export function normalizeRotation(rotation){return ((Number(rotation)||0)%4+4)%4;}

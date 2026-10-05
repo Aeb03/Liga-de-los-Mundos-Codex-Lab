@@ -262,14 +262,14 @@ test('Danza Vudú termina exactamente al finalizar la fase del Muñeco',()=>{
 
 test('Ritual que consume Vínculo corta Transferencia de Dolor y Danza si estaban ligadas',()=>{
   let s=advancedReady({enemyPos:{x:8,y:5}});
-  s.units.find(u=>u.id==='h').pa=12;
-  s=useAbility(s,{unitId:'h',abilityId:'paintransfer',targetId:'h'}).state;
-  s=useAbility(s,{unitId:'h',abilityId:'dance',targetId:'h'}).state;
+  const h=s.units.find(u=>u.id==='h'),d=s.objects.find(o=>o.type==='doll'&&o.alive);
+  h.houganPainTransfer={dollId:d.id,targetId:'e'};
+  h.houganDance={dollId:d.id,targetId:'e'};
   const r=useAbility(s,{unitId:'h',abilityId:'ritual',targetId:'e'});
-  const h=r.state.units.find(u=>u.id==='h');
-  assert.equal(h.linkedTargetId,null);
-  assert.equal(h.houganPainTransfer,null);
-  assert.equal(h.houganDance,null);
+  const after=r.state.units.find(u=>u.id==='h');
+  assert.equal(after.linkedTargetId,null);
+  assert.equal(after.houganPainTransfer,null);
+  assert.equal(after.houganDance,null);
 });
 
 test('Servidor acepta Aguja y acción propia Muñeco bajo autoridad del slot activo',async()=>{

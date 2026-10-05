@@ -13,6 +13,16 @@ const make=({enemy='piplus',enemyPos={x:8,y:5},houganPos={x:5,y:5},obstacles=[]}
   const e=createUnit({championId:enemy,id:'e',team:'B',slot:1,controllerId:'b',position:enemyPos});
   return initializeCombat({units:[h,e],obstacles}).state;
 };
+const advancedReady=(options={})=>{
+  let s=make(options);
+  s=useAbility(s,{unitId:'h',abilityId:'needle',targetId:'e'}).state;
+  s=houganAction(s,{unitId:'h',action:'doll',position:{x:6,y:5}}).state;
+  s=endTurn(s,{unitId:'h'}).state;
+  s=endHouganDollPhase(s,{unitId:'h'}).state;
+  s=endTurn(s,{unitId:'e'}).state;
+  return s;
+};
+
 
 test('Hougan usa stats efectivos y Aguja Vudú no puede apuntarse a sí mismo',()=>{
   const base=createUnit({championId:'houngan',id:'h',team:'A',slot:1,controllerId:'a',position:{x:1,y:1}});
@@ -170,6 +180,96 @@ test('el Muñeco conserva sus 3 PM aunque esté inactivo por cambio de Vínculo'
   s.units.find(u=>u.id==='h').linkedTargetId=null;
   s=endTurn(s,{unitId:'h'}).state;
   assert(s.dollPhase);assert.equal(s.dollPhase.pm,3);
+});
+
+
+test('Transferencia de Dolor requiere Vínculo + Muñeco correspondiente y cuesta 3 PA',()=>{
+  let s=make({enemyPos:{x:8,y:5}});
+  assert.deepEqual(abilityTargets(s,'h','paintransfer'),[]);
+  s=advancedReady({enemyPos:{x:8,y:5}});
+  assert.deepEqual(abilityTargets(s,'h','paintransfer'),['h']);
+  const r=useAbility(s,{unitId:'h',abilityId:'paintransfer',targetId:'h'});
+  const h=r.state.units.find(u=>u.id==='h'),d=r.state.objects.find(o=>o.type==='doll'&&o.alive);
+  assert.equal(h.pa,3);
+  assert.deepEqual(h.houganPainTransfer,{dollId:d.id,targetId:'e'});
+  assert.deepEqual(abilityTargets(r.state,'h','paintransfer'),[]);
+});
+
+test('Transferencia de Dolor divide daño impar antes de escudos: Hougan recibe la mitad mayor',()=>{
+  let s=advancedReady({enemyPos:{x:8,y:5}});
+  s=useAbility(s,{unitId:'h',abilityId:'paintransfer',targetId:'h'}).state;
+  const h=s.units.find(u=>u.id==='h'),d=s.objects.find(o=>o.type==='doll'&&o.alive),e=s.units.find(u=>u.id==='e');
+  h.shield=[{sourceId:'h',amount:3}];d.shield=[{sourceId:'h',amount:2}];
+  const before={h:h.hp,d:d.hp,e:e.hp};
+  const r=applyDamage(s,{targetId:'h',amount:9,source:'test.odd'});
+  const rh=r.state.units.find(u=>u.id==='h'),rd=r.state.objects.find(o=>o.id===d.id),re=r.state.units.find(u=>u.id==='e');
+  assert.equal(rh.hp,before.h-2);
+  assert.equal(rd.hp,before.d-2);
+  assert.equal(re.hp,before.e-1);
+  const split=r.events.find(e=>e.type==='hougan.paintransfer.split');
+  assert.deepEqual({amount:split.amount,houganShare:split.houganShare,dollShare:split.dollShare},{amount:9,houganShare:5,dollShare:4});
+});
+
+test('si el Muñeco no soporta su mitad de Transferencia de Dolor, el excedente no vuelve a Hougan',()=>{
+  let s=advancedReady({enemyPos:{x:8,y:5}});
+  s=useAbility(s,{unitId:'h',abilityId:'paintransfer',targetId:'h'}).state;
+  const h=s.units.find(u=>u.id==='h'),d=s.objects.find(o=>o.type==='doll'&&o.alive),e=s.units.find(u=>u.id==='e');
+  d.hp=1;const beforeH=h.hp,beforeE=e.hp;
+  const r=applyDamage(s,{targetId:'h',amount:9,source:'test.lethal-doll'});
+  assert.equal(r.state.units.find(u=>u.id==='h').hp,beforeH-5);
+  assert.equal(r.state.objects.find(o=>o.id===d.id).hp,0);
+  assert.equal(r.state.units.find(u=>u.id==='e').hp,beforeE-1);
+  assert.equal(r.state.units.find(u=>u.id==='h').houganPainTransfer,null);
+});
+
+test('Danza Vudú copia cada paso y cada cambio de dirección sin gastar PM del Vinculado',()=>{
+  let s=advancedReady({enemyPos:{x:9,y:5}});
+  s=useAbility(s,{unitId:'h',abilityId:'dance',targetId:'h'}).state;
+  const linked=s.units.find(u=>u.id==='e');linked.status.wound=2;const pm=linked.pm,hp=linked.hp;
+  s=endTurn(s,{unitId:'h'}).state;
+  const doll=s.objects.find(o=>o.type==='doll'&&o.alive);
+  const r=moveHouganDoll(s,{unitId:'h',path:[{x:doll.x,y:doll.y},{x:doll.x,y:doll.y+1},{x:doll.x+1,y:doll.y+1}]});
+  const e=r.state.units.find(u=>u.id==='e');
+  assert.deepEqual({x:e.x,y:e.y},{x:10,y:6});
+  assert.equal(e.pm,pm);
+  assert.equal(e.hp,hp-4);
+  assert.equal(r.state.units.find(u=>u.id==='h').houganDance!==null,true);
+  assert.equal(r.events.filter(x=>x.type==='unit.moved'&&x.source==='hougan.dance').length,2);
+});
+
+test('Danza Vudú: un paso bloqueado falla sin colisión y la Danza continúa con el siguiente paso',()=>{
+  let s=advancedReady({enemyPos:{x:9,y:5},obstacles:[{x:9,y:6}]});
+  s=useAbility(s,{unitId:'h',abilityId:'dance',targetId:'h'}).state;
+  s=endTurn(s,{unitId:'h'}).state;
+  const doll=s.objects.find(o=>o.type==='doll'&&o.alive);
+  const r=moveHouganDoll(s,{unitId:'h',path:[{x:doll.x,y:doll.y},{x:doll.x,y:doll.y+1},{x:doll.x+1,y:doll.y+1}]});
+  const e=r.state.units.find(u=>u.id==='e');
+  assert.deepEqual({x:e.x,y:e.y},{x:10,y:5});
+  assert(r.events.some(x=>x.type==='hougan.dance.blocked'));
+  assert(r.events.some(x=>x.type==='unit.moved'&&x.source==='hougan.dance'));
+  assert.equal(e.hp,84);
+});
+
+test('Danza Vudú termina exactamente al finalizar la fase del Muñeco',()=>{
+  let s=advancedReady({enemyPos:{x:9,y:5}});
+  s=useAbility(s,{unitId:'h',abilityId:'dance',targetId:'h'}).state;
+  s=endTurn(s,{unitId:'h'}).state;
+  assert(s.units.find(u=>u.id==='h').houganDance);
+  s=endHouganDollPhase(s,{unitId:'h'}).state;
+  assert.equal(s.units.find(u=>u.id==='h').houganDance,null);
+  assert.equal(s.order[s.turnIndex],'e');
+});
+
+test('Ritual que consume Vínculo corta Transferencia de Dolor y Danza si estaban ligadas',()=>{
+  let s=advancedReady({enemyPos:{x:8,y:5}});
+  const h=s.units.find(u=>u.id==='h'),d=s.objects.find(o=>o.type==='doll'&&o.alive);
+  h.houganPainTransfer={dollId:d.id,targetId:'e'};
+  h.houganDance={dollId:d.id,targetId:'e'};
+  const r=useAbility(s,{unitId:'h',abilityId:'ritual',targetId:'e'});
+  const after=r.state.units.find(u=>u.id==='h');
+  assert.equal(after.linkedTargetId,null);
+  assert.equal(after.houganPainTransfer,null);
+  assert.equal(after.houganDance,null);
 });
 
 test('Servidor acepta Aguja y acción propia Muñeco bajo autoridad del slot activo',async()=>{

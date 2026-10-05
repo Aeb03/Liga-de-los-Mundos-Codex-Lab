@@ -244,6 +244,18 @@ export const catalog = {
         "icon": "☠️",
         "cost": 3,
         "maxUsesPerTurn": 1
+      },
+      {
+        "id": "paintransfer",
+        "name": "Transferencia de Dolor",
+        "icon": "🩸",
+        "cost": 3
+      },
+      {
+        "id": "dance",
+        "name": "Danza Vudú",
+        "icon": "🪆",
+        "cost": 3
       }
     ]
   }

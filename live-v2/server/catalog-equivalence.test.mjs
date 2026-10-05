@@ -11,16 +11,16 @@ const files = {
   korgan: "korgan-rework-0630.js",
   houngan: "hougan-rework-0631.js",
 };
-test("catálogo de selección coincide con IDs de habilidades de los seis reworks", () => {
+test("catálogo de selección coincide con IDs finales de habilidades de los seis reworks", () => {
   for (const [champion, file] of Object.entries(files)) {
-    const source = execFileSync("git", ["show", `${base}:${file}`], {
-      encoding: "utf8",
-    });
-    const block = source.slice(
-      source.indexOf("abilities:["),
-      source.indexOf("function install"),
-    );
+    const source = execFileSync("git", ["show", `${base}:${file}`], {encoding:"utf8"});
+    const block = source.slice(source.indexOf("abilities:["),source.indexOf("function install"));
     const ids = [...block.matchAll(/\bid:'([^']+)'/g)].map((match) => match[1]);
+    if(champion==="houngan"){
+      const advanced=execFileSync("git",["show",`${base}:hougan-advanced-0632.js`],{encoding:"utf8"});
+      const advancedBlock=advanced.slice(advanced.indexOf("existing.push("),advanced.indexOf("c.abilities=existing"));
+      ids.push(...[...advancedBlock.matchAll(/\bid:'([^']+)'/g)].map(match=>match[1]));
+    }
     assert.deepEqual(EFFECTIVE_SKILLS[champion], ids, champion);
   }
 });

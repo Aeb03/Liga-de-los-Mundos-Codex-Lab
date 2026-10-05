@@ -138,7 +138,24 @@ export class AuthoritativeService {
         const slot = input.slotId ? m.slots[input.slotId] : null;
         if (slot && slot.controllerId !== identity)
           err("FORBIDDEN", "El slot pertenece a otro controlador");
-        if (["move", "endTurn", "ability", "createPillar", "colosoAction", "piplusMark", "onodAction", "korganAction", "houganAction", "houganDollMove", "houganDollEnd"].includes(input.type)) {
+        if (input.type === "abandon") {
+          if (identity === "backend") err("FORBIDDEN", "Backend no abandona partidas");
+          if (m.phase === "finished") err("MATCH_FINISHED", "La partida ya terminó");
+          const ownedSlots=Object.values(m.slots).filter(s=>s.controllerId===identity);
+          if(!ownedSlots.length)err("FORBIDDEN","No pertenece a la partida");
+          const otherSlots=Object.values(m.slots).filter(s=>s.controllerId!==identity);
+          const remainingTeams=[...new Set(otherSlots.map(s=>s.team))];
+          const winnerTeam=m.phase==="combat"&&remainingTeams.length===1?remainingTeams[0]:null;
+          m.phase="finished";
+          m.turnDeadline=null;
+          m.result={winnerTeam,finishedAt:started,reason:"abandonment",abandonedBy:ownedSlots.map(s=>s.id)};
+          if(m.combat){
+            m.combat.phase="ended";
+            m.combat.winnerTeam=winnerTeam;
+            m.combat.dollPhase=null;
+          }
+          events.push({type:"match.abandoned",slotIds:ownedSlots.map(s=>s.id),winnerTeam});
+        } else if (["move", "endTurn", "ability", "createPillar", "colosoAction", "piplusMark", "onodAction", "korganAction", "houganAction", "houganDollMove", "houganDollEnd"].includes(input.type)) {
           if (m.phase !== "combat") err("WRONG_PHASE", "No está en combate");
           if (input.expectedTurn !== m.turnSerial)
             err("TURN_CONFLICT", "Turno obsoleto");

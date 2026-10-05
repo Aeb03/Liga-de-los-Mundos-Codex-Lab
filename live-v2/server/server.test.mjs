@@ -150,6 +150,41 @@ test("movimiento exacto, permisos, vencimiento y cierre backend sin celulares", 
   assert.equal(expired.turn, 1);
   assert(expired.events.some((e) => e.type === "turn.expiry_delay"));
 });
+test("abandonar corta el reloj, termina la partida y el worker ya no puede avanzar", async () => {
+  const x = await ready();
+  const started = await x.svc.command("u1", cmd("abandon-start", "startCombat", x.v));
+  const out = await x.svc.command("u1", cmd("abandon-now", "abandon", started.version, { slotId: "A1" }));
+  assert.equal(out.state.phase, "finished");
+  assert.equal(out.state.turnDeadline, null);
+  assert.equal(out.state.combat.phase, "ended");
+  assert.equal(out.state.combat.winnerTeam, "B");
+  assert.equal(out.state.result.reason, "abandonment");
+  assert.deepEqual(out.state.result.abandonedBy, ["A1"]);
+  assert(out.events.some((e) => e.type === "match.abandoned" && e.winnerTeam === "B"));
+  x.now = 999999;
+  await assert.rejects(
+    () => x.svc.command("backend", cmd("ghost-expire", "expireTurn", out.version, { expectedTurn: out.turn })),
+    (e) => e.code === "NOT_EXPIRED",
+  );
+});
+
+test("abandonar antes del combate cierra la sala sin declarar ganador", async () => {
+  const x = await ready();
+  const out = await x.svc.command("u2", cmd("leave-before-start", "abandon", x.v, { slotId: "B1" }));
+  assert.equal(out.state.phase, "finished");
+  assert.equal(out.state.turnDeadline, null);
+  assert.equal(out.state.result.winnerTeam, null);
+  assert.equal(out.state.result.reason, "abandonment");
+});
+
+test("un intruso no puede abandonar una partida ajena", async () => {
+  const x = await ready();
+  await assert.rejects(
+    () => x.svc.command("intruder", cmd("bad-abandon", "abandon", x.v)),
+    (e) => e.code === "FORBIDDEN",
+  );
+});
+
 test("coordinador descarta previews, bloquea pendiente y no retrocede versiones", () => {
   const applied = [];
   const c = new SyncCoordinator({ applySnapshot: (s) => applied.push(s) });

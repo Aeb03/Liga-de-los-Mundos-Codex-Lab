@@ -126,6 +126,9 @@ export function bindDraggableHud(root,{storage=globalThis.localStorage,onStored=
   }
 }
 
+export const CAMERA_MIN_ZOOM=.72;
+export const CAMERA_MAX_ZOOM=1.6;
+export function clampZoom(value){return clamp(Number(value)||1,CAMERA_MIN_ZOOM,CAMERA_MAX_ZOOM);}
 export function normalizeRotation(rotation){return ((Number(rotation)||0)%4+4)%4;}
 export function rotateCell(x,y,rotation=0,size=12){
   const r=normalizeRotation(rotation);
@@ -147,8 +150,21 @@ export function rotateFacing(facing,rotation=0){
   return VECTOR_FACING[`${dx},${dy}`]??'down-right';
 }
 export function clampCamera(camera,width=1,height=1){
-  const limitX=Math.max(90,Math.max(1,width)*.46),limitY=Math.max(70,Math.max(1,height)*.46);
-  return {x:clamp(Number(camera?.x)||0,-limitX,limitX),y:clamp(Number(camera?.y)||0,-limitY,limitY),rotation:normalizeRotation(camera?.rotation)};
+  const zoom=clampZoom(camera?.zoom??1);
+  const limitX=Math.max(90,Math.max(1,width)*.46)*zoom,limitY=Math.max(70,Math.max(1,height)*.46)*zoom;
+  return {x:clamp(Number(camera?.x)||0,-limitX,limitX),y:clamp(Number(camera?.y)||0,-limitY,limitY),rotation:normalizeRotation(camera?.rotation),zoom};
+}
+export function cameraForPinch(base,startCenter,currentCenter,startDistance,currentDistance,stageCenter,width,height){
+  const startZoom=clampZoom(base?.zoom??1),distanceRatio=Math.max(.01,Number(currentDistance)||0)/Math.max(.01,Number(startDistance)||0);
+  const zoom=clampZoom(startZoom*distanceRatio);
+  const localX=(startCenter.x-stageCenter.x-(Number(base?.x)||0))/startZoom;
+  const localY=(startCenter.y-stageCenter.y-(Number(base?.y)||0))/startZoom;
+  return clampCamera({
+    x:currentCenter.x-stageCenter.x-zoom*localX,
+    y:currentCenter.y-stageCenter.y-zoom*localY,
+    rotation:base?.rotation,
+    zoom
+  },width,height);
 }
 export function cameraParallax(camera){
   return {
@@ -160,7 +176,7 @@ export function applyCameraDom(root,camera){
   if(!root)return camera;
   const stage=root.querySelector('.arena-stage'),scene=root.querySelector('.arena-scene');
   const next=clampCamera(camera,stage?.offsetWidth||1,stage?.offsetHeight||1),bg=cameraParallax(next);
-  if(scene)scene.style.transform=`translate(${next.x}px,${next.y}px)`;
+  if(scene)scene.style.transform=`translate(${next.x}px,${next.y}px) scale(${next.zoom})`;
   root.style.setProperty('--arena-bg-parallax-x',`${bg.x.toFixed(2)}px`);
   root.style.setProperty('--arena-bg-parallax-y',`${bg.y.toFixed(2)}px`);
   root.dataset.arenaRotation=String(next.rotation);
@@ -169,27 +185,53 @@ export function applyCameraDom(root,camera){
 export function bindBattleCamera(root,camera,{onChange=()=>{}}={}){
   const stage=root?.querySelector('.arena-stage');if(!stage)return ()=>{};
   Object.assign(camera,applyCameraDom(root,camera));
-  let pointer=null,startX=0,startY=0,baseX=0,baseY=0,moved=false,raf=0,next=null,suppressClick=false;
+  const pointers=new Map();
+  let mode='none',base=null,startPoint=null,pinchStart=null,moved=false,raf=0,next=null,suppressClick=false;
+  const centerOf=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+  const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const stageCenter=()=>{const r=stage.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2,width:stage.offsetWidth||r.width||1,height:stage.offsetHeight||r.height||1};};
   const paint=()=>{raf=0;if(!next)return;Object.assign(camera,next);Object.assign(camera,applyCameraDom(root,camera));onChange(camera);};
+  const queue=()=>{if(!raf)raf=requestAnimationFrame(paint);};
+  const beginPan=point=>{mode='pan';base={...camera};startPoint={...point};moved=false;next=null;};
+  const beginPinch=()=>{
+    const [a,b]=[...pointers.values()].slice(0,2),sc=stageCenter();
+    mode='pinch';base={...camera};pinchStart={center:centerOf(a,b),distance:Math.max(1,distance(a,b)),stageCenter:{x:sc.x,y:sc.y},width:sc.width,height:sc.height};moved=true;next=null;
+  };
   const down=event=>{
     if(event.pointerType==='mouse'&&event.button!==0)return;
-    pointer=event.pointerId;startX=event.clientX;startY=event.clientY;baseX=camera.x;baseY=camera.y;moved=false;next=null;
-    try{stage.setPointerCapture(pointer);}catch{}
+    const point={x:event.clientX,y:event.clientY};pointers.set(event.pointerId,point);
+    try{stage.setPointerCapture(event.pointerId);}catch{}
+    if(pointers.size===1)beginPan(point);
+    else if(pointers.size===2){event.preventDefault();beginPinch();}
   };
   const move=event=>{
-    if(pointer!==event.pointerId)return;
-    const dx=event.clientX-startX,dy=event.clientY-startY;
+    if(!pointers.has(event.pointerId))return;
+    pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+    if(pointers.size>=2){
+      event.preventDefault();
+      if(mode!=='pinch')beginPinch();
+      const [a,b]=[...pointers.values()].slice(0,2),center=centerOf(a,b),dist=distance(a,b);
+      next=cameraForPinch(base,pinchStart.center,center,pinchStart.distance,dist,pinchStart.stageCenter,pinchStart.width,pinchStart.height);
+      moved=true;queue();return;
+    }
+    if(mode!=='pan'||!startPoint)return;
+    const dx=event.clientX-startPoint.x,dy=event.clientY-startPoint.y;
     if(!moved&&Math.hypot(dx,dy)<7)return;
     moved=true;event.preventDefault();
-    next=clampCamera({x:baseX+dx,y:baseY+dy,rotation:camera.rotation},stage.offsetWidth,stage.offsetHeight);
-    if(!raf)raf=requestAnimationFrame(paint);
+    next=clampCamera({x:base.x+dx,y:base.y+dy,rotation:base.rotation,zoom:base.zoom},stage.offsetWidth,stage.offsetHeight);
+    queue();
   };
   const finish=event=>{
-    if(pointer!==event.pointerId)return;
+    if(!pointers.has(event.pointerId))return;
+    pointers.delete(event.pointerId);
+    try{stage.releasePointerCapture(event.pointerId);}catch{}
     if(raf){cancelAnimationFrame(raf);raf=0;paint();}
-    if(moved){suppressClick=true;event.preventDefault();setTimeout(()=>{suppressClick=false;},350);}
-    try{stage.releasePointerCapture(pointer);}catch{}
-    pointer=null;
+    if(moved||mode==='pinch'){suppressClick=true;event.preventDefault();setTimeout(()=>{suppressClick=false;},420);}
+    if(pointers.size===1){
+      const point=[...pointers.values()][0];beginPan(point);
+    }else if(pointers.size===0){
+      mode='none';base=null;startPoint=null;pinchStart=null;moved=false;next=null;
+    }else beginPinch();
   };
   const click=event=>{if(!suppressClick)return;suppressClick=false;event.preventDefault();event.stopImmediatePropagation();};
   stage.addEventListener('pointerdown',down);
@@ -206,6 +248,6 @@ export function centerCameraOn(root,camera,entityId){
   if(!stage||!entity)return camera;
   const rr=root.getBoundingClientRect(),er=entity.getBoundingClientRect();
   const targetX=rr.left+rr.width/2,targetY=rr.top+rr.height*.52;
-  const centered=clampCamera({x:camera.x+(targetX-(er.left+er.width/2)),y:camera.y+(targetY-(er.top+er.height/2)),rotation:camera.rotation},stage.offsetWidth,stage.offsetHeight);
+  const centered=clampCamera({x:camera.x+(targetX-(er.left+er.width/2)),y:camera.y+(targetY-(er.top+er.height/2)),rotation:camera.rotation,zoom:camera.zoom},stage.offsetWidth,stage.offsetHeight);
   Object.assign(camera,centered);applyCameraDom(root,camera);return camera;
 }

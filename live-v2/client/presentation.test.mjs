@@ -110,9 +110,32 @@ test('paneles laterales admiten horizontal/vertical y ronda/comando permanecen h
  assert.match(html,/live-roster own hud-horizontal/);
  assert.match(html,/live-roster rival collapsed hud-vertical/);
  assert.match(html,/live-round hud-horizontal/);
- assert.match(html,/live-command collapsed hud-horizontal/);
+ assert.match(html,/live-command battle-command-panel collapsed hud-horizontal/);
  assert.match(html,/data-hud-orient="player"/);
  assert.match(html,/data-hud-orient="enemy"/);
  assert.doesNotMatch(html,/data-hud-orient="round"/);
  assert.doesNotMatch(html,/data-hud-orient="command"/);
+});
+
+
+test('HUD mantiene las cuatro habilidades visibles y sólo Mover + Fin turno como acciones',()=>{
+  const state=fixture();
+  const html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true});
+  assert.match(html,/data-action="moveMode"/);
+  assert.match(html,/data-action="end"/);
+  assert.doesNotMatch(html,/data-action="toggleSkills"/);
+  assert.doesNotMatch(html,/skill-drawer/);
+  assert.match(html,/data-skill="precise"/);
+  assert.match(html,/data-skill="vector"/);
+  assert.match(html,/data-skill="impulse"/);
+  assert.match(html,/data-skill="interference"/);
+  assert.match(html,/tile\s+reachable/);
+});
+
+test('campeones tienen hitbox táctil para inspección directa desde la arena',()=>{
+  const state=fixture();
+  const html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,inspectedId:'B1'});
+  assert.match(html,/data-inspect-id="B1" class="inspected-entity"/);
+  assert.match(html,/class="piece-hitbox"/);
+  assert.match(html,/Coloso · B1/);
 });

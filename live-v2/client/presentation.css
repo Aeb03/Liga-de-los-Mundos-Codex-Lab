@@ -167,3 +167,23 @@
 }
 
 .live-roster.collapsed .roster-body{display:none!important}
+
+
+/* parity v2.1 — side HUD interaction fix + pinch zoom */
+.live-battle .live-roster{
+  pointer-events:auto!important;
+  touch-action:auto;
+}
+.live-battle .live-roster .hud-module-tools,
+.live-battle .live-roster .hud-tool{
+  pointer-events:auto!important;
+}
+.live-battle .live-roster .hud-drag-handle{
+  touch-action:none!important;
+  min-width:28px;
+  min-height:28px;
+}
+.arena-scene{
+  transform-origin:50% 50%;
+  will-change:transform;
+}

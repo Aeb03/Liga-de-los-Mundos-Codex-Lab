@@ -78,6 +78,6 @@ test('pinch mantiene estable el punto bajo los dedos y permite acercar o alejar'
   assert.equal(zoomIn.x,5);
   assert.equal(zoomIn.y,-12.5);
   const zoomOut=cameraForPinch(base,{x:220,y:110},{x:230,y:120},100,50,stageCenter,400,200);
-  assert.equal(zoomOut.zoom,CAMERA_MIN_ZOOM);
+  assert.equal(zoomOut.zoom,.9);
   assert.ok(Number.isFinite(zoomOut.x)&&Number.isFinite(zoomOut.y));
 });

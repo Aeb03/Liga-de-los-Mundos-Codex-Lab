@@ -110,7 +110,7 @@ test('paneles laterales admiten horizontal/vertical y ronda/comando permanecen h
  assert.match(html,/live-roster own hud-horizontal/);
  assert.match(html,/live-roster rival collapsed hud-vertical/);
  assert.match(html,/live-round hud-horizontal/);
- assert.match(html,/live-command collapsed hud-horizontal/);
+ assert.match(html,/live-command battle-command-panel collapsed hud-horizontal/);
  assert.match(html,/data-hud-orient="player"/);
  assert.match(html,/data-hud-orient="enemy"/);
  assert.doesNotMatch(html,/data-hud-orient="round"/);
@@ -136,6 +136,6 @@ test('movimiento sólo resalta casillas cuando Mover está seleccionado',()=>{
   let html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,skillsOpen:false,moveMode:false});
   assert.doesNotMatch(html,/tile reachable/);
   html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,skillsOpen:false,moveMode:true});
-  assert.match(html,/tile reachable/);
+  assert.match(html,/tile\s+reachable/);
   assert.match(html,/move-action active-action/);
 });

@@ -1,5 +1,7 @@
+import { rotateFacing, rotateCell } from './hud-camera.mjs?v=20261005-parityv22';
 // Presentation only. Every animated cell comes from an accepted server event.
 export const stepDirection=(a,b)=>b.x>a.x?'down-right':b.x<a.x?'up-left':b.y>a.y?'down-left':'up-right';
+export function projectedOffset(sample,final,rotation=0){const a=rotateCell(sample.x,sample.y,rotation),b=rotateCell(final.x,final.y,rotation),dx=a.x-b.x,dy=a.y-b.y;return {x:(dx-dy)*20,y:(dx+dy)*10};}
 export function spriteSource(championId,direction='down-right',monolith=false) {
   if(championId==='coloso'&&monolith)return `../assets/tactical/objects/monolito-coloso/${direction}.png`;
   // Effective offline mapping in champion-assets.js, including Coloso's upper views.
@@ -64,16 +66,16 @@ export class MotionPresenter {
         const id=group.dataset.motionUnit,sample=this.timeline.sample(id,this.clock());
         if(!sample){group.removeAttribute('transform');group.querySelector('image').setAttribute('href',spriteSource(group.dataset.champion,group.dataset.facing,group.dataset.monolith==='true'));continue;}
         // Isometric offset from the authoritative final position; no state mutation.
-        const dx=sample.x-Number(group.dataset.x),dy=sample.y-Number(group.dataset.y);
-        group.setAttribute('transform',`translate(${(dx-dy)*20} ${(dx+dy)*10-(sample.lift??0)})`);
-        const image=group.querySelector('image');image.setAttribute('href',spriteSource(group.dataset.champion,sample.direction,group.dataset.monolith==='true'));
+        const offset=projectedOffset(sample,{x:Number(group.dataset.x),y:Number(group.dataset.y)},Number(group.dataset.cameraRotation)||0);
+        group.setAttribute('transform',`translate(${offset.x} ${offset.y-(sample.lift??0)})`);
+        const image=group.querySelector('image'),direction=rotateFacing(sample.direction,Number(group.dataset.cameraRotation)||0);image.setAttribute('href',spriteSource(group.dataset.champion,direction,group.dataset.monolith==='true'));
       }
       for(const group of root.querySelectorAll('[data-motion-object]')){
         const id=group.dataset.motionObject,sample=this.timeline.sample(id,this.clock()),image=group.querySelector('image'),variant=group.dataset.dollVariant??'muneco-houngan-01';
         if(!sample){group.removeAttribute('transform');image.setAttribute('href',`../assets/tactical/objects/${variant}/${group.dataset.facing??'down-right'}.png`);continue;}
-        const dx=sample.x-Number(group.dataset.x),dy=sample.y-Number(group.dataset.y);
-        group.setAttribute('transform',`translate(${(dx-dy)*20} ${(dx+dy)*10})`);
-        image.setAttribute('href',`../assets/tactical/objects/${variant}/${sample.direction}.png`);
+        const offset=projectedOffset(sample,{x:Number(group.dataset.x),y:Number(group.dataset.y)},Number(group.dataset.cameraRotation)||0);
+        group.setAttribute('transform',`translate(${offset.x} ${offset.y})`);
+        image.setAttribute('href',`../assets/tactical/objects/${variant}/${rotateFacing(sample.direction,Number(group.dataset.cameraRotation)||0)}.png`);
       }
       if(this.timeline.tracks.size)this.frameId=this.frame(tick);
     };

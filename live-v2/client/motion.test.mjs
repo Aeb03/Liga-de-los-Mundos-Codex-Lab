@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {confirmedRoutes,MotionTimeline,spriteSource,stepDirection} from './motion.mjs';
+import {confirmedRoutes,MotionTimeline,spriteSource,stepDirection,projectedOffset} from './motion.mjs';
 const state=(version,x,y,moves=[])=>({id:'m',version,combat:{units:[{id:'A1',alive:true,x,y}]},presentation:{moves}});
 const path=[{x:1,y:1},{x:1,y:2},{x:2,y:2}];
 const batch={version:2,unitId:'A1',path};
@@ -39,4 +39,11 @@ test('four views use effective offline asset mapping including Coloso upper-view
  assert.equal(stepDirection({x:0,y:0},{x:1,y:0}),'down-right');assert.equal(stepDirection({x:1,y:0},{x:0,y:0}),'up-left');
  assert.equal(stepDirection({x:0,y:0},{x:0,y:1}),'down-left');assert.equal(stepDirection({x:0,y:1},{x:0,y:0}),'up-right');
  assert.match(spriteSource('arfeli','down-right'),/combat-down-left.png$/);assert.match(spriteSource('coloso','up-right'),/combat-up-right.png$/);
+});
+
+test('animación proyecta cada paso según la rotación de cámara',()=>{
+ assert.deepEqual(projectedOffset({x:3.5,y:3},{x:4,y:3},0),{x:-10,y:-5});
+ assert.deepEqual(projectedOffset({x:3.5,y:3},{x:4,y:3},1),{x:10,y:-5});
+ assert.deepEqual(projectedOffset({x:3.5,y:3},{x:4,y:3},2),{x:10,y:5});
+ assert.deepEqual(projectedOffset({x:3.5,y:3},{x:4,y:3},3),{x:-10,y:5});
 });

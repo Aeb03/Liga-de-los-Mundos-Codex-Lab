@@ -1,4 +1,4 @@
-import { rotateFacing, rotateCell } from './hud-camera.mjs?v=20261005-parityv21';
+import { rotateFacing, rotateCell } from './hud-camera.mjs?v=20261005-parityv22';
 // Presentation only. Every animated cell comes from an accepted server event.
 export const stepDirection=(a,b)=>b.x>a.x?'down-right':b.x<a.x?'up-left':b.y>a.y?'down-left':'up-right';
 export function projectedOffset(sample,final,rotation=0){const a=rotateCell(sample.x,sample.y,rotation),b=rotateCell(final.x,final.y,rotation),dx=a.x-b.x,dy=a.y-b.y;return {x:(dx-dy)*20,y:(dx+dy)*10};}

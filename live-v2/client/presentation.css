@@ -237,3 +237,35 @@
   pointer-events:all;
   cursor:pointer;
 }
+
+
+/* Offline AoE parity — preserve LIVE v2 blue range; affected area uses the offline magenta language. */
+.live-board.aoe-preview-active{
+  touch-action:none;
+  cursor:crosshair;
+}
+.live-board .tile.aoe-preview{
+  fill:#a62f6f!important;
+  stroke:#ff78c4!important;
+  stroke-width:2.55!important;
+  filter:drop-shadow(0 0 5px rgba(255,82,179,.78))!important;
+}
+.live-board .tile.aoe-preview.aoe-preview-center{
+  fill:#d13d87!important;
+  stroke:#fff1f8!important;
+  stroke-width:3.25!important;
+  filter:drop-shadow(0 0 8px rgba(255,76,175,.95))!important;
+}
+.live-board .tile.aoe-preview-anchor{
+  stroke:#fff!important;
+  stroke-width:3.1!important;
+}
+.live-board .tile.aoe-preview.aoe-preview-locked{
+  stroke-dasharray:5 2;
+}
+.range-legend .aoe-key{color:#ffb7dc}
+.range-legend .aoe-key:before{
+  background:#d13d87!important;
+  border-color:#ffb7dc!important;
+  box-shadow:0 0 7px rgba(255,76,175,.72);
+}

@@ -75,7 +75,7 @@ export function turnSequence(combat) {
 }
 export function renderArena({state,actor,slotId,preview,blocked,canMove,remaining,hudCollapsed=false,hudSettings=null,camera=null,abilitySelection=null,inspectedId=null}) {
   const own=state.slots[slotId]??Object.values(state.slots).find(s=>s.controllerId===actor);
-  const rotation=((camera?.rotation??0)%4+4)%4,point=(x,y)=>point(x,y,rotation),hud=normalizeHudSettings(hudSettings??{});
+  const rotation=((camera?.rotation??0)%4+4)%4,point=(x,y)=>boardPoint(x,y,rotation),hud=normalizeHudSettings(hudSettings??{});
   if(hudCollapsed)hud.command.collapsed=true;
   const parallax=cameraParallax(camera??{x:0,y:0,rotation});
   const active=state.combat?.units.find(u=>u.id===state.combat.order[state.combat.turnIndex]);

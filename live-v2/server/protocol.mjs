@@ -20,6 +20,8 @@ export const commandTypes = [
   "onodAction",
   "korganAction",
   "houganAction",
+  "houganDollMove",
+  "houganDollEnd",
   "move",
   "endTurn",
   "expireTurn",
@@ -56,7 +58,7 @@ export function validateCommand(c) {
   )
     throw new ProtocolError("INVALID_COMMAND", "Contrato de comando inválido");
   if (
-    ["move", "endTurn", "ability", "createPillar", "colosoAction", "piplusMark", "onodAction", "korganAction", "houganAction"].includes(c.type) &&
+    ["move", "endTurn", "ability", "createPillar", "colosoAction", "piplusMark", "onodAction", "korganAction", "houganAction", "houganDollMove", "houganDollEnd"].includes(c.type) &&
     (!Number.isInteger(c.expectedTurn) || c.expectedTurn < 0)
   )
     throw new ProtocolError("INVALID_COMMAND", "Falta turno esperado");

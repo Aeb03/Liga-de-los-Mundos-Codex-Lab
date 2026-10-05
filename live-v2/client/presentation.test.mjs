@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderArena, turnSequence, unitIndicators, compactStatusIcons, statusChipLabels, shieldTotal, dollVariant } from './presentation.mjs';
+import { renderArena, turnSequence, unitIndicators, compactStatusIcons, statusChipLabels, shieldTotal, dollVariant, boardPoint } from './presentation.mjs';
 import { createUnit, initializeCombat } from '../combat-core.mjs';
 function fixture() {
  const slots={A1:{id:'A1',team:'A',controllerId:'shared',championId:'piplus',position:{x:2,y:5},skills:['precise','vector','impulse','interference']},B1:{id:'B1',team:'B',controllerId:'rival',championId:'coloso',position:{x:9,y:5},skills:['rock','stonearmor','absorb','quake']}};
@@ -80,4 +80,39 @@ test('Muñeco enemigo usa variante 02 y aliado usa variante 01, también en dato
  assert.match(html,/muneco-houngan-02\/down-right\.png/);assert.match(html,/data-doll-variant="muneco-houngan-02"/);
  assert.equal(dollVariant({linkMode:'ally'}),'muneco-houngan-01');
  assert.equal(dollVariant({linkMode:'enemy'}),'muneco-houngan-02');
+});
+
+
+test('cámara rota vista isométrica sin cambiar coordenadas lógicas ni acciones',()=>{
+ const state=fixture();
+ assert.deepEqual(boardPoint(2,5,1),boardPoint(6,2,0));
+ const html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,camera:{x:12,y:-8,rotation:1}});
+ assert.match(html,/data-arena-rotation="1"/);
+ assert.match(html,/arena-scene" style="transform:translate\(12px,-8px\)"/);
+ assert.match(html,/data-action="rotateCameraLeft"/);
+ assert.match(html,/data-action="rotateCameraRight"/);
+ assert.match(html,/data-hud-panel="round"/);
+ assert.match(html,/data-hud-panel="player"/);
+ assert.match(html,/data-hud-panel="enemy"/);
+ assert.match(html,/data-hud-panel="command"/);
+ assert.match(html,/data-hud-panel="camera"/);
+ assert.match(html,/data-action="precise"/);
+});
+
+test('paneles laterales admiten horizontal/vertical y ronda/comando permanecen horizontales',()=>{
+ const state=fixture();
+ const html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,hudSettings:{
+   player:{orientation:'horizontal',collapsed:false},
+   enemy:{orientation:'vertical',collapsed:true},
+   round:{orientation:'vertical',collapsed:false},
+   command:{orientation:'vertical',collapsed:true}
+ }});
+ assert.match(html,/live-roster own hud-horizontal/);
+ assert.match(html,/live-roster rival collapsed hud-vertical/);
+ assert.match(html,/live-round hud-horizontal/);
+ assert.match(html,/live-command collapsed hud-horizontal/);
+ assert.match(html,/data-hud-orient="player"/);
+ assert.match(html,/data-hud-orient="enemy"/);
+ assert.doesNotMatch(html,/data-hud-orient="round"/);
+ assert.doesNotMatch(html,/data-hud-orient="command"/);
 });

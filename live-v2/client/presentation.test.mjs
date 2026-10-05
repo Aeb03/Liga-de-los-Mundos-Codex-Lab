@@ -139,3 +139,23 @@ test('campeones tienen hitbox táctil para inspección directa desde la arena',(
   assert.match(html,/class="piece-hitbox"/);
   assert.match(html,/Coloso · B1/);
 });
+
+
+test('AoE fijado usa magenta semántico sin reemplazar las casillas de alcance LIVE v2',()=>{
+  const slots={
+    A1:{id:'A1',team:'A',controllerId:'shared',championId:'korgan',position:{x:2,y:5},skills:['grenade','shot','hook','hunterstep']},
+    B1:{id:'B1',team:'B',controllerId:'rival',championId:'piplus',position:{x:8,y:5},skills:['precise','vector','impulse','interference']}
+  };
+  const combat=initializeCombat({units:Object.values(slots).map(s=>createUnit({...s,slot:1}))}).state;
+  combat.order=['A1','B1'];combat.turnIndex=0;
+  const state={phase:'combat',slots,combat};
+  const selection={abilityId:'grenade',unitId:'A1',version:1,position:{x:4,y:5},aoe:{active:true,abilityId:'grenade',target:{x:4,y:5},locked:true}};
+  const html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,abilitySelection:selection});
+  assert.match(html,/class="live-board aoe-preview-active aoe-preview-locked-state"/);
+  assert.match(html,/ability-range/);
+  assert.match(html,/aoe-preview/);
+  assert.match(html,/aoe-preview-center/);
+  assert.match(html,/aoe-preview-locked/);
+  assert.match(html,/Área afectada/);
+  assert.match(html,/Área fijada\. Arrastrá para cambiarla o tocá otra vez el centro para lanzar\./);
+});

@@ -160,7 +160,9 @@ Fuente offline: `combat-core-0625.js` + CSS.
 
 - ✅ LIVE v2 ya dibuja alcance, objetivos, efecto y desplazamientos forzados para muchas habilidades.
 - 🟡 No es idéntico al sistema táctil final del offline.
-- ❌ Falta el preview AoE táctil global: amarillo = alcance; magenta = área real; arrastrar mueve el área; soltar la fija; segundo toque al centro ejecuta.
+- ❌ Falta el preview AoE táctil global: arrastrar mueve el área; soltar la fija; segundo toque al centro ejecuta.
+- ✅ EXCEPCIÓN APROBADA: NO copiar el amarillo de alcance del offline. Mantener el color de rango actual de LIVE v2, aprobado visualmente por Adrián.
+- El color del área afectada puede conservar la lógica visual del offline sólo si sigue diferenciándose claramente del rango actual.
 - ❌ Falta el estado visual “área fijada” y su ayuda contextual exacta.
 
 ## 8. Audio SFX

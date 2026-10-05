@@ -223,3 +223,17 @@
   .skill-hold-tooltip-icon{font-size:18px}.skill-hold-tooltip-name{font-size:10px}.skill-hold-tooltip-cost{font-size:8px}
   .skill-hold-tooltip-text{font-size:9px;margin:5px 0}.skill-hold-tooltip-meta{font-size:7.5px}
 }
+
+
+/* skills parity correction — abilities remain permanently visible, as in the validated HUD */
+.battle-command-panel [data-skill]{
+  -webkit-touch-callout:none!important;
+  -webkit-user-select:none!important;
+  user-select:none!important;
+  touch-action:manipulation!important;
+}
+.piece-hitbox{
+  fill:transparent;
+  pointer-events:all;
+  cursor:pointer;
+}

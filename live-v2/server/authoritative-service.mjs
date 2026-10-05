@@ -309,14 +309,14 @@ export class AuthoritativeService {
         m.version++;
         // Accepted, bounded visual history is visible to both current members.
         // It contains no hidden deployment data and is never used for authority.
-        const moves = events.filter(event => event.type === "unit.moved");
+        const moves = events.filter(event => event.type === "unit.moved" || event.type === "object.moved");
         if (moves.length) {
           const presentation = m.presentation ?? { moves: [], facings: {} };
           for (const event of moves) {
-            const path = structuredClone(event.path);
-            presentation.moves.push({ version: m.version, unitId: event.unitId, path, ...(event.kind?{kind:event.kind}:{}) });
+            const path = structuredClone(event.path), entityId=event.unitId??event.objectId;
+            presentation.moves.push({ version: m.version, ...(event.unitId?{unitId:event.unitId}:{objectId:event.objectId}), path, ...(event.kind?{kind:event.kind}:{}) });
             const a = path.at(-2), b = path.at(-1);
-            presentation.facings[event.unitId] = b.x > a.x ? "down-right" : b.x < a.x ? "up-left" : b.y > a.y ? "down-left" : "up-right";
+            presentation.facings[entityId] = b.x > a.x ? "down-right" : b.x < a.x ? "up-left" : b.y > a.y ? "down-left" : "up-right";
           }
           if (presentation.moves.length > 32) presentation.fromVersion = presentation.moves.at(-33).version;
           presentation.moves = presentation.moves.slice(-32);

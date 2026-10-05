@@ -5,7 +5,7 @@ import {
   useAbility,
   createPillar,
   colosoAction,
-  markPiplus, onodAction, korganAction, houganAction,
+  markPiplus, onodAction, korganAction, houganAction, moveHouganDoll, endHouganDollPhase,
   endTurn,
 } from "../combat-core.mjs";
 import {
@@ -138,7 +138,7 @@ export class AuthoritativeService {
         const slot = input.slotId ? m.slots[input.slotId] : null;
         if (slot && slot.controllerId !== identity)
           err("FORBIDDEN", "El slot pertenece a otro controlador");
-        if (["move", "endTurn", "ability", "createPillar", "colosoAction", "piplusMark", "onodAction", "korganAction", "houganAction"].includes(input.type)) {
+        if (["move", "endTurn", "ability", "createPillar", "colosoAction", "piplusMark", "onodAction", "korganAction", "houganAction", "houganDollMove", "houganDollEnd"].includes(input.type)) {
           if (m.phase !== "combat") err("WRONG_PHASE", "No está en combate");
           if (input.expectedTurn !== m.turnSerial)
             err("TURN_CONFLICT", "Turno obsoleto");
@@ -147,8 +147,13 @@ export class AuthoritativeService {
           if (!slot || slot.id !== active || slot.controllerId !== identity)
             err("FORBIDDEN", "Sólo controla el slot activo");
           if (input.type === "ability" && !slot.skills.includes(input.abilityId)) err("ABILITY_NOT_SELECTED", "La habilidad no está en tu selección");
+          const wasDollPhase=Boolean(m.combat.dollPhase);
           const out =
-            input.type === "houganAction"
+            input.type === "houganDollMove"
+              ? moveHouganDoll(m.combat,{unitId:slot.id,path:input.path})
+              : input.type === "houganDollEnd"
+              ? endHouganDollPhase(m.combat,{unitId:slot.id})
+              : input.type === "houganAction"
               ? houganAction(m.combat,{unitId:slot.id,action:input.action,position:input.position})
               : input.type === "korganAction"
               ? korganAction(m.combat,{unitId:slot.id,action:input.action,targetId:input.targetId})
@@ -167,7 +172,8 @@ export class AuthoritativeService {
               : endTurn(m.combat, { unitId: slot.id });
           m.combat = out.state;
           events = out.events;
-          if (input.type === "endTurn") {
+          const dollPhaseFinished=input.type==="houganDollEnd"||(input.type==="houganDollMove"&&wasDollPhase&&!m.combat.dollPhase);
+          if (input.type === "endTurn" || dollPhaseFinished) {
             m.turnSerial++;
             m.turnDeadline = started + 30000;
           }
@@ -267,9 +273,9 @@ export class AuthoritativeService {
           )
             err("NOT_EXPIRED", "Turno no vencido");
           const scheduled = m.turnDeadline;
-          const out = endTurn(m.combat, {
-            unitId: m.combat.order[m.combat.turnIndex],
-          });
+          const out = m.combat.dollPhase
+            ? endHouganDollPhase(m.combat,{unitId:m.combat.dollPhase.ownerId})
+            : endTurn(m.combat,{unitId:m.combat.order[m.combat.turnIndex]});
           m.combat = out.state;
           m.turnSerial++;
           m.turnDeadline = started + 30000;

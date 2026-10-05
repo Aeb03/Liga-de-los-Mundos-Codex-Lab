@@ -440,6 +440,12 @@ export function calculateHouganDollPath(state,unitId,destination){
   while(queue.length){const cur=queue.shift();if(key(cur)===key(destination))break;for(const [dx,dy] of DIRECTIONS){const p={x:cur.x+dx,y:cur.y+dy},k=key(p);if(!inside(p)||blocked.has(k)||previous.has(k))continue;previous.set(k,cur);queue.push(p);}}
   const path=[];for(let cursor=destination;cursor;cursor=previous.get(key(cursor)))path.push({x:cursor.x,y:cursor.y});return path.reverse();
 }
+function danceStepDestinationValid(state,linked,doll,position){
+  return inside(position)&&!state.board.obstacles.includes(key(position))&&!entities(state).some(z=>z.alive&&z.id!==linked.id&&z.id!==doll.id&&z.x===position.x&&z.y===position.y);
+}
+function clearDanceAtPhaseEnd(state,owner,events,reason='doll_phase_ended'){
+  if(owner?.houganDance)clearHouganAdvancedState(owner,'houganDance',events,reason);
+}
 export function moveHouganDoll(state,{unitId,path}){
   validateSupportedState(state);const phase=state.dollPhase,u=unitById(state,unitId);
   if(!phase||phase.ownerId!==u.id||activeUnit(state).id!==u.id)fail('DOLL_PHASE_INACTIVE','No hay movimiento de Muñeco pendiente');
@@ -447,21 +453,46 @@ export function moveHouganDoll(state,{unitId,path}){
   if(!Array.isArray(path)||path.length<2||key(path[0])!==key(doll)||path.length-1>phase.pm)fail('INVALID_PATH','Recorrido inválido para el Muñeco');
   const blocked=new Set([...state.board.obstacles,...occupiedKeys(state,doll.id)]),seen=new Set([key(doll)]);
   for(let i=1;i<path.length;i++){if(!inside(path[i])||!adjacent(path[i-1],path[i])||blocked.has(key(path[i]))||seen.has(key(path[i])))fail('INVALID_PATH','Recorrido bloqueado o no ortogonal del Muñeco');seen.add(key(path[i]));}
-  const next=clone(state),p=next.dollPhase,d=next.objects.find(o=>o.id===p.dollId),events=[],travelled=[{x:d.x,y:d.y}];
+  const next=clone(state),p=next.dollPhase,owner=unitById(next,unitId),d=next.objects.find(o=>o.id===p.dollId),events=[],travelled=[{x:d.x,y:d.y}];
   for(let i=1;i<path.length&&d.alive;i++){
+    const oldDoll={x:d.x,y:d.y},dx=path[i].x-oldDoll.x,dy=path[i].y-oldDoll.y;
     d.x=path[i].x;d.y=path[i].y;p.pm--;travelled.push({x:d.x,y:d.y});
+    if(danceStateValid(next,owner)){
+      const linked=next.units.find(t=>t.id===owner.houganDance.targetId&&t.alive);
+      if(!linked)clearHouganAdvancedState(owner,'houganDance',events,'linked_target_dead');
+      else{
+        const destination={x:linked.x+dx,y:linked.y+dy};
+        if(danceStepDestinationValid(next,linked,d,destination)){
+          const from={x:linked.x,y:linked.y};linked.x=destination.x;linked.y=destination.y;
+          events.push({type:'unit.moved',unitId:linked.id,path:[from,{...destination}],cost:0,remainingPm:linked.pm,forced:true,source:'hougan.dance'});
+          if(linked.status.wound>0)damageWithDollEffect(next,linked,linked.status.wound,false,events,'wound.dance');
+          if(finishIfNeeded(next,events)){clearHouganAdvancedState(owner,'houganDance',events,'linked_target_dead');next.dollPhase=null;break;}
+          if(linked.alive)triggerKorganTraps(next,linked,events,'hougan.dance');
+          if(finishIfNeeded(next,events)){clearHouganAdvancedState(owner,'houganDance',events,'linked_target_dead');next.dollPhase=null;break;}
+          if(!linked.alive)clearHouganAdvancedState(owner,'houganDance',events,'linked_target_dead');
+        }else events.push({type:'hougan.dance.blocked',unitId:owner.id,targetId:linked.id,dx,dy});
+      }
+    }
+    if(next.phase==='ended')break;
     triggerKorganTraps(next,d,events,'doll.movement');
     if(finishIfNeeded(next,events)){next.dollPhase=null;break;}
+    pruneHouganStates(next,owner,events);
   }
-  if(travelled.length>1)events.push({type:'object.moved',objectId:d.id,unitId:u.id,path:travelled,cost:travelled.length-1,remainingPm:p?.pm??0,source:'hougan.doll'});
+  if(travelled.length>1)events.push({type:'object.moved',objectId:d.id,unitId:owner.id,path:travelled,cost:travelled.length-1,remainingPm:p?.pm??0,source:'hougan.doll'});
   if(next.phase==='ended')return {state:next,events};
-  if(!d.alive||p.pm<=0){events.push({type:'doll.phase.ended',unitId:u.id,dollId:d.id,reason:!d.alive?'destroyed':'spent'});return advanceChampionTurn(next,events);}
+  if(!d.alive||p.pm<=0){
+    clearDanceAtPhaseEnd(next,owner,events,!d.alive?'doll_destroyed':'doll_phase_spent');
+    events.push({type:'doll.phase.ended',unitId:owner.id,dollId:d.id,reason:!d.alive?'destroyed':'spent'});
+    return advanceChampionTurn(next,events);
+  }
   return {state:next,events};
 }
 export function endHouganDollPhase(state,{unitId}={}){
   validateSupportedState(state);const phase=state.dollPhase,u=unitById(state,unitId);
   if(!phase||phase.ownerId!==u.id||activeUnit(state).id!==u.id)fail('DOLL_PHASE_INACTIVE','No hay movimiento de Muñeco pendiente');
-  const next=clone(state),events=[{type:'doll.phase.ended',unitId:u.id,dollId:phase.dollId,reason:'manual'}];
+  const next=clone(state),owner=unitById(next,u.id),events=[];
+  clearDanceAtPhaseEnd(next,owner,events,'doll_phase_manual');
+  events.push({type:'doll.phase.ended',unitId:owner.id,dollId:phase.dollId,reason:'manual'});
   return advanceChampionTurn(next,events);
 }
 

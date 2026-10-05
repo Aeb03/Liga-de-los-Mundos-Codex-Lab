@@ -140,6 +140,10 @@ function validateSupportedState(state) {
   }
   for(const owner of state.units)if(state.traps.filter(t=>t.active&&t.ownerId===owner.id).length>3)fail('INVALID_TRAP','Máximo tres trampas activas por Korgan');
   if(state.nextTrapId!==undefined&&(!Number.isInteger(state.nextTrapId)||state.nextTrapId<1||state.traps.some(t=>t.number>=state.nextTrapId)))fail('INVALID_TRAP','Secuencia de trampa inválida');
+  if(state.dollPhase!=null){
+    const p=state.dollPhase,owner=state.units.find(u=>u.id===p?.ownerId),doll=state.objects.find(o=>o.id===p?.dollId);
+    if(!p||owner?.championId!=='houngan'||!owner.alive||!doll?.alive||doll.type!=='doll'||doll.ownerId!==owner.id||!Number.isInteger(p.pm)||p.pm<0||p.pm>3||p.maxPm!==3)fail('INVALID_DOLL_PHASE','Fase de movimiento del Muñeco inválida');
+  }
   if (teams.size !== 2) fail('UNSUPPORTED_FORMAT', 'El estado 1v1 requiere dos equipos distintos');
   for (const unit of state.units) for (const stack of unit.shield) if (!ids.has(stack.sourceId)) fail('INVALID_SHIELD', 'El generador del escudo no existe');
   if (!Array.isArray(state.order) || state.order.length !== 2 || new Set(state.order).size !== 2 || state.order.some(id => !state.units.some(u=>u.id===id))) fail('INVALID_ORDER', 'El orden debe ser una permutación de las dos unidades');
@@ -184,7 +188,7 @@ export function initializeCombat({ units, obstacles = [], random, clock }) {
   }
   let state = {
     schemaVersion: CORE_VERSION, board: { width: BOARD_SIZE, height: BOARD_SIZE, obstacles: obstacleKeys.sort() },
-    units: copy, objects: [], nextPillarId: 1, nextSproutId: 1, nextDollId: 1, traps: [], nextTrapId: 1, summons: [], order: sorted.map(u => u.id), turnIndex: 0,
+    units: copy, objects: [], nextPillarId: 1, nextSproutId: 1, nextDollId: 1, traps: [], nextTrapId: 1, summons: [], dollPhase: null, order: sorted.map(u => u.id), turnIndex: 0,
     round: 1, phase: 'active', winnerTeam: null, tieBreak,
     audit: { initializedAt: clock ?? null }
   };
@@ -208,6 +212,7 @@ function occupiedKeys(state, movingId) {
 export function movementAvailable(state, unitId = state.order[state.turnIndex]) {
   validateSupportedState(state);
   if (state.phase !== 'active') fail('COMBAT_ENDED', 'El combate ya terminó');
+  if(state.dollPhase)return [];
   const unit = unitById(state, unitId);
   if (!unit.alive) fail('UNIT_DEAD', 'Una unidad muerta no puede moverse');
   if (unit.id !== activeUnit(state).id) fail('NOT_ACTIVE_UNIT', 'Sólo puede moverse la unidad activa');
@@ -377,29 +382,85 @@ function finishIfNeeded(state, events) {
   return false;
 }
 
+function advanceChampionTurn(next,events){
+  next.dollPhase=null;
+  let attempts=0;
+  do{
+    next.turnIndex++;
+    if(next.turnIndex>=next.order.length){next.turnIndex=0;next.round++;}
+    attempts++;
+  }while(attempts<=next.order.length&&!activeUnit(next).alive);
+  const begun=beginTurn(next);
+  return {state:begun.state,events:[...events,...begun.events]};
+}
 export function endTurn(state, { unitId } = {}) {
   validateSupportedState(state);
   if (state.phase !== 'active') fail('COMBAT_ENDED', 'El combate ya terminó');
+  if(state.dollPhase)fail('DOLL_PHASE_ACTIVE','Primero resolvé el movimiento del Muñeco Vudú');
   const next = clone(state), events = [], unit = activeUnit(next);
   if (unitId && unitId !== unit.id) fail('NOT_ACTIVE_UNIT', 'La orden de cierre no corresponde a la unidad activa');
   if (unit.status.burn > 0) {
-    const damage = unit.status.burn, result = applyDamageToUnit(unit, damage, false);
-    events.push({ type: 'damage.applied', targetId: unit.id, amount: damage, absorbed: result.absorbed, hpLost: result.hpLost, ignoreShield: false, source: 'burn.end' });
-    if (result.killed) events.push({ type: 'unit.died', unitId: unit.id });
+    const damage = unit.status.burn, result = damageWithDollEffect(next,unit,unit.status.burn,false,events,'burn.end');
+    if(result.killed)events.push({type:'unit.died',unitId:unit.id});
   }
   for (const status of ['wound', 'poison', 'burn']) unit.status[status] = Math.floor(Math.max(0, unit.status[status] || 0) / 2);
   if (unit.championId === 'arfeli') Object.assign(unit, { arfeliMasteryChain: [], arfeliMasteryLastBonus: 0 });
   if (unit.championId === 'piplus') Object.assign(unit, { piplusFixationTargetId: null, piplusInterferenceTargets: [] });
   events.push({ type: 'turn.ended', unitId: unit.id, round: next.round });
   if (finishIfNeeded(next, events)) return { state: next, events };
-  let attempts = 0;
-  do {
-    next.turnIndex++;
-    if (next.turnIndex >= next.order.length) { next.turnIndex = 0; next.round++; }
-    attempts++;
-  } while (attempts <= next.order.length && !activeUnit(next).alive);
-  const begun = beginTurn(next);
-  return { state: begun.state, events: [...events, ...begun.events] };
+  if(unit.championId==='houngan'){
+    const doll=ownedDoll(next,unit);
+    if(doll?.alive){
+      next.dollPhase={ownerId:unit.id,dollId:doll.id,pm:3,maxPm:3};
+      events.push({type:'doll.phase.started',unitId:unit.id,dollId:doll.id,pm:3});
+      return {state:next,events};
+    }
+  }
+  return advanceChampionTurn(next,events);
+}
+export function houganDollMovementAvailable(state,unitId){
+  validateSupportedState(state);
+  const phase=state.dollPhase,u=unitById(state,unitId);
+  if(state.phase!=='active'||!phase||phase.ownerId!==u.id||u.championId!=='houngan'||activeUnit(state).id!==u.id)return [];
+  const doll=state.objects.find(o=>o.id===phase.dollId&&o.alive&&o.type==='doll');if(!doll)return [];
+  const blocked=new Set([...state.board.obstacles,...occupiedKeys(state,doll.id)]),seen=new Map([[key(doll),0]]),queue=[{x:doll.x,y:doll.y}];
+  while(queue.length){
+    const cur=queue.shift(),cost=seen.get(key(cur));if(cost>=phase.pm)continue;
+    for(const [dx,dy] of DIRECTIONS){const p={x:cur.x+dx,y:cur.y+dy},k=key(p);if(!inside(p)||blocked.has(k)||seen.has(k))continue;seen.set(k,cost+1);queue.push(p);}
+  }
+  seen.delete(key(doll));return [...seen].map(([tile,cost])=>{const [x,y]=tile.split(',').map(Number);return {x,y,cost};});
+}
+export function calculateHouganDollPath(state,unitId,destination){
+  const available=houganDollMovementAvailable(state,unitId);
+  if(!available.some(p=>p.x===destination?.x&&p.y===destination?.y))fail('UNREACHABLE_DESTINATION','Destino no disponible para el Muñeco');
+  const phase=state.dollPhase,doll=state.objects.find(o=>o.id===phase.dollId),blocked=new Set([...state.board.obstacles,...occupiedKeys(state,doll.id)]);
+  const start={x:doll.x,y:doll.y},queue=[start],previous=new Map([[key(start),null]]);
+  while(queue.length){const cur=queue.shift();if(key(cur)===key(destination))break;for(const [dx,dy] of DIRECTIONS){const p={x:cur.x+dx,y:cur.y+dy},k=key(p);if(!inside(p)||blocked.has(k)||previous.has(k))continue;previous.set(k,cur);queue.push(p);}}
+  const path=[];for(let cursor=destination;cursor;cursor=previous.get(key(cursor)))path.push({x:cursor.x,y:cursor.y});return path.reverse();
+}
+export function moveHouganDoll(state,{unitId,path}){
+  validateSupportedState(state);const phase=state.dollPhase,u=unitById(state,unitId);
+  if(!phase||phase.ownerId!==u.id||activeUnit(state).id!==u.id)fail('DOLL_PHASE_INACTIVE','No hay movimiento de Muñeco pendiente');
+  const doll=state.objects.find(o=>o.id===phase.dollId&&o.alive&&o.type==='doll');if(!doll)fail('DOLL_PHASE_INACTIVE','El Muñeco ya no está disponible');
+  if(!Array.isArray(path)||path.length<2||key(path[0])!==key(doll)||path.length-1>phase.pm)fail('INVALID_PATH','Recorrido inválido para el Muñeco');
+  const blocked=new Set([...state.board.obstacles,...occupiedKeys(state,doll.id)]),seen=new Set([key(doll)]);
+  for(let i=1;i<path.length;i++){if(!inside(path[i])||!adjacent(path[i-1],path[i])||blocked.has(key(path[i]))||seen.has(key(path[i])))fail('INVALID_PATH','Recorrido bloqueado o no ortogonal del Muñeco');seen.add(key(path[i]));}
+  const next=clone(state),p=next.dollPhase,d=next.objects.find(o=>o.id===p.dollId),events=[],travelled=[{x:d.x,y:d.y}];
+  for(let i=1;i<path.length&&d.alive;i++){
+    d.x=path[i].x;d.y=path[i].y;p.pm--;travelled.push({x:d.x,y:d.y});
+    triggerKorganTraps(next,d,events,'doll.movement');
+    if(finishIfNeeded(next,events)){next.dollPhase=null;break;}
+  }
+  if(travelled.length>1)events.push({type:'object.moved',objectId:d.id,unitId:u.id,path:travelled,cost:travelled.length-1,remainingPm:p?.pm??0,source:'hougan.doll'});
+  if(next.phase==='ended')return {state:next,events};
+  if(!d.alive||p.pm<=0){events.push({type:'doll.phase.ended',unitId:u.id,dollId:d.id,reason:!d.alive?'destroyed':'spent'});return advanceChampionTurn(next,events);}
+  return {state:next,events};
+}
+export function endHouganDollPhase(state,{unitId}={}){
+  validateSupportedState(state);const phase=state.dollPhase,u=unitById(state,unitId);
+  if(!phase||phase.ownerId!==u.id||activeUnit(state).id!==u.id)fail('DOLL_PHASE_INACTIVE','No hay movimiento de Muñeco pendiente');
+  const next=clone(state),events=[{type:'doll.phase.ended',unitId:u.id,dollId:phase.dollId,reason:'manual'}];
+  return advanceChampionTurn(next,events);
 }
 
 export function serializeState(state) {
@@ -416,6 +477,9 @@ export function restoreState(serialized) {
 
 const ABILITIES = Object.freeze({
   needle:{championId:'houngan',cost:2,range:4,los:true},
+  transfer:{championId:'houngan',cost:2,range:3,los:true},
+  ritual:{championId:'houngan',cost:4,range:4,damage:14,los:true},
+  curse:{championId:'houngan',cost:3,range:3,damage:8,maxUses:1},
   trap_spikes:{championId:'korgan',cost:2,range:3,los:true,maxUses:2,ground:true},
   trap_mine:{championId:'korgan',cost:3,range:3,los:true,maxUses:1,ground:true},
   grenade:{championId:'korgan',cost:3,range:3,los:true,ground:true},
@@ -481,13 +545,18 @@ function quakeOrigin(state,u,target){return adjacent8(u,target)?u:u.monolith?own
 export function abilityTargets(state,unitId,abilityId){
   validateSupportedState(state);
   const u=unitById(state,unitId),a=ABILITIES[abilityId];
-  if(!a||a.championId!==u.championId||state.phase!=='active'||activeUnit(state).id!==unitId||u.pa<a.cost||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
+  if(!a||a.championId!==u.championId||state.phase!=='active'||state.dollPhase||activeUnit(state).id!==unitId||u.pa<a.cost||(a.maxUses&&(u.skillUsesThisTurn[abilityId]??0)>=a.maxUses))return [];
   if(u.championId==='korgan'){
     if(['trap_spikes','trap_mine','grenade','hunterstep'].includes(abilityId))return [];
     if(abilityId==='shot')return entities(state).filter(t=>t.alive&&t.team!==u.team&&(t.x===u.x||t.y===u.y)&&distance(u,t)>=1&&distance(u,t)<=5&&clearAbilityLOS(state,u,t)).map(t=>t.id);
     if(abilityId==='hook')return state.units.filter(t=>t.alive&&t.team!==u.team&&distance(u,t)>=1&&distance(u,t)<=3&&clearAbilityLOS(state,u,t)).map(t=>t.id);
   }
-  if(u.championId==='houngan'&&abilityId==='needle')return state.units.filter(t=>t.alive&&t.id!==u.id&&distance(u,t)<=4&&clearAbilityLOS(state,u,t)).map(t=>t.id);
+  if(u.championId==='houngan'){
+    if(abilityId==='needle')return state.units.filter(t=>t.alive&&t.id!==u.id&&distance(u,t)<=4&&clearAbilityLOS(state,u,t)).map(t=>t.id);
+    if(abilityId==='transfer')return u.hp>=u.maxHp?[]:state.objects.filter(t=>t.alive&&t.type==='doll'&&t.ownerId===u.id&&distance(u,t)<=3&&clearAbilityLOS(state,u,t)).map(t=>t.id);
+    if(abilityId==='ritual'){const t=linkedTarget(state,u);return t?.alive&&t.team!==u.team&&distance(u,t)<=4&&clearAbilityLOS(state,u,t)?[t.id]:[];}
+    if(abilityId==='curse')return state.units.filter(t=>t.alive&&t.team!==u.team&&distance(u,t)<=3).map(t=>t.id);
+  }
   if(abilityId==='shield')return [u.id];
   if(['impulse','vines'].includes(abilityId))return [];
   if(abilityId==='sap')return state.units.filter(t=>t.alive&&t.team===u.team&&(t.id===u.id||abilityRangeContains(u,abilityId,t)&&clearAbilityLOS(state,u,t))).map(t=>t.id);
@@ -519,6 +588,7 @@ export function swordTargets(state,unitId){return abilityTargets(state,unitId,'s
 export function useAbility(state, { unitId, abilityId, targetId, direction, secondaryTargetId, position, distance: pullDistance }) {
   validateSupportedState(state);
   if (state.phase !== 'active') fail('COMBAT_ENDED', 'El combate ya terminó');
+  if(state.dollPhase)fail('DOLL_PHASE_ACTIVE','Primero resolvé el movimiento del Muñeco Vudú');
   const unit = unitById(state, unitId);
   if (activeUnit(state).id !== unitId) fail('NOT_ACTIVE_UNIT', 'No es la unidad activa');
   if (unit.status.curseDamage > 0) fail('UNSUPPORTED_MECHANIC', 'Maldición está fuera del alcance de esta etapa');
@@ -635,6 +705,8 @@ export function previewAbility(state, command) {
 
 export function executeCommand(state, command) {
   if (!command || typeof command.type !== 'string') fail('INVALID_COMMAND', 'Comando inválido');
+  if (command.type === 'houganDollMove') return moveHouganDoll(state,command);
+  if (command.type === 'houganDollEnd') return endHouganDollPhase(state,command);
   if (command.type === 'houganAction') return houganAction(state,command);
   if (command.type === 'korganAction') return korganAction(state,command);
   if (command.type === 'onodAction') return onodAction(state,command);
@@ -766,16 +838,15 @@ function usePiplusImpulse(state,unit,position){
 
 function activeOwnTraps(state,u){return state.traps.filter(t=>t.active&&t.ownerId===u.id).sort((a,b)=>a.number-b.number);}
 function triggerKorganTraps(state,target,events,source='movement'){
-  if(!target?.alive||target.kind!=='champion')return 0;
+  if(!target?.alive||!(target.kind==='champion'||target.type==='doll'))return 0;
   let count=0;
   for(const trap of state.traps.filter(t=>t.active&&t.team!==target.team&&t.x===target.x&&t.y===target.y)){
     trap.active=false;count++;
     events.push({type:'trap.triggered',trapId:trap.id,trapType:trap.trapType,x:trap.x,y:trap.y,targetId:target.id,source});
-    const amount=trap.trapType==='spikes'?10:8,result=applyDamageToUnit(target,amount,false);
-    events.push({type:'damage.applied',targetId:target.id,amount,...result,ignoreShield:false,source:`trap.${trap.trapType}`});
-    if(result.killed){events.push({type:'unit.died',unitId:target.id});break;}
-    if(trap.trapType==='spikes'){const before=target.status.wound;target.status.wound=Math.min(3,before+1);events.push({type:'status.applied',targetId:target.id,status:'wound',amount:target.status.wound-before,value:target.status.wound});}
-    else{const before=target.pa;target.pa=Math.max(0,target.pa-1);events.push({type:'resource.lost',targetId:target.id,resource:'pa',amount:before-target.pa,value:target.pa,source:'trap.mine'});}
+    const amount=trap.trapType==='spikes'?10:8,result=damageWithDollEffect(state,target,amount,false,events,`trap.${trap.trapType}`);
+    if(result.killed)break;
+    if(target.kind==='champion'&&trap.trapType==='spikes'){const before=target.status.wound;target.status.wound=Math.min(3,before+1);events.push({type:'status.applied',targetId:target.id,status:'wound',amount:target.status.wound-before,value:target.status.wound});}
+    else if(target.kind==='champion'&&trap.trapType==='mine'){const before=target.pa;target.pa=Math.max(0,target.pa-1);events.push({type:'resource.lost',targetId:target.id,resource:'pa',amount:before-target.pa,value:target.pa,source:'trap.mine'});}
   }
   return count;
 }
@@ -856,28 +927,27 @@ function dollAssociationActive(state,doll){
   const owner=state.units.find(u=>u.id===doll.ownerId),target=state.units.find(u=>u.id===doll.linkedTargetId);
   return !!(owner?.alive&&owner.championId==='houngan'&&target?.alive&&owner.linkedTargetId===doll.linkedTargetId);
 }
-function applyDollEffect(state,doll,realLost,events){
-  if(realLost<=0||!dollAssociationActive(state,doll))return;
+function applyDollEffect(state,doll,realLost,events,associationActive=dollAssociationActive(state,doll)){
+  if(realLost<=0||!associationActive)return;
   const target=state.units.find(u=>u.id===doll.linkedTargetId);if(!target?.alive)return;
   const effect=Math.ceil(realLost/2);
   if(doll.linkMode==='enemy'){
     const result=applyDamageToUnit(target,effect,false);
     events.push({type:'damage.applied',targetId:target.id,amount:effect,...result,ignoreShield:false,source:'doll.enemy'});
     if(result.killed)events.push({type:'unit.died',unitId:target.id});
-  }else{
-    healEntity(target,effect,events,'doll.ally');
-  }
+  }else healEntity(target,effect,events,'doll.ally');
 }
 function damageWithDollEffect(state,target,amount,ignoreShield,events,source){
+  const associationActive=target.type==='doll'&&dollAssociationActive(state,target);
   const result=applyDamageToUnit(target,amount,ignoreShield);
   events.push({type:'damage.applied',targetId:target.id,amount,...result,ignoreShield,source});
-  if(target.type==='doll'&&result.hpLost>0&&target.alive)applyDollEffect(state,target,result.hpLost,events);
+  if(target.type==='doll'&&result.hpLost>0)applyDollEffect(state,target,result.hpLost,events,associationActive);
   if(result.killed)events.push(target.kind==='object'?{type:'object.destroyed',objectId:target.id}:{type:'unit.died',unitId:target.id});
   return result;
 }
 export function houganDollDestinations(state,unitId){
   validateSupportedState(state);const u=unitById(state,unitId),target=linkedTarget(state,u);
-  if(state.phase!=='active'||activeUnit(state).id!==u.id||u.championId!=='houngan'||u.pa<2||!target)return [];
+  if(state.phase!=='active'||state.dollPhase||activeUnit(state).id!==u.id||u.championId!=='houngan'||u.pa<2||!target)return [];
   const occupied=occupiedKeys(state,u.id);occupied.add(key(u));const out=[];
   for(let y=0;y<BOARD_SIZE;y++)for(let x=0;x<BOARD_SIZE;x++){const p={x,y},d=distance(u,p);if(d>=1&&d<=3&&!occupied.has(key(p))&&!state.board.obstacles.includes(key(p))&&clearAbilityLOS(state,u,p))out.push(p);}
   return out;
@@ -894,13 +964,25 @@ export function houganAction(state,{unitId,action,position}){
   return {state:next,events};
 }
 function useHouganAbility(state,unit,id,targetId){
-  if(id!=='needle'||!abilityTargets(state,unit.id,id).includes(targetId))fail('INVALID_TARGET','Objetivo inválido para Aguja Vudú');
-  const next=clone(state),u=unitById(next,unit.id),target=unitById(next,targetId),events=[];
-  u.pa-=ABILITIES[id].cost;u.skillUsesThisTurn[id]=(u.skillUsesThisTurn[id]??0)+1;events.push({type:'ability.used',unitId:u.id,abilityId:id,cost:ABILITIES[id].cost,targetId});
+  if(!['needle','transfer','ritual','curse'].includes(id)||!abilityTargets(state,unit.id,id).includes(targetId))fail('INVALID_TARGET','Objetivo inválido para la habilidad de Hougan');
+  const next=clone(state),u=unitById(next,unit.id),target=entityById(next,targetId),events=[],a=ABILITIES[id];
+  u.pa-=a.cost;u.skillUsesThisTurn[id]=(u.skillUsesThisTurn[id]??0)+1;events.push({type:'ability.used',unitId:u.id,abilityId:id,cost:a.cost,targetId});
   if(u.status.poison){const result=damageWithDollEffect(next,u,u.status.poison,false,events,'poison.ability');poisonSymbiosis(next,u,result.hpLost,events);}
   if(!u.alive){finishIfNeeded(next,events);return {state:next,events};}
-  if(target.team===u.team){healEntity(target,6,events,'ability.needle');u.linkedTargetId=target.id;events.push({type:'link.changed',unitId:u.id,targetId:target.id,mode:'ally'});}
-  else{const result=damageWithDollEffect(next,target,6,false,events,'ability.needle');if(!result.killed){u.linkedTargetId=target.id;events.push({type:'link.changed',unitId:u.id,targetId:target.id,mode:'enemy'});}}
+  if(id==='needle'){
+    if(target.team===u.team){healEntity(target,6,events,'ability.needle');u.linkedTargetId=target.id;events.push({type:'link.changed',unitId:u.id,targetId:target.id,mode:'ally'});}
+    else{const result=damageWithDollEffect(next,target,6,false,events,'ability.needle');if(!result.killed){u.linkedTargetId=target.id;events.push({type:'link.changed',unitId:u.id,targetId:target.id,mode:'enemy'});}}
+  }else if(id==='transfer'){
+    const missing=Math.max(0,u.maxHp-u.hp),requested=Math.min(8,missing),got=healEntity(u,requested,events,'ability.transfer');
+    if(got>0)damageWithDollEffect(next,target,got,false,events,'ability.transfer');
+  }else if(id==='ritual'){
+    const doll=ownedDoll(next,u),bonus=!!(doll&&dollAssociationActive(next,doll)&&doll.linkedTargetId===target.id&&adjacent(doll,target));
+    damageWithDollEffect(next,target,bonus?20:14,false,events,'ability.ritual');
+    u.linkedTargetId=null;events.push({type:'link.changed',unitId:u.id,targetId:null,mode:null,consumedBy:'ritual'});
+  }else if(id==='curse'){
+    const result=damageWithDollEffect(next,target,8,false,events,'ability.curse');
+    if(!result.killed&&target.kind==='champion'){target.status.poison=Math.min(6,target.status.poison+1);events.push({type:'status.applied',targetId:target.id,status:'poison',value:target.status.poison});}
+  }
   finishIfNeeded(next,events);return {state:next,events};
 }
 

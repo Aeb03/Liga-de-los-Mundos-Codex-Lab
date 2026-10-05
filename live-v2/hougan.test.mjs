@@ -204,6 +204,8 @@ test('Servidor acepta Aguja y acción propia Muñeco bajo autoridad del slot act
   assert(out.state.combat.dollPhase);const dollTurn=out.turn;
   out=await svc.command('u1',cmd('movedoll','houganDollMove',v,{slotId:'A1',expectedTurn:dollTurn,path:[{x:6,y:5},{x:6,y:6}]}));v=out.version;
   assert.equal(out.turn,dollTurn);assert.equal(out.state.combat.dollPhase.pm,2);
+  const dollMotion=out.state.presentation.moves.at(-1);
+  assert.equal(dollMotion.objectId,doll.id);assert.deepEqual(dollMotion.path,[{x:6,y:5},{x:6,y:6}]);
   out=await svc.command('u1',cmd('enddoll','houganDollEnd',v,{slotId:'A1',expectedTurn:dollTurn}));v=out.version;
   assert.equal(out.turn,dollTurn+1);assert.equal(out.state.combat.dollPhase,null);
   assert.equal(out.state.combat.order[out.state.combat.turnIndex],'B1');

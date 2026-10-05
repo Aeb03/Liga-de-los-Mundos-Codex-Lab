@@ -25,6 +25,7 @@ export const commandTypes = [
   "move",
   "endTurn",
   "expireTurn",
+  "abandon",
 ];
 export function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);

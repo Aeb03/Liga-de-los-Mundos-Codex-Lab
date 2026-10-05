@@ -26,6 +26,15 @@ test('consecutive accepted moves and closed loops preserve exact steps',()=>{
  const second={version:3,unitId:'A1',path:[{x:2,y:2},{x:2,y:1},{x:1,y:1}]};
  assert.deepEqual(confirmedRoutes(state(1,1,1),state(3,1,1,[batch,second]))[0].path,[...path,...second.path.slice(1)]);
 });
+test('Muñeco Vudú anima el recorrido confirmado del servidor y no teletransporta',()=>{
+ const previous={id:'m',version:10,combat:{units:[],objects:[{id:'doll1',type:'doll',alive:true,x:3,y:3}]},presentation:{moves:[]}};
+ const dollPath=[{x:3,y:3},{x:4,y:3},{x:4,y:4}];
+ const next={id:'m',version:11,combat:{units:[],objects:[{id:'doll1',type:'doll',alive:true,x:4,y:4}]},presentation:{moves:[{version:11,objectId:'doll1',path:dollPath}]}};
+ assert.deepEqual(confirmedRoutes(previous,next),[{objectId:'doll1',path:dollPath}]);
+ const timeline=new MotionTimeline();timeline.receive(previous,0);timeline.receive(next,100);
+ assert.deepEqual(timeline.sample('doll1',180),{x:3.5,y:3,direction:'down-right'});
+ assert.deepEqual(timeline.sample('doll1',260),{x:4,y:3,direction:'down-left'});
+});
 test('four views use effective offline asset mapping including Coloso upper-view exception',()=>{
  assert.equal(stepDirection({x:0,y:0},{x:1,y:0}),'down-right');assert.equal(stepDirection({x:1,y:0},{x:0,y:0}),'up-left');
  assert.equal(stepDirection({x:0,y:0},{x:0,y:1}),'down-left');assert.equal(stepDirection({x:0,y:1},{x:0,y:0}),'up-right');

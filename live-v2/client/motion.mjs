@@ -11,12 +11,15 @@ const same=(a,b)=>a?.x===b?.x&&a?.y===b?.y;
 export function confirmedRoutes(previous,next) {
   if(!previous?.combat||!next?.combat||previous.id!==next.id||next.version<=previous.version||previous.version<(next.presentation?.fromVersion??0))return [];
   const batches=(next.presentation?.moves??[]).filter(b=>b.version>previous.version&&b.version<=next.version).sort((a,b)=>a.version-b.version);
-  const routes=[];
-  for(const before of previous.combat.units){
-    const after=next.combat.units.find(u=>u.id===before.id);
+  const routes=[],entities=[
+    ...previous.combat.units.map(entity=>({entity,kind:'unit'})),
+    ...(previous.combat.objects??[]).filter(entity=>entity.type==='doll').map(entity=>({entity,kind:'object'}))
+  ];
+  for(const {entity:before,kind} of entities){
+    const after=(kind==='unit'?next.combat.units:(next.combat.objects??[])).find(u=>u.id===before.id);
     if(!before.alive||!after?.alive)continue;
     let path=[{x:before.x,y:before.y}],valid=true,jump=false,dash=false;
-    for(const batch of batches.filter(b=>b.unitId===before.id)){
+    for(const batch of batches.filter(b=>(kind==='unit'?b.unitId:b.objectId)===before.id)){
       if(!Array.isArray(batch.path)||batch.path.length<2||!same(path.at(-1),batch.path[0])){valid=false;break;}
       if(batch.kind==='jump')jump=true;if(batch.kind==='dash')dash=true;
       for(let i=1;i<batch.path.length;i++){
@@ -25,7 +28,7 @@ export function confirmedRoutes(previous,next) {
         path.push({...p});
       }
     }
-    if(valid&&path.length>1&&same(path.at(-1),after))routes.push({unitId:before.id,path,...(jump?{jump:true}:dash?{dash:true}:{})});
+    if(valid&&path.length>1&&same(path.at(-1),after))routes.push({...(kind==='unit'?{unitId:before.id}:{objectId:before.id}),path,...(jump?{jump:true}:dash?{dash:true}:{})});
   }
   return routes;
 }
@@ -38,7 +41,7 @@ export class MotionTimeline {
     const routes=!this.offline&&!reducedMotion?confirmedRoutes(this.state,state):[];
     this.tracks.clear();this.offline=false;this.state=state;
     // Snapshot gaps may span several moves. Cap visual duration, not server time.
-    for(const route of routes)this.tracks.set(route.unitId,{...route,start:now,stepMs:route.jump?320:route.dash?240:Math.min(160,900/(route.path.length-1))});
+    for(const route of routes)this.tracks.set(route.unitId??route.objectId,{...route,start:now,stepMs:route.jump?320:route.dash?240:Math.min(160,900/(route.path.length-1))});
   }
   sample(id,now){
     const t=this.tracks.get(id);if(!t)return null;
@@ -64,6 +67,13 @@ export class MotionPresenter {
         const dx=sample.x-Number(group.dataset.x),dy=sample.y-Number(group.dataset.y);
         group.setAttribute('transform',`translate(${(dx-dy)*20} ${(dx+dy)*10-(sample.lift??0)})`);
         const image=group.querySelector('image');image.setAttribute('href',spriteSource(group.dataset.champion,sample.direction,group.dataset.monolith==='true'));
+      }
+      for(const group of root.querySelectorAll('[data-motion-object]')){
+        const id=group.dataset.motionObject,sample=this.timeline.sample(id,this.clock()),image=group.querySelector('image');
+        if(!sample){group.removeAttribute('transform');image.setAttribute('href',`../assets/tactical/objects/muneco-houngan-01/${group.dataset.facing??'down-right'}.png`);continue;}
+        const dx=sample.x-Number(group.dataset.x),dy=sample.y-Number(group.dataset.y);
+        group.setAttribute('transform',`translate(${(dx-dy)*20} ${(dx+dy)*10})`);
+        image.setAttribute('href',`../assets/tactical/objects/muneco-houngan-01/${sample.direction}.png`);
       }
       if(this.timeline.tracks.size)this.frameId=this.frame(tick);
     };

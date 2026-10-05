@@ -138,7 +138,24 @@ export class AuthoritativeService {
         const slot = input.slotId ? m.slots[input.slotId] : null;
         if (slot && slot.controllerId !== identity)
           err("FORBIDDEN", "El slot pertenece a otro controlador");
-        if (["move", "endTurn", "ability", "createPillar", "colosoAction", "piplusMark", "onodAction", "korganAction", "houganAction", "houganDollMove", "houganDollEnd"].includes(input.type)) {
+        if (input.type === "abandon") {
+          if (identity === "backend") err("FORBIDDEN", "Backend no abandona partidas");
+          if (m.phase === "finished") err("MATCH_FINISHED", "La partida ya terminó");
+          const ownedSlots=Object.values(m.slots).filter(s=>s.controllerId===identity);
+          if(!ownedSlots.length)err("FORBIDDEN","No pertenece a la partida");
+          const otherSlots=Object.values(m.slots).filter(s=>s.controllerId!==identity);
+          const remainingTeams=[...new Set(otherSlots.map(s=>s.team))];
+          const winnerTeam=m.phase==="combat"&&remainingTeams.length===1?remainingTeams[0]:null;
+          m.phase="finished";
+          m.turnDeadline=null;
+          m.result={winnerTeam,finishedAt:started,reason:"abandonment",abandonedBy:ownedSlots.map(s=>s.id)};
+          if(m.combat){
+            m.combat.phase="ended";
+            m.combat.winnerTeam=winnerTeam;
+            m.combat.dollPhase=null;
+          }
+          events.push({type:"match.abandoned",slotIds:ownedSlots.map(s=>s.id),winnerTeam});
+        } else if (["move", "endTurn", "ability", "createPillar", "colosoAction", "piplusMark", "onodAction", "korganAction", "houganAction", "houganDollMove", "houganDollEnd"].includes(input.type)) {
           if (m.phase !== "combat") err("WRONG_PHASE", "No está en combate");
           if (input.expectedTurn !== m.turnSerial)
             err("TURN_CONFLICT", "Turno obsoleto");
@@ -292,14 +309,14 @@ export class AuthoritativeService {
         m.version++;
         // Accepted, bounded visual history is visible to both current members.
         // It contains no hidden deployment data and is never used for authority.
-        const moves = events.filter(event => event.type === "unit.moved");
+        const moves = events.filter(event => event.type === "unit.moved" || event.type === "object.moved");
         if (moves.length) {
           const presentation = m.presentation ?? { moves: [], facings: {} };
           for (const event of moves) {
-            const path = structuredClone(event.path);
-            presentation.moves.push({ version: m.version, unitId: event.unitId, path, ...(event.kind?{kind:event.kind}:{}) });
+            const path = structuredClone(event.path), isObject=event.type==="object.moved", entityId=isObject?event.objectId:event.unitId;
+            presentation.moves.push({ version: m.version, ...(isObject?{objectId:event.objectId}:{unitId:event.unitId}), path, ...(event.kind?{kind:event.kind}:{}) });
             const a = path.at(-2), b = path.at(-1);
-            presentation.facings[event.unitId] = b.x > a.x ? "down-right" : b.x < a.x ? "up-left" : b.y > a.y ? "down-left" : "up-right";
+            presentation.facings[entityId] = b.x > a.x ? "down-right" : b.x < a.x ? "up-left" : b.y > a.y ? "down-left" : "up-right";
           }
           if (presentation.moves.length > 32) presentation.fromVersion = presentation.moves.at(-33).version;
           presentation.moves = presentation.moves.slice(-32);

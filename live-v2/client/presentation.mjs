@@ -1,5 +1,5 @@
 import { abilityOverlay } from './ability-overlay.mjs?v=20261005-houganadv1';
-import { spriteSource } from './motion.mjs?v=20261004-onod1';
+import { spriteSource } from './motion.mjs?v=20261005-parityv1';
 import { catalog } from './catalog.mjs?v=20261005-houganadv1';
 import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable } from '../combat-core.mjs?v=20261005-houganadv1';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -20,15 +20,59 @@ export function unitIndicators(unit) {
     ['🪆 Danza preparada',unit.houganDance?1:0],
   ].filter(([, value]) => value > 0);
 }
-function statuses(unit) {
-  return unitIndicators(unit).map(([label,value])=>`${label} ${value}`).join(' · ');
+export const shieldTotal=entity=>(entity?.shield??[]).reduce((total,stack)=>total+(Number(stack.amount)||0),0);
+function reverseMarked(unit,combat){return !!combat?.units?.some(owner=>owner.alive&&owner.championId==='piplus'&&owner.markedTargetId===unit.id);}
+function reverseLinked(unit,combat){return !!combat?.units?.some(owner=>owner.alive&&owner.championId==='houngan'&&owner.linkedTargetId===unit.id);}
+export function compactStatusIcons(unit,combat){
+  const out=[];
+  if(unit?.status?.wound)out.push(`🩸${unit.status.wound}`);
+  if(unit?.status?.poison)out.push(`☠️${unit.status.poison}`);
+  if(unit?.status?.paPenaltyNext)out.push(`🔨-${unit.status.paPenaltyNext}PA`);
+  if(unit?.status?.pmPenaltyNext)out.push(`🌿-${unit.status.pmPenaltyNext}PM`);
+  if(reverseMarked(unit,combat))out.push('🎯');
+  if(reverseLinked(unit,combat))out.push('🪡');
+  if(unit?.monolith)out.push('🗿');
+  return out;
 }
+export function statusChipLabels(unit,combat){
+  const out=[];
+  if(unit?.status?.wound)out.push(`🩸 Herida ${unit.status.wound}`);
+  if(unit?.status?.poison)out.push(`☠️ Veneno ${unit.status.poison}`);
+  if(unit?.status?.burn)out.push(`🔥 Quemadura ${unit.status.burn}`);
+  if(unit?.status?.paPenaltyNext)out.push(`🔨 PA -${unit.status.paPenaltyNext} próximo`);
+  if(unit?.status?.pmPenaltyNext)out.push(`🌿 PM -${unit.status.pmPenaltyNext} próximo`);
+  if(reverseMarked(unit,combat))out.push('🎯 Marcado');
+  if(reverseLinked(unit,combat))out.push('🪡 Vinculado');
+  if(unit?.monolith)out.push('🗿 Monolito');
+  if(unit?.houganPainTransfer)out.push('🩸 Dolor 50/50');
+  if(unit?.houganDance)out.push('🪆 Danza preparada');
+  return out;
+}
+function statusChipsMarkup(unit,combat){
+  const labels=statusChipLabels(unit,combat);
+  return labels.length?labels.map(label=>`<span class="state-chip">${escape(label)}</span>`).join(''):'<span class="state-empty">Sin estados</span>';
+}
+function objectLabel(object){
+  if(object?.type==='pillar')return `Pilar ${object.number??''}`.trim();
+  if(object?.type==='sprout')return 'Brote';
+  if(object?.type==='doll')return 'Muñeco Vudú';
+  return 'Objeto de combate';
+}
+function objectDescription(object){
+  if(object?.type==='pillar')return 'Bloquea movimiento y línea de visión.';
+  if(object?.type==='sprout')return 'Brote de Onod. 12 PV, ocupa casilla y no bloquea línea de visión.';
+  if(object?.type==='doll')return object.linkMode==='ally'
+    ?'Muñeco Vudú aliado. Cura al Vinculado por la mitad de los PV reales que pierde y puede moverse 3 PM tras Hougan.'
+    :'Muñeco Vudú enemigo. Daña al Vinculado por la mitad de los PV reales que pierde y puede moverse 3 PM tras Hougan.';
+  return 'Objeto de combate.';
+}
+function dollVariant(object){return object?.linkMode==='enemy'?'muneco-houngan-02':'muneco-houngan-01';}
 export function turnSequence(combat) {
   if (!combat) return [];
   const ordered = [...combat.order.slice(combat.turnIndex), ...combat.order.slice(0,combat.turnIndex)];
   return ordered.map(id=>combat.units.find(u=>u.id===id)).filter(u=>u?.alive);
 }
-export function renderArena({state,actor,slotId,preview,blocked,canMove,remaining,hudCollapsed=false,abilitySelection=null}) {
+export function renderArena({state,actor,slotId,preview,blocked,canMove,remaining,hudCollapsed=false,abilitySelection=null,inspectedId=null}) {
   const own=state.slots[slotId]??Object.values(state.slots).find(s=>s.controllerId===actor);
   const active=state.combat?.units.find(u=>u.id===state.combat.order[state.combat.turnIndex]);
   const deployment=state.phase==='deployment',finished=state.phase==='finished',dollPhase=state.combat?.dollPhase??null;
@@ -51,20 +95,22 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
   const forcedTrail=(overlay.forced?.moves??[]).map(move=>`<polyline class="forced-trail" points="${move.path.map(p=>{const c=boardPoint(p.x,p.y);return `${c.x},${c.y}`;}).join(' ')}" marker-end="url(#forced-arrow)"/>`).join('');
   const units=state.combat?.units??Object.values(state.slots).filter(s=>s.position).map(s=>({...s,x:s.position.x,y:s.position.y,alive:true}));
   const pieces=units.filter(u=>u.alive).sort((a,b)=>(a.x+a.y)-(b.x+b.y)).map(u=>{
-    const p=boardPoint(u.x,u.y);
-    const indicators=statuses(u), life=u.hp == null ? '' : `<g class="piece-health" aria-label="${escape(catalog[u.championId]?.name)}: ${u.hp}/${u.maxHp} PV${indicators?`, ${escape(indicators)}`:''}"><rect x="${p.x-30}" y="${p.y-68}" width="60" height="12" rx="2"/><rect class="health-fill" x="${p.x-29}" y="${p.y-67}" width="${58*Math.max(0,Math.min(1,u.hp/u.maxHp))}" height="10" rx="1"/><text x="${p.x}" y="${p.y-59}">${u.hp}/${u.maxHp}</text>${indicators?`<text class="piece-status" x="${p.x}" y="${p.y-72}">${escape(indicators)}</text>`:''}</g>`;
-    return `<g data-motion-unit="${escape(u.id)}" data-x="${u.x}" data-y="${u.y}" data-champion="${u.championId}" data-monolith="${Boolean(u.monolith)}" data-facing="${state.presentation?.facings?.[u.id]??(u.team==='B'?'up-left':'down-right')}"><ellipse class="marker" cx="${p.x}" cy="${p.y}" rx="16" ry="7" stroke="${u.controllerId===actor?'#64c6f2':'#f18b83'}"/><image class="champion-piece" href="${spriteSource(u.championId,state.presentation?.facings?.[u.id]??(u.team==='B'?'up-left':'down-right'),u.monolith)}" x="${p.x-22}" y="${p.y-53}" width="44" height="58"/>${life}</g>`;
+    const p=boardPoint(u.x,u.y),icons=compactStatusIcons(u,state.combat),shield=shieldTotal(u);
+    const life=u.hp==null?'':`<g class="piece-health" aria-label="${escape(catalog[u.championId]?.name)}: ${u.hp}/${u.maxHp} PV${icons.length?`, ${escape(icons.join(' '))}`:''}${shield?`, Escudo ${shield}`:''}">${icons.length?`<text class="piece-status" x="${p.x}" y="${p.y-80}">${escape(icons.join(' '))}</text>`:''}${shield?`<text class="piece-shield" x="${p.x}" y="${p.y-71}">🛡️${shield}</text>`:''}<rect x="${p.x-30}" y="${p.y-68}" width="60" height="12" rx="2"/><rect class="health-fill" x="${p.x-29}" y="${p.y-67}" width="${58*Math.max(0,Math.min(1,u.hp/u.maxHp))}" height="10" rx="1"/><text x="${p.x}" y="${p.y-59}">${u.hp}/${u.maxHp}</text></g>`;
+    return `<g data-inspect-id="${escape(u.id)}" class="${inspectedId===u.id?'inspected-entity':''}" data-motion-unit="${escape(u.id)}" data-x="${u.x}" data-y="${u.y}" data-champion="${u.championId}" data-monolith="${Boolean(u.monolith)}" data-facing="${state.presentation?.facings?.[u.id]??(u.team==='B'?'up-left':'down-right')}"><ellipse class="marker" cx="${p.x}" cy="${p.y}" rx="16" ry="7" stroke="${u.controllerId===actor?'#64c6f2':'#f18b83'}"/><image class="champion-piece" href="${spriteSource(u.championId,state.presentation?.facings?.[u.id]??(u.team==='B'?'up-left':'down-right'),u.monolith)}" x="${p.x-22}" y="${p.y-53}" width="44" height="58"/>${life}</g>`;
   }).join('');
   const obstaclePieces=[...obstacles].map(tile=>{const [x,y]=tile.split(',').map(Number),p=boardPoint(x,y);return {x,y,html:`<g class="arena-obstacle" aria-label="Obstáculo de arena en ${x}, ${y}"><image href="assets/arena-block.png?v=20261004-onod1" x="${p.x-23}" y="${p.y-28}" width="46" height="38"/></g>`};}).sort((a,b)=>a.x+a.y-b.x-b.y).map(o=>o.html).join('');
-  const objectPieces=(state.combat?.objects??[]).filter(o=>o.alive).map(o=>{const p=boardPoint(o.x,o.y),sprout=o.type==='sprout',doll=o.type==='doll',label=doll?'Muñeco Vudú':sprout?'Brote':'Pilar',facing=state.presentation?.facings?.[o.id]??'down-right',img=doll?`muneco-houngan-01/${facing}.png`:sprout?'brote-onod.png':'pilar-coloso.png',motion=doll?` data-motion-object="${escape(o.id)}" data-x="${o.x}" data-y="${o.y}" data-facing="${facing}"`:'';return `<g class="pillar-piece" aria-label="${label} ${o.number}: ${o.hp}/${o.maxHp} PV"${motion}><image href="../assets/tactical/objects/${img}" x="${p.x-20}" y="${p.y-45}" width="40" height="50"/><text x="${p.x}" y="${p.y-48}" text-anchor="middle">${o.hp}/${o.maxHp}${doll?` · ${o.linkMode==='ally'?'Aliado':'Enemigo'}`:''}${o.shield.length?' · Escudo '+o.shield.reduce((n,s)=>n+s.amount,0):''}</text></g>`;}).join('');
+  const objectPieces=(state.combat?.objects??[]).filter(o=>o.alive).map(o=>{const p=boardPoint(o.x,o.y),sprout=o.type==='sprout',doll=o.type==='doll',label=objectLabel(o),facing=state.presentation?.facings?.[o.id]??'down-right',variant=doll?dollVariant(o):'',img=doll?`${variant}/${facing}.png`:sprout?'brote-onod.png':'pilar-coloso.png',motion=doll?` data-motion-object="${escape(o.id)}" data-x="${o.x}" data-y="${o.y}" data-facing="${facing}" data-doll-variant="${variant}"`:'',shield=shieldTotal(o);return `<g class="pillar-piece ${inspectedId===o.id?'inspected-entity':''}" data-inspect-id="${escape(o.id)}" aria-label="${label}: ${o.hp}/${o.maxHp} PV"${motion}><image href="../assets/tactical/objects/${img}" x="${p.x-20}" y="${p.y-45}" width="40" height="50"/>${shield?`<text class="object-shield" x="${p.x}" y="${p.y-56}" text-anchor="middle">🛡️${shield}</text>`:''}<text x="${p.x}" y="${p.y-48}" text-anchor="middle">${o.hp}/${o.maxHp}${doll?` · ${o.linkMode==='ally'?'Aliado':'Enemigo'}`:''}</text></g>`;}).join('');
   const trapPieces=(state.combat?.traps??[]).filter(t=>t.active).map(t=>{const p=boardPoint(t.x,t.y),spikes=t.trapType==='spikes';return `<g class="korgan-trap" aria-label="${spikes?'Trampa de Pinchos':'Mina Eléctrica'} propia" opacity=".58"><image href="../assets/tactical/objects/${spikes?'trampa-korgan':'dispositivo-electrico'}.png" x="${p.x-18}" y="${p.y-29}" width="36" height="34"/></g>`;}).join('');
   function roster(mine){
     const slots=Object.values(state.slots).filter(s=>(s.team===own?.team)===mine);
     return `<aside class="live-roster ${mine?'own':'rival'}" aria-label="${mine?'Tu equipo':'Rivales'}"><h2>${mine?'TU EQUIPO':'RIVALES'}</h2>${slots.map(s=>{
       const u=units.find(u=>u.id===s.id),hp=u?.hp;
-      return `<article class="roster-entry ${active?.id===s.id?'active':''}"><img src="../assets/champions/${s.championId}/${s.championId}-avatar.png" alt=""><div><strong>${escape(catalog[s.championId]?.name??'Campeón')}</strong><small>Slot ${escape(s.id)}</small>${hp!=null?`<span>${hp} PV · ${u.pa} PA · ${u.pm} PM</span><meter min="0" max="${u.maxHp}" value="${hp}" aria-label="Vida de ${escape(s.id)}"></meter>`:`<span>${s.confirmed?'Posición confirmada':'Desplegando'}</span>`}</div></article>`;
+      return `<article class="roster-entry ${active?.id===s.id?'active':''} ${inspectedId===s.id?'inspected':''}" data-inspect-id="${escape(s.id)}" role="button" tabindex="0"><img src="../assets/champions/${s.championId}/${s.championId}-avatar.png" alt=""><div><strong>${escape(catalog[s.championId]?.name??'Campeón')}</strong><small>Slot ${escape(s.id)}</small>${hp!=null?`<span>${hp} PV · ${u.pa} PA · ${u.pm} PM</span><meter min="0" max="${u.maxHp}" value="${hp}" aria-label="Vida de ${escape(s.id)}"></meter>`:`<span>${s.confirmed?'Posición confirmada':'Desplegando'}</span>`}</div></article>`;
     }).join('')}</aside>`;
   }
+  const inspectables=[...units,...(state.combat?.objects??[]).filter(o=>o.alive)];
+  const viewed=inspectables.find(entity=>entity.id===inspectedId)??doll??active;
   const selectedTarget=[...(state.combat?.units??[]),...(state.combat?.objects??[]),...(state.combat?.traps??[])].find(u=>u.id===abilitySelection?.targetId);
   const selectedAbilityId=abilitySelection?.abilityId??'sword',selectedDefinition=abilityDefinitions()[selectedAbilityId];
   const masteryBonus=active?.championId==='arfeli'&&!active.arfeliMasteryChain?.includes(selectedAbilityId)?(active.arfeliMasteryChain?.length??0):0;
@@ -93,7 +139,10 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
   const controls=dollPhase?dollControls:deployment?`<button class="live-action" data-action="confirmPosition" ${blocked||!own?.position||own.confirmed?'disabled':''}>${own?.confirmed?'Confirmado':'Confirmar posición'}</button>${state.creatorId===actor?`<button class="live-action end-action" data-action="start" ${blocked||!allConfirmed?'disabled':''}>Iniciar combate</button>`:'<span>El creador iniciará cuando ambos confirmen.</span>'}`:
     finished?'<span>Combate finalizado</span>':`<div class="move-action" data-action="moveMode" role="button" tabindex="0" aria-label="Movimiento">MOVER<span>${active?.controllerId===actor?active.pm:'—'} PM</span></div><button class="live-action end-action" data-action="end" ${blocked||!canMove?'disabled':''}>Terminar turno</button>`;
   const turnOrder=state.combat?`<ol class="turn-order" aria-label="Orden de turnos">${turnSequence(state.combat).map((u,i)=>`<li class="${i===0?'current':''}" ${i===0?'aria-current="step"':''} title="${escape(catalog[u.championId]?.name)} · ${escape(u.id)}"><img src="../assets/champions/${u.championId}/${u.championId}-avatar.png" alt="${escape(catalog[u.championId]?.name)}"><span>${i+1} · ${escape(catalog[u.championId]?.name)}<small>${escape(u.id)}</small></span></li>`).join('')}</ol>`:'';
-  const championCard=active?`<div class="active-champion" aria-label="Campeón activo"><img src="../assets/champions/${active.championId}/${active.championId}-avatar.png" alt=""><div class="active-details"><strong>${escape(catalog[active.championId]?.name)} · ${escape(active.id)}</strong><div class="active-life"><meter min="0" max="${active.maxHp}" value="${active.hp}" aria-label="Vida del campeón activo"></meter><span>${active.hp}/${active.maxHp} PV</span></div><div class="active-resources"><span>${active.pa} PA</span><span>${active.pm} PM</span><span>Escudo ${(active.shield??[]).reduce((n,s)=>n+s.amount,0)}</span></div>${unitIndicators(active).filter(([label])=>label!=='Escudo').length?`<small>${escape(unitIndicators(active).filter(([label])=>label!=='Escudo').map(([label,value])=>`${label} ${value}`).join(' · '))}</small>`:''}</div></div>`:'';
+  const championCard=viewed?(viewed.kind==='object'
+    ?`<div class="active-champion inspected-card" aria-label="Objeto inspeccionado"><div class="object-avatar">${viewed.type==='pillar'?'🪨':viewed.type==='sprout'?'🌱':'🪆'}</div><div class="active-details"><strong>${escape(objectLabel(viewed))}</strong><div class="active-life"><meter min="0" max="${viewed.maxHp}" value="${viewed.hp}" aria-label="Vida del objeto inspeccionado"></meter><span>${viewed.hp}/${viewed.maxHp} PV</span></div><div class="active-resources"><span>Escudo ${shieldTotal(viewed)}</span>${dollPhase?.dollId===viewed.id?`<span>${dollPhase.pm}/${dollPhase.maxPm} PM</span>`:''}</div><small>${escape(objectDescription(viewed))}</small></div></div>`
+    :`<div class="active-champion inspected-card" aria-label="Combatiente inspeccionado"><img src="../assets/champions/${viewed.championId}/${viewed.championId}-avatar.png" alt=""><div class="active-details"><strong>${escape(catalog[viewed.championId]?.name)} · ${escape(viewed.id)}${viewed.id===active?.id?' · TURNO':''}</strong><div class="active-life"><meter min="0" max="${viewed.maxHp}" value="${viewed.hp}" aria-label="Vida del combatiente inspeccionado"></meter><span>${viewed.hp}/${viewed.maxHp} PV</span></div><div class="active-resources"><span>${viewed.pa} PA</span><span>${viewed.pm} PM</span><span>Escudo ${shieldTotal(viewed)}</span></div><div class="fighter-states chips">${statusChipsMarkup(viewed,state.combat)}</div></div></div>`)
+    :'';
   const skillButtons=active&&!dollPhase?`<div class="combat-skills" aria-label="Habilidades seleccionadas">${(state.slots[active.id]?.skills??[]).map(id=>{const skill=catalog[active.championId]?.skills.find(s=>s.id===id);const def=abilityDefinitions()[id],enabled=state.phase==='combat'&&def?.championId===active.championId;const uses=active.skillUsesThisTurn?.[id]??0;const chosen=abilitySelection&&(abilitySelection.abilityId??'sword')===id;return `<button class="combat-skill ${enabled&&chosen?'selected-skill':''}" ${enabled?`data-action="${id}"`:''} ${!enabled||blocked||!canMove||active.pa<(def?.cost??0)||(def?.maxUses&&uses>=def.maxUses)?'disabled':''} title="${enabled?`${def.cost} PA · Alcance ${def.range}`:'Todavía no disponible'}" aria-label="${escape(skill?.name??id)}${enabled?'':': todavía no disponible'}" ${enabled?`aria-pressed="${Boolean(chosen)}"`:''}><span class="skill-meta">${enabled&&def.maxUses?`${uses}/${def.maxUses}`:!enabled&&skill?.maxUsesPerTurn?`Máx. ${skill.maxUsesPerTurn}`:""}<b>${skill?.cost??"—"} PA</b></span><span class="skill-symbol" aria-hidden="true">${escape(skill?.icon??"✦")}</span><span class="skill-name">${escape(skill?.name??id)}</span></button>`;}).join('')}</div>`:'';
   const houganControls=active?.championId==='houngan'&&state.phase==='combat'&&!dollPhase?`<details class="coloso-options" open><summary>Vínculo Vudú${active.linkedTargetId?' · '+escape(state.combat.units.find(u=>u.id===active.linkedTargetId)?.name??active.linkedTargetId):' · Sin vínculo'}</summary><button class="live-action" data-action="houganDoll" ${blocked||!canMove||!houganDollDestinations(state.combat,active.id).length?'disabled':''}>Muñeco Vudú · 2 PA</button></details>`:'';
   const korganControls=active?.championId==='korgan'&&state.phase==='combat'&&!dollPhase?`<details class="coloso-options" open><summary>Preparación Oculta · ${state.combat.traps.filter(t=>t.active&&t.ownerId===active.id).length}/3 Trampas</summary><button class="live-action" data-action="korganDisarm" ${blocked||!canMove||!korganDisarmTargets(state.combat,active.id).length?'disabled':''}>Desarmar Trampa · 0 PA · +1 PA</button>${abilitySelection?.abilityId==='hook'&&abilitySelection.targetId?`<button class="live-action" data-action="hookPull1" ${blocked||!canMove?'disabled':''}>Atraer 1</button><button class="live-action" data-action="hookPull2" ${blocked||!canMove?'disabled':''}>Atraer 2</button>`:''}</details>`:'';

@@ -400,8 +400,7 @@ export function endTurn(state, { unitId } = {}) {
   const next = clone(state), events = [], unit = activeUnit(next);
   if (unitId && unitId !== unit.id) fail('NOT_ACTIVE_UNIT', 'La orden de cierre no corresponde a la unidad activa');
   if (unit.status.burn > 0) {
-    const damage = unit.status.burn, result = damageWithDollEffect(next,unit,unit.status.burn,false,events,'burn.end');
-    if(result.killed)events.push({type:'unit.died',unitId:unit.id});
+    damageWithDollEffect(next,unit,unit.status.burn,false,events,'burn.end');
   }
   for (const status of ['wound', 'poison', 'burn']) unit.status[status] = Math.floor(Math.max(0, unit.status[status] || 0) / 2);
   if (unit.championId === 'arfeli') Object.assign(unit, { arfeliMasteryChain: [], arfeliMasteryLastBonus: 0 });

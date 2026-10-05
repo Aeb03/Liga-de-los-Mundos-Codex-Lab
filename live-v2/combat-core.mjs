@@ -109,6 +109,10 @@ function validateSupportedState(state) {
   for(const unit of state.units){
     if(unit.markedTargetId!=null&&!state.units.some(t=>t.id===unit.markedTargetId&&t.team!==unit.team&&unit.championId==='piplus'))fail('INVALID_CHAMPION_STATE','Marca inválida');
     if(unit.linkedTargetId!=null&&(!state.units.some(t=>t.id===unit.linkedTargetId&&t.id!==unit.id)||unit.championId!=='houngan'))fail('INVALID_CHAMPION_STATE','Vínculo Vudú inválido');
+    for(const field of ['houganPainTransfer','houganDance']){
+      const value=unit[field];
+      if(value!=null&&(unit.championId!=='houngan'||typeof value!=='object'||typeof value.dollId!=='string'||typeof value.targetId!=='string'))fail('INVALID_CHAMPION_STATE','Estado avanzado de Hougan inválido');
+    }
   }
   for (const object of state.objects) {
     if (!object || object.kind!=='object' || !['pillar','sprout','doll'].includes(object.type)) fail('UNSUPPORTED_MECHANIC','Objeto táctico no soportado');
@@ -479,6 +483,8 @@ const ABILITIES = Object.freeze({
   transfer:{championId:'houngan',cost:2,range:3,los:true},
   ritual:{championId:'houngan',cost:4,range:4,damage:14,los:true},
   curse:{championId:'houngan',cost:3,range:3,damage:8,maxUses:1},
+  paintransfer:{championId:'houngan',cost:3,range:0},
+  dance:{championId:'houngan',cost:3,range:0},
   trap_spikes:{championId:'korgan',cost:2,range:3,los:true,maxUses:2,ground:true},
   trap_mine:{championId:'korgan',cost:3,range:3,los:true,maxUses:1,ground:true},
   grenade:{championId:'korgan',cost:3,range:3,los:true,ground:true},
@@ -555,6 +561,8 @@ export function abilityTargets(state,unitId,abilityId){
     if(abilityId==='transfer')return u.hp>=u.maxHp?[]:state.objects.filter(t=>t.alive&&t.type==='doll'&&t.ownerId===u.id&&distance(u,t)<=3&&clearAbilityLOS(state,u,t)).map(t=>t.id);
     if(abilityId==='ritual'){const t=linkedTarget(state,u);return t?.alive&&t.team!==u.team&&distance(u,t)<=4&&clearAbilityLOS(state,u,t)?[t.id]:[];}
     if(abilityId==='curse')return state.units.filter(t=>t.alive&&t.team!==u.team&&distance(u,t)<=3).map(t=>t.id);
+    if(abilityId==='paintransfer')return matchingDoll(state,u)&&!painTransferStateValid(state,u)?[u.id]:[];
+    if(abilityId==='dance')return matchingDoll(state,u)&&!danceStateValid(state,u)?[u.id]:[];
   }
   if(abilityId==='shield')return [u.id];
   if(['impulse','vines'].includes(abilityId))return [];
@@ -926,6 +934,38 @@ function dollAssociationActive(state,doll){
   const owner=state.units.find(u=>u.id===doll.ownerId),target=state.units.find(u=>u.id===doll.linkedTargetId);
   return !!(owner?.alive&&owner.championId==='houngan'&&target?.alive&&owner.linkedTargetId===doll.linkedTargetId);
 }
+function matchingDoll(state,u){
+  const doll=ownedDoll(state,u),target=linkedTarget(state,u);
+  if(!doll?.alive||!target?.alive||doll.linkedTargetId!==target.id||!dollAssociationActive(state,doll))return null;
+  return doll;
+}
+function painTransferStateValid(state,u){
+  const active=u?.houganPainTransfer,doll=active?state.objects.find(o=>o.id===active.dollId):null,target=active?state.units.find(t=>t.id===active.targetId):null;
+  return !!(u?.alive&&u.championId==='houngan'&&active&&doll?.alive&&target?.alive&&u.linkedTargetId===active.targetId&&ownedDoll(state,u)?.id===active.dollId&&doll.linkedTargetId===active.targetId&&dollAssociationActive(state,doll));
+}
+function danceStateValid(state,u){
+  const active=u?.houganDance,doll=active?state.objects.find(o=>o.id===active.dollId):null,target=active?state.units.find(t=>t.id===active.targetId):null;
+  return !!(u?.alive&&u.championId==='houngan'&&active&&doll?.alive&&target?.alive&&u.linkedTargetId===active.targetId&&ownedDoll(state,u)?.id===active.dollId&&doll.linkedTargetId===active.targetId&&dollAssociationActive(state,doll));
+}
+function clearHouganAdvancedState(u,field,events,reason=''){
+  if(!u?.[field])return false;
+  u[field]=null;
+  events?.push({type:'hougan.state.cleared',unitId:u.id,state:field==='houganPainTransfer'?'paintransfer':'dance',reason});
+  return true;
+}
+function pruneHouganStates(state,u,events,reason=''){
+  if(!u||u.championId!=='houngan')return;
+  if(u.houganPainTransfer&&!painTransferStateValid(state,u))clearHouganAdvancedState(u,'houganPainTransfer',events,reason||'link_or_doll_mismatch');
+  if(u.houganDance&&!danceStateValid(state,u))clearHouganAdvancedState(u,'houganDance',events,reason||'link_or_doll_mismatch');
+}
+function pruneAllHouganStates(state,events,reason=''){for(const u of state.units)pruneHouganStates(state,u,events,reason);}
+function setHouganLink(state,u,target,events,extra={}){
+  const before=u.linkedTargetId??null,nextId=target?.id??null;
+  u.linkedTargetId=nextId;
+  events.push({type:'link.changed',unitId:u.id,targetId:nextId,mode:target?(target.team===u.team?'ally':'enemy'):null,...extra});
+  if(before!==nextId)pruneHouganStates(state,u,events,'link_changed');
+}
+
 function applyDollEffect(state,doll,realLost,events,associationActive=dollAssociationActive(state,doll)){
   if(realLost<=0||!associationActive)return;
   const target=state.units.find(u=>u.id===doll.linkedTargetId);if(!target?.alive)return;
@@ -960,27 +1000,34 @@ export function houganAction(state,{unitId,action,position}){
   const mode=target.team===u.team?'ally':'enemy',maxHp=mode==='ally'?20:16;
   const object={id:`doll${number}`,number,type:'doll',kind:'object',ownerId:u.id,team:u.team,x:position.x,y:position.y,hp:maxHp,maxHp,alive:true,shield:[],blocksLOS:false,linkedTargetId:target.id,linkMode:mode,movePm:3};
   next.objects.push(object);events.push({type:'object.created',object:clone(object),unitId,cost:2});
+  pruneHouganStates(next,u,events,'doll_replaced');
   return {state:next,events};
 }
 function useHouganAbility(state,unit,id,targetId){
-  if(!['needle','transfer','ritual','curse'].includes(id)||!abilityTargets(state,unit.id,id).includes(targetId))fail('INVALID_TARGET','Objetivo inválido para la habilidad de Hougan');
+  if(!['needle','transfer','ritual','curse','paintransfer','dance'].includes(id)||!abilityTargets(state,unit.id,id).includes(targetId))fail('INVALID_TARGET','Objetivo inválido para la habilidad de Hougan');
   const next=clone(state),u=unitById(next,unit.id),target=entityById(next,targetId),events=[],a=ABILITIES[id];
   u.pa-=a.cost;u.skillUsesThisTurn[id]=(u.skillUsesThisTurn[id]??0)+1;events.push({type:'ability.used',unitId:u.id,abilityId:id,cost:a.cost,targetId});
   if(u.status.poison){const result=damageWithDollEffect(next,u,u.status.poison,false,events,'poison.ability');poisonSymbiosis(next,u,result.hpLost,events);}
   if(!u.alive){finishIfNeeded(next,events);return {state:next,events};}
   if(id==='needle'){
-    if(target.team===u.team){healEntity(target,6,events,'ability.needle');u.linkedTargetId=target.id;events.push({type:'link.changed',unitId:u.id,targetId:target.id,mode:'ally'});}
-    else{const result=damageWithDollEffect(next,target,6,false,events,'ability.needle');if(!result.killed){u.linkedTargetId=target.id;events.push({type:'link.changed',unitId:u.id,targetId:target.id,mode:'enemy'});}}
+    if(target.team===u.team){healEntity(target,6,events,'ability.needle');setHouganLink(next,u,target,events);}
+    else{const result=damageWithDollEffect(next,target,6,false,events,'ability.needle');if(!result.killed)setHouganLink(next,u,target,events);}
   }else if(id==='transfer'){
     const missing=Math.max(0,u.maxHp-u.hp),requested=Math.min(8,missing),got=healEntity(u,requested,events,'ability.transfer');
     if(got>0)damageWithDollEffect(next,target,got,false,events,'ability.transfer');
   }else if(id==='ritual'){
     const doll=ownedDoll(next,u),bonus=!!(doll&&dollAssociationActive(next,doll)&&doll.linkedTargetId===target.id&&adjacent(doll,target));
     damageWithDollEffect(next,target,bonus?20:14,false,events,'ability.ritual');
-    u.linkedTargetId=null;events.push({type:'link.changed',unitId:u.id,targetId:null,mode:null,consumedBy:'ritual'});
+    setHouganLink(next,u,null,events,{consumedBy:'ritual'});
   }else if(id==='curse'){
     const result=damageWithDollEffect(next,target,8,false,events,'ability.curse');
     if(!result.killed&&target.kind==='champion'){target.status.poison=Math.min(6,target.status.poison+1);events.push({type:'status.applied',targetId:target.id,status:'poison',value:target.status.poison});}
+  }else if(id==='paintransfer'){
+    const doll=matchingDoll(next,u);u.houganPainTransfer={dollId:doll.id,targetId:u.linkedTargetId};
+    events.push({type:'status.applied',targetId:u.id,status:'houganPainTransfer',value:true,dollId:doll.id,linkedTargetId:u.linkedTargetId});
+  }else if(id==='dance'){
+    const doll=matchingDoll(next,u);u.houganDance={dollId:doll.id,targetId:u.linkedTargetId};
+    events.push({type:'status.applied',targetId:u.id,status:'houganDance',value:true,dollId:doll.id,linkedTargetId:u.linkedTargetId});
   }
   finishIfNeeded(next,events);return {state:next,events};
 }

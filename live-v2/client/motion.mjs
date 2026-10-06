@@ -9,6 +9,21 @@ export function spriteSource(championId,direction='down-right',monolith=false) {
   const view=championId==='coloso'&&direction.startsWith('up-')?direction:files[direction];
   return `../assets/champions/${championId}/${championId}-combat-${view??'down-left'}.png`;
 }
+// Peana footprint anchors measured from the lower opaque band of each PNG.
+const championAnchors={"arfeli":{"down-right":[0.43945,0.92083],"down-left":[0.54102,0.92083],"up-right":[0.44531,0.92083],"up-left":[0.51107,0.92083]},"piplus":{"down-left":[0.5,0.92091],"down-right":[0.5,0.92091],"up-right":[0.48047,0.92083],"up-left":[0.54102,0.92083]},"houngan":{"up-right":[0.49219,0.92083],"down-left":[0.51302,0.92083],"down-right":[0.48047,0.92083],"up-left":[0.5026,0.92083]},"onod":{"up-right":[0.50651,0.92083],"down-right":[0.48047,0.92083],"up-left":[0.48958,0.92083],"down-left":[0.51562,0.92083]},"korgan":{"up-right":[0.46224,0.92083],"down-left":[0.50977,0.92083],"up-left":[0.54427,0.92083],"down-right":[0.47852,0.92083]},"coloso":{"down-right":[0.47917,0.92083],"down-left":[0.52018,0.92083],"up-right":[0.47852,0.92083],"up-left":[0.52148,0.92083]}};
+export function championSpriteBox(championId,direction,monolith,point){
+  if(championId==='coloso'&&monolith)return {x:point.x-22,y:point.y-53,width:44,height:58};
+  const source=spriteSource(championId,direction),view=source.split('-combat-')[1]?.replace('.png','');
+  const [ax,ay]=championAnchors[championId]?.[view]??[.5,.92];
+  return {x:point.x-44*ax,y:point.y-44*ay,width:44,height:44};
+}
+function paintChampionImage(group,image,direction){
+  const champion=group.dataset.champion,monolith=group.dataset.monolith==='true';
+  const cell=rotateCell(Number(group.dataset.x),Number(group.dataset.y),Number(group.dataset.cameraRotation)||0);
+  const box=championSpriteBox(champion,direction,monolith,{x:260+(cell.x-cell.y)*20,y:30+(cell.x+cell.y)*10});
+  image.setAttribute('href',spriteSource(champion,direction,monolith));
+  for(const [key,value] of Object.entries(box))image.setAttribute(key,String(value));
+}
 const same=(a,b)=>a?.x===b?.x&&a?.y===b?.y;
 export function confirmedRoutes(previous,next) {
   if(!previous?.combat||!next?.combat||previous.id!==next.id||next.version<=previous.version||previous.version<(next.presentation?.fromVersion??0))return [];
@@ -64,11 +79,11 @@ export class MotionPresenter {
       this.frameId=null;
       for(const group of root.querySelectorAll('[data-motion-unit]')){
         const id=group.dataset.motionUnit,sample=this.timeline.sample(id,this.clock());
-        if(!sample){group.removeAttribute('transform');group.querySelector('image').setAttribute('href',spriteSource(group.dataset.champion,group.dataset.facing,group.dataset.monolith==='true'));continue;}
+        if(!sample){group.removeAttribute('transform');paintChampionImage(group,group.querySelector('image'),group.dataset.facing);continue;}
         // Isometric offset from the authoritative final position; no state mutation.
         const offset=projectedOffset(sample,{x:Number(group.dataset.x),y:Number(group.dataset.y)},Number(group.dataset.cameraRotation)||0);
         group.setAttribute('transform',`translate(${offset.x} ${offset.y-(sample.lift??0)})`);
-        const image=group.querySelector('image'),direction=rotateFacing(sample.direction,Number(group.dataset.cameraRotation)||0);image.setAttribute('href',spriteSource(group.dataset.champion,direction,group.dataset.monolith==='true'));
+        const image=group.querySelector('image'),direction=rotateFacing(sample.direction,Number(group.dataset.cameraRotation)||0);paintChampionImage(group,image,direction);
       }
       for(const group of root.querySelectorAll('[data-motion-object]')){
         const id=group.dataset.motionObject,sample=this.timeline.sample(id,this.clock()),image=group.querySelector('image'),variant=group.dataset.dollVariant??'muneco-houngan-01';

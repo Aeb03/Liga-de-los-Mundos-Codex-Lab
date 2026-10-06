@@ -1,3 +1,4 @@
+import { SocialPanel } from './social.mjs?v=20261006-social1';
 import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261006-four1';
 import { createVfxPlayer } from './vfx.mjs?v=20261006-four1';
 import { renderResult } from './feedback-ui.mjs?v=20261006-four1';
@@ -15,7 +16,7 @@ import { catalog } from './catalog.mjs?v=20261005-houganadv1';
 import { LiveSession, newId } from './session.mjs?v=20261004-lab2';
 import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261006-four1';
 
-const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const errors={CONNECTION_TIMEOUT:'La conexión tardó demasiado. Reintentá; no confirmamos ninguna acción localmente.',UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'Ese puesto está ocupado. Elegí otro puesto.',SLOT_UNAVAILABLE:'Ese puesto no está disponible para tu sesión.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'No tenés suficientes PA.',ABILITY_LIMIT:'Alcanzaste el límite de usos este turno.',BLOCKED_LOS:'La línea de visión está bloqueada.',OUT_OF_RANGE:'El objetivo está fuera del alcance.',ABILITY_NOT_SELECTED:'La habilidad no está en tus cuatro elegidas.',ONOD_ACTION_UNAVAILABLE:'Germinar o Marchitar no está disponible en esa casilla o este turno.',KORGAN_ACTION_UNAVAILABLE:'Desarmar Trampa no está disponible.',HOUGAN_ACTION_UNAVAILABLE:'Muñeco Vudú no está disponible.',DOLL_PHASE_ACTIVE:'Primero resolvé el movimiento del Muñeco Vudú.',DOLL_PHASE_INACTIVE:'La fase del Muñeco ya terminó.',INVALID_DISTANCE:'Elegí atraer 1 o 2 casillas.',MARK_UNAVAILABLE:'La Marca ya se usó, está bloqueada o el objetivo no es válido.',INVALID_TARGET:'Ese objetivo no es válido para la acción elegida.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
@@ -24,6 +25,7 @@ let deadlineExpired=false,abilitySelection=null,inspectedId=null,lastInspectionF
 let skillHoldCleanup=()=>{},aoeCleanup=()=>{};
 let hudSettings=loadHudSettings(localStorage),camera={x:0,y:0,rotation:0,zoom:1},cameraMatchId=null;
 let pendingInvite=null;
+let social;
 let actor=null,joining=false,draft=null,slotId=null,lastRendered='',reloading=false;
 async function ensureAuth(){
   let {data:{session},error}=await client.auth.getSession();if(error)throw error;
@@ -69,7 +71,7 @@ function joinInvitation(value){const id=roomId(value);let players=2,slot='B1';tr
 function invitePanel(){return game.state.players===4?`<p>Cuatro celulares: compartí el enlace general para elegir puesto o los enlaces individuales.</p>${['A2','B1','B2'].map(id=>`<div class="invite-row"><button data-action="copyInvite" data-slot="${id}">Copiar ${id} · ${id[0]==='A'?'azul':'rojo'}</button><input class="link-field" value="${escape(link(id))}" readonly aria-label="Invitación ${id}"></div>`).join('')}`:'';}
 function teams(){return `<div class="teams">${Object.values(game.state.slots).map(s=>{
   const u=game.state.combat?.units.find(u=>u.id===s.id),mine=s.controllerId===actor;
-  return `<article class="unit-card ${mine?'':'enemy'} ${activeUnit()?.id===s.id?'active':''}"><div class="row">${s.championId?`<img src="../assets/champions/${s.championId}/${s.championId}-avatar.png" alt="">`:''}<strong>${escape(catalog[s.championId]?.name??'Sin selección')}</strong><span class="tag">${escape(s.id)} · ${mine?'Tu control':'Rival'}</span></div><p>${u?`${u.hp} PV · ${u.pa} PA · ${u.pm} PM`:game.state.phase==='preparation'&&!s.controllerId?'Esperando otro celular':game.state.phase==='preparation'?(s.ready?'Listo':'Preparando'):(s.confirmed?'Posición confirmada':'Desplegando')}</p></article>`;
+  return `<article class="unit-card ${mine?'':'enemy'} ${activeUnit()?.id===s.id?'active':''}"><div class="row">${s.championId?`<img src="../assets/champions/${s.championId}/${s.championId}-avatar.png" alt="">`:''}<strong>${escape(catalog[s.championId]?.name??'Sin selección')}</strong><span class="tag">${escape(s.id)} · ${mine?'Tu control':ownSlots().some(own=>own.team===s.team)?'Compañero':'Rival'}</span></div><p>${u?`${u.hp} PV · ${u.pa} PA · ${u.pm} PM`:game.state.phase==='preparation'&&!s.controllerId?'Esperando otro celular':game.state.phase==='preparation'?(s.ready?'Listo':'Preparando'):(s.confirmed?'Posición confirmada':'Desplegando')}</p></article>`;
 }).join('')}</div>`;}
 function roomBar(){return `<div class="room-bar row spread"><span class="tag">${escape(game.state.id.slice(0,8))} · Sala ${game.state.mode??(Object.keys(game.state.slots).length===4?'2v2':'1v1')}</span><button data-action="copy" class="subtle">Copiar enlace</button><button data-action="leave" class="subtle">${game.state.phase==='finished'?'Salir':'Abandonar partida'}</button></div>`;}
 function setupDraft(){
@@ -176,6 +178,7 @@ function arena(){
   return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudSettings,camera,abilitySelection,inspectedId});
 }
 function render(force=false){
+  social?.paint();
   const sameMatch=previousMatch===game.state?.id;
   if(!sameMatch){vfx.clear();clearTimeout(resultTimer);resultPending=false;}
   if(sameMatch&&previousPhase==='combat'&&game.state?.phase==='finished'){
@@ -406,6 +409,12 @@ app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))ret
 window.addEventListener('offline',()=>game.disconnect());window.addEventListener('online',()=>game.refresh());
 document.addEventListener('visibilitychange',()=>{if(document.hidden){feedbackPlayback.suspend();vfx.clear();audioPlayback.suspend();game.preview=null;game.sync.preview=null;}else game.refresh();});
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);
+social=new SocialPanel({client,host:document.querySelector('#social'),notify,onJoin:id=>enter(id),room:()=>game.state});social.bind();
+client.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){social.recovery=true;social.open=true;social.paint();}});
+await ensureAuth();await social.run(()=>social.refresh());
+if(location.hash.includes('access_token'))history.replaceState(null,'',location.pathname+location.search);
+setInterval(()=>{if(confirmedSocial())social.refresh().catch(()=>{});},10000);
+function confirmedSocial(){return social.user&&!social.user.is_anonymous&&social.user.email_confirmed_at;}
 render(true);
 const invited=new URL(location.href).searchParams.get('match')??localStorage.getItem('live-v2-lab2-match');
 if(invited){try{await joinInvitation(location.search.includes('match=')?location.href:invited);}catch(error){notify(error.message);}}

@@ -12,6 +12,7 @@
 <body>
 <header><div><span class="eyebrow">LIGA DE LOS MUNDOS · LAB</span><h1>LIVE v2 <small>1v1 / 2v2</small></h1></div><div class="connection" id="connection">Preparado</div></header>
 <div id="rotate">Girará mejor en horizontal ↻</div>
+<div id="social"></div>
 <main id="app"><section class="panel"><p>Cargando…</p></section></main>
 <div class="toast" id="notice" role="status" aria-live="polite"></div>
 <footer>Prueba LIVE v2 · 2v2 · dos o cuatro celulares</footer>
@@ -20,7 +21,7 @@
 <script src="client/music-engine.js?v=20261005-audio1"></script>
 <script src="client/audio-options.js?v=20261005-audio1"></script>
 <script type="module">
-import('./client/motion-app.mjs?v=20261006-four1').catch(() => {
+import('./client/motion-app.mjs?v=20261006-social1').catch(() => {
   document.querySelector('#app').textContent = 'No se pudo cargar LIVE v2. Revisá la conexión y recargá la página.';
 });
 </script>

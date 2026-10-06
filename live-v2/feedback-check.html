@@ -20,7 +20,7 @@ document.querySelector('#damage').onclick=()=>{reset();const before=structuredCl
 document.querySelector('#scale').onclick=()=>{
  reset('houngan');const entries=[['A1','houngan',5,4],['A2','korgan',4,5],['B1','arfeli',6,6],['B2','coloso',7,5]];
  state.slots=Object.fromEntries(entries.map(([id,championId,x,y])=>[id,{id,team:id[0],slot:Number(id[1]),controllerId:id[0]==='A'?'demo':'rival',championId,position:{x,y},skills:catalog[championId].skills.slice(0,4).map(s=>s.id),confirmed:true}]));
- state.combat=initializeCombat({units:Object.values(state.slots).map(createUnit)}).state;
+ state.combat=initializeCombat({units:Object.values(state.slots).map(createUnit),random:0.5}).state;
  state.combat.objects.push({id:'doll1',number:1,type:'doll',kind:'object',ownerId:'A1',team:'A',x:5,y:5,hp:20,maxHp:20,alive:true,shield:[],blocksLOS:false,linkedTargetId:'A2',linkMode:'ally',movePm:3});
  draw();
 };

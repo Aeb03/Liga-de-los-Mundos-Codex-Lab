@@ -512,3 +512,15 @@ test('Onod Enredaderas authority accepts exact ground center, rejects blocked in
  const before=await x.svc.snapshot('u2','m');await assert.rejects(()=>x.svc.command('u2',{...ground,id:'invalid-vines',expectedVersion:out.version,position:{x:0,y:0}}),e=>e.code==='INVALID_TARGET');assert.deepEqual(await x.svc.snapshot('u2','m'),before);
  out=await x.svc.command('u2',cmd('vines-end','endTurn',out.version,{slotId:'B1',expectedTurn:out.turn}));assert.equal(out.state.combat.units[0].pm,2);
 });
+
+test('accepted audio is public, bounded, idempotent and absent after rejected command',async()=>{
+ const x=await ready();let out=await x.svc.command('u1',cmd('audio-start','startCombat',x.v));
+ const shield=cmd('audio-shield','ability',out.version,{slotId:'A1',expectedTurn:out.turn,abilityId:'shield',targetId:'A1'});
+ out=await x.svc.command('u1',shield);
+ assert.deepEqual(out.state.presentation.audio.at(-1).cues,[{key:'core.escudo',delay:0}]);
+ assert.deepEqual((await x.svc.snapshot('u2','m')).presentation.audio,out.state.presentation.audio);
+ assert.deepEqual(await x.svc.command('u1',shield),out);
+ const count=out.state.presentation.audio.length;
+ await assert.rejects(()=>x.svc.command('u1',cmd('audio-invalid','ability',out.version,{slotId:'A1',expectedTurn:out.turn,abilityId:'sword',targetId:'B1'})));
+ assert.equal((await x.svc.snapshot('u1','m')).presentation.audio.length,count);
+});

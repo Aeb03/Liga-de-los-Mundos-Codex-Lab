@@ -1,3 +1,4 @@
+import { confirmedAudioCues } from '../audio-cues.mjs';
 import {
   createUnit,
   initializeCombat,
@@ -321,6 +322,13 @@ export class AuthoritativeService {
           if (presentation.moves.length > 32) presentation.fromVersion = presentation.moves.at(-33).version;
           presentation.moves = presentation.moves.slice(-32);
           m.presentation = presentation;
+        }
+        const cues=confirmedAudioCues(events,m.combat);
+        if(cues.length){
+          m.presentation ??= {moves:[],facings:{}};
+          m.presentation.audio ??= [];
+          m.presentation.audio.push({version:m.version,serverTime:started,cues});
+          m.presentation.audio=m.presentation.audio.slice(-32);
         }
         const diagnostic = {
           commandId: input.id,

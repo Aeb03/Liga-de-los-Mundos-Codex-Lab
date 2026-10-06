@@ -1,3 +1,4 @@
+import { ConfirmedAudioPlayback } from '../audio-cues.mjs?v=20261005-audio1';
 import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
@@ -30,6 +31,7 @@ async function api(operation,args){
   return requestJson(`${labUrl}/functions/v1/live-v2-command`,{method:'POST',headers:{authorization:`Bearer ${auth.access_token}`,apikey:publishableKey,'content-type':'application/json'},body:JSON.stringify({operation,args})});
 }
 const motion=new MotionPresenter();
+const audioPlayback=new ConfirmedAudioPlayback({clock:()=>game.now(),play:(key,{delay,dedupe})=>{window.LigaMusic?.duck?.();window.LigaAudio?.schedule?.(key,delay,{dedupe,dedupeMs:120});}});
 for(const id of Object.keys(catalog))for(const direction of ['down-right','down-left','up-right','up-left']){const image=new Image();image.src=spriteSource(id,direction);}
 const game=new LiveSession({api,storage:localStorage,onChange:()=>render(),onError:notify});
 const ownSlots=()=>Object.values(game.state?.slots??{}).filter(s=>s.controllerId===actor);
@@ -37,7 +39,7 @@ const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
 const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.order[game.state.combat.turnIndex]);
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
 function remaining(){const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
-function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261005-aoe1');url.searchParams.set('match',game.state.id);return url.href;}
+function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261005-audio1');url.searchParams.set('match',game.state.id);return url.href;}
 function roomId(value){
   let id=value.trim();try{const url=new URL(id);id=url.searchParams.get('match')??'';}catch{}
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('Pegá el enlace o el identificador completo de la sala.');return id.toLowerCase();
@@ -164,6 +166,10 @@ function arena(){
   return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudSettings,camera,abilitySelection,inspectedId});
 }
 function render(force=false){
+  const scene=game.state?.phase==='finished'?'none':['combat','deployment'].includes(game.state?.phase)?'arenaCentral':'lobby';
+  document.body.dataset.liveAudioScene=scene;
+  window.LigaMusic?.sync?.();
+  audioPlayback.receive(game.state,{audible:!document.hidden&&Boolean(window.LigaAudio?.getState?.().unlocked),connected:game.online});
   if(game.state?.id&&game.state.id!==cameraMatchId){cameraMatchId=game.state.id;camera={x:0,y:0,rotation:0,zoom:1};}
   if(abilitySelection && (!canMove() || abilitySelection.unitId!==activeUnit()?.id || abilitySelection.version!==game.state?.version)) abilitySelection=null;
   motion.receive(game.state,{connected:game.online,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches});
@@ -372,7 +378,7 @@ app.addEventListener('click',async event=>{
 });
 app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;if(event.target.dataset.inspectId){event.preventDefault();inspectedId=event.target.dataset.inspectId;render(true);return;}if(event.target.dataset.action==='moveMode'){event.preventDefault();abilitySelection=null;game.preview=null;render(true);return;}if(event.target.dataset.x!=null){event.preventDefault();tapCell(Number(event.target.dataset.x),Number(event.target.dataset.y));}});
 window.addEventListener('offline',()=>game.disconnect());window.addEventListener('online',()=>game.refresh());
-document.addEventListener('visibilitychange',()=>{if(document.hidden){game.preview=null;game.sync.preview=null;}else game.refresh();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){audioPlayback.suspend();game.preview=null;game.sync.preview=null;}else game.refresh();});
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);
 render(true);
 const invited=new URL(location.href).searchParams.get('match')??localStorage.getItem('live-v2-lab2-match');

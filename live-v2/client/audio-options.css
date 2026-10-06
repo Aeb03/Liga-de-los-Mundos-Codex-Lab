@@ -1,0 +1,152 @@
+/* Liga de los Mundos v0.6.1 — Opciones de audio */
+
+.liga-options-lobby{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:34px;
+  padding:7px 12px;
+  border:1px solid #d7af57aa;
+  border-radius:10px;
+  background:linear-gradient(180deg,#132a3cdd,#07131ddd);
+  color:#f4e2b5;
+  font:800 11px/1 system-ui,sans-serif;
+  box-shadow:0 5px 16px #0007,inset 0 0 0 1px #5dd6ff22;
+}
+.liga-options-lobby span{font-size:16px}
+.liga-options-lobby:active{transform:translateY(1px)}
+
+.liga-options-battle{
+  min-width:28px!important;
+  width:28px!important;
+  padding:0!important;
+  display:grid!important;
+  place-items:center!important;
+  font-size:13px!important;
+}
+
+.liga-audio-options-backdrop[hidden]{display:none!important}
+.liga-audio-options-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:10020;
+  display:grid;
+  place-items:center;
+  padding:18px;
+  background:#02080dbb;
+  backdrop-filter:blur(5px);
+}
+
+.liga-audio-options-panel{
+  width:min(520px,78vw);
+  max-height:86vh;
+  overflow:auto;
+  border:1px solid #d7ad58cc;
+  border-radius:18px;
+  padding:16px;
+  background:
+    linear-gradient(180deg,#10283aeF,#07131df7 34%,#061019fb);
+  color:#eef8ff;
+  box-shadow:0 24px 70px #000c,inset 0 0 0 1px #64d8ff22;
+}
+
+.liga-audio-options-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:10px;
+  padding-bottom:10px;
+  border-bottom:1px solid #e2bd6d44;
+}
+.liga-audio-options-head>div{
+  display:grid;
+  gap:2px;
+}
+.liga-audio-options-head small{
+  color:#dfb95f;
+  font-size:9px;
+  letter-spacing:.16em;
+  font-weight:900;
+}
+.liga-audio-options-head b{font-size:22px}
+.liga-audio-close{
+  width:34px;
+  height:34px;
+  border:1px solid #bcd9e955;
+  border-radius:9px;
+  background:#102332;
+  color:white;
+  font-size:22px;
+}
+
+.liga-audio-row{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:7px 12px;
+  align-items:center;
+  padding:11px 4px;
+}
+.liga-audio-row>div{
+  display:grid;
+  gap:2px;
+}
+.liga-audio-row b{font-size:12px}
+.liga-audio-row small{font-size:9px;color:#b8cbd8}
+.liga-audio-row output{
+  min-width:42px;
+  text-align:right;
+  color:#f4cf78;
+  font-size:11px;
+  font-weight:900;
+}
+.liga-audio-row input[type="range"]{
+  grid-column:1/-1;
+  width:100%;
+  accent-color:#4fd3ec;
+}
+
+.liga-audio-mute{
+  width:100%;
+  margin-top:8px;
+  padding:10px 12px;
+  display:flex;
+  align-items:center;
+  gap:11px;
+  border:1px solid #d3ae61aa;
+  border-radius:12px;
+  background:linear-gradient(180deg,#162f42,#0a1824);
+  color:#fff;
+  text-align:left;
+}
+.liga-audio-mute>span:last-child{
+  display:grid;
+  gap:2px;
+}
+.liga-audio-mute-icon{font-size:20px}
+.liga-audio-mute b{font-size:11px}
+.liga-audio-mute small{font-size:8px;color:#adc2d0}
+.liga-audio-mute.is-muted{
+  border-color:#cc6767aa;
+  filter:saturate(.8);
+}
+
+@media (orientation:landscape) and (max-height:500px){
+  .liga-audio-options-panel{
+    width:min(500px,72vw);
+    padding:12px;
+    border-radius:14px;
+  }
+  .liga-audio-options-head{margin-bottom:4px;padding-bottom:7px}
+  .liga-audio-options-head b{font-size:18px}
+  .liga-audio-row{padding:7px 3px}
+  .liga-audio-mute{padding:7px 10px}
+  .liga-options-lobby{
+    min-height:30px;
+    padding:5px 9px;
+    font-size:9px;
+  }
+}
+
+body>header .liga-options-lobby{margin-left:auto;margin-right:12px}
+@media(max-width:600px){.liga-audio-options-panel{width:min(520px,92vw)}}

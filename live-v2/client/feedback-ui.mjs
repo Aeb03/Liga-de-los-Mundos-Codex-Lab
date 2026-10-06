@@ -1,0 +1,12 @@
+import { catalog } from './catalog.mjs?v=20261005-houganadv1';
+const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export function renderCombatLog(state,{collapsed=true,result=false}={}){
+ const entries=(state.presentation?.log??[]).slice(-8);
+ return `<aside class="battle-log-panel live-log-panel ${collapsed?'collapsed':''}${result?' result-log':''}" ${result?'':'data-hud-panel="log"'} aria-label="Registro de combate"><div class="log-head">${result?'':'<button class="hud-tool hud-drag-handle" type="button" aria-label="Mover Registro">⠿</button>'}<button class="combat-log-toggle" data-action="toggleLog" type="button" aria-expanded="${!collapsed}">📜 Registro ${collapsed?'▼':'▲'}</button></div>${collapsed?'':`<div class="card combat-log" role="log" aria-label="Últimas ocho entradas">${entries.length?entries.map(entry=>`<p>${escape(entry.text)}</p>`).join(''):'Comienza el combate.'}</div>`}</aside>`;
+}
+export function renderResult(state,actor,{logCollapsed=true}={}){
+ const teams=Object.values(state.slots??{}),own=teams.find(s=>s.controllerId===actor)?.team,winner=state.result?.winnerTeam;
+ const win=winner!=null&&winner===own,title=winner==null?'PARTIDA FINALIZADA':win?'VICTORIA':'DERROTA';
+ const roster=team=>teams.filter(s=>s.team===team).map(s=>{const u=state.combat?.units.find(u=>u.id===s.id);const name=catalog[s.championId]?.name??'Sin selección';return `<span class="result-unit">${s.championId?`<img src="../assets/champions/${escape(s.championId)}/${escape(s.championId)}-avatar.png" alt="">`:''}${escape(name)} <strong>${u?u.alive?`${u.hp}/${u.maxHp} PV`:'KO':'—'}</strong></span>`;}).join('');
+ return `<section class="screen result result-screen" aria-label="Resultado de combate"><div class="home-card"><div class="result-medal" aria-hidden="true">${winner==null?'🏁':win?'🏆':'🥈'}</div><h2>${title}</h2>${state.result?.reason==='abandonment'?'<p class="result-reason">Partida terminada por abandono.</p>':''}<p><b>🔵 Equipo azul</b></p><div class="result-team">${roster('A')}</div><p><b>🔴 Equipo rojo</b></p><div class="result-team">${roster('B')}</div><div class="result-stats"><span>📺 KO deportivo</span><span>1v1</span><span>Ronda ${state.combat?.round??'—'}</span></div>${renderCombatLog(state,{collapsed:logCollapsed,result:true})}<div class="actions result-actions"><button class="primary" data-action="leave">Volver al Lobby</button></div></div></section>`;
+}

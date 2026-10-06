@@ -524,3 +524,19 @@ test('accepted audio is public, bounded, idempotent and absent after rejected co
  await assert.rejects(()=>x.svc.command('u1',cmd('audio-invalid','ability',out.version,{slotId:'A1',expectedTurn:out.turn,abilityId:'sword',targetId:'B1'})));
  assert.equal((await x.svc.snapshot('u1','m')).presentation.audio.length,count);
 });
+
+test('feedback/log history is shared, bounded and retry does not duplicate it',async()=>{
+ const x=await ready();let out=await x.svc.command('u1',cmd('feedback-start','startCombat',x.v));
+ const shield=cmd('feedback-shield','ability',out.version,{slotId:'A1',expectedTurn:out.turn,abilityId:'shield',targetId:'A1'});
+ out=await x.svc.command('u1',shield);assert(out.state.presentation.feedback.at(-1).effects.some(e=>e.type==='shield'));
+ assert.deepEqual((await x.svc.snapshot('u2','m')).presentation.feedback,out.state.presentation.feedback);
+ assert.deepEqual(await x.svc.command('u1',shield),out);
+ for(let i=0;i<20;i++){
+  const id=out.state.combat.order[out.state.combat.turnIndex],who=out.state.slots[id].controllerId;
+  out=await x.svc.command(who,cmd(`feedback-end-${i}`,'endTurn',out.version,{slotId:id,expectedTurn:out.turn}));
+  const active=out.state.combat.order[out.state.combat.turnIndex],actor=out.state.slots[active].controllerId;
+  out=await x.svc.command(actor,cmd(`feedback-buff-${i}`,'ability',out.version,{slotId:active,expectedTurn:out.turn,abilityId:active==='A1'?'shield':'stonearmor',targetId:active}));
+ }
+ assert.equal(out.state.presentation.feedback.length,16);assert.equal(out.state.presentation.log.length,8);
+ assert.deepEqual((await x.svc.snapshot('u2','m')).presentation.log,out.state.presentation.log);
+});

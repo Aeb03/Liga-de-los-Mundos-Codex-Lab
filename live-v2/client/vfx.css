@@ -1,0 +1,283 @@
+/* Liga de los Mundos v0.5.34 — VFX general / 🟡 EN PRUEBA */
+
+#combat-vfx-root{
+  position:fixed;
+  inset:0;
+  z-index:90;
+  overflow:hidden;
+  pointer-events:none!important;
+  user-select:none;
+  -webkit-user-select:none;
+  contain:layout style paint;
+}
+#combat-vfx-root,#combat-vfx-root *{pointer-events:none!important}
+.combat-vfx{
+  position:fixed;
+  margin:0;
+  padding:0;
+  will-change:transform,opacity;
+  transform-origin:center;
+}
+
+/* Feedback legacy oculto para no duplicar números. */
+.battle-grid.iso-grid .damage-float{display:none!important}
+
+/* Números */
+.vfx-float{
+  z-index:24;
+  transform:translateX(-50%);
+  font-weight:1000;
+  font-size:clamp(15px,2.15vw,28px);
+  line-height:1;
+  white-space:nowrap;
+  text-shadow:0 2px 2px #000,0 0 5px #000;
+}
+.vfx-float.vfx-damage{color:#ffded5}
+.vfx-float.vfx-heal{color:#bffff0}
+.vfx-float.vfx-shield{color:#aee8ff}
+
+/* Impacto */
+.vfx-impact{
+  z-index:18;
+  width:42px;height:42px;
+  border-radius:50%;
+  border:2px solid #fff9;
+  box-shadow:0 0 10px #fff7,inset 0 0 10px #fff4;
+}
+.vfx-impact i{
+  position:absolute;left:50%;top:50%;
+  width:4px;height:22px;border-radius:8px;
+  background:#fff;transform-origin:center;
+  box-shadow:0 0 6px #fff;
+}
+.vfx-impact i:nth-child(1){transform:translate(-50%,-50%) rotate(0deg)}
+.vfx-impact i:nth-child(2){transform:translate(-50%,-50%) rotate(60deg)}
+.vfx-impact i:nth-child(3){transform:translate(-50%,-50%) rotate(120deg)}
+.vfx-impact.vfx-shield{border-color:#aee8ff;box-shadow:0 0 13px #8ddcff99}
+
+/* Proyectil */
+.vfx-projectile{
+  z-index:17;
+  width:11px;height:11px;border-radius:50%;
+  background:#f4e29a;
+  box-shadow:0 0 4px #fff,0 0 11px #e8c95a;
+}
+.vfx-projectile::after{
+  content:"";
+  position:absolute;right:50%;top:50%;
+  width:28px;height:3px;border-radius:999px;
+  transform:translateY(-50%);
+  background:linear-gradient(90deg,transparent,#f4e29aaa);
+}
+.vfx-projectile.vfx-physical{background:#f3e1b2;box-shadow:0 0 8px #fff8}
+.vfx-projectile.vfx-stone{background:#b8d7ff;box-shadow:0 0 10px #83b7ff}
+.vfx-projectile.vfx-nature{background:#adffbb;box-shadow:0 0 10px #56d77a}
+.vfx-projectile.vfx-tech{background:#9ceeff;box-shadow:0 0 11px #4fcfff}
+.vfx-projectile.vfx-ritual{background:#e5a9ff;box-shadow:0 0 11px #b85eff}
+
+/* Escudo */
+.vfx-shield{
+  z-index:16;
+  width:62px;height:62px;border:2px solid #a8e9ff;border-radius:50%;
+  box-shadow:0 0 13px #67cfff99,inset 0 0 14px #8de2ff66;
+}
+.vfx-shield span{
+  position:absolute;inset:8px;border-radius:50%;border:1px solid #e6faffaa;
+}
+
+/* Ruptura de escudo */
+.vfx-shield-break{
+  z-index:22;
+  width:66px;height:66px;border-radius:50%;
+  border:2px dashed #c9f3ff;
+  box-shadow:0 0 16px #6ed8ff99;
+}
+.vfx-shield-break::before{
+  content:"";
+  position:absolute;inset:13px;
+  border:2px solid #e4fbff;border-radius:50%;
+  clip-path:polygon(0 0,48% 0,38% 45%,65% 47%,46% 100%,0 100%);
+}
+.vfx-shield-break i{
+  position:absolute;left:50%;top:50%;
+  width:5px;height:5px;background:#d8f8ff;border-radius:1px;
+  box-shadow:0 0 6px #8be5ff;
+}
+.vfx-shield-break i:nth-child(1){transform:translate(-28px,-15px) rotate(20deg)}
+.vfx-shield-break i:nth-child(2){transform:translate(22px,-18px) rotate(55deg)}
+.vfx-shield-break i:nth-child(3){transform:translate(-24px,21px) rotate(80deg)}
+.vfx-shield-break i:nth-child(4){transform:translate(24px,18px) rotate(10deg)}
+.vfx-shield-break i:nth-child(5){transform:translate(-2px,-30px) rotate(45deg)}
+
+/* Área */
+.vfx-area{
+  z-index:10;
+  width:42px;height:21px;border-radius:50%;
+  border:2px solid #f0d572c9;background:#f0d57222;
+  box-shadow:0 0 12px #f0d57255;
+}
+.vfx-area.vfx-stone{border-color:#9ec9ff;background:#76aaff22;box-shadow:0 0 13px #77aaff66}
+.vfx-area.vfx-nature{border-color:#8eff9f;background:#50df7522;box-shadow:0 0 13px #4edf7166}
+.vfx-area.vfx-tech{border-color:#84edff;background:#43dcff22;box-shadow:0 0 13px #43dcff66}
+.vfx-area.vfx-ritual{border-color:#e0a0ff;background:#c95cff22;box-shadow:0 0 13px #c95cff66}
+
+/* Estado aplicado */
+.vfx-status-applied{
+  z-index:25;
+  display:flex;align-items:center;gap:3px;
+  padding:2px 5px;border-radius:999px;
+  background:#10120ee6;border:1px solid #d8c87899;
+  box-shadow:0 2px 8px #0009;color:#fff7df;white-space:nowrap;
+}
+.vfx-status-applied b{font-size:16px;line-height:1}
+.vfx-status-applied small{font-size:8px;font-weight:900}
+
+/* Estado que se activa */
+.vfx-status-activation{
+  z-index:23;
+  display:flex;align-items:center;gap:3px;
+  padding:3px 6px;border-radius:50%;
+  color:#fff6bf;background:#1a1608d9;
+  border:2px solid #ffe78a;
+  box-shadow:0 0 14px #e6be4f99;
+}
+.vfx-status-activation b{font-size:17px;line-height:1}
+.vfx-status-activation small{
+  position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  margin-top:2px;padding:1px 4px;border-radius:5px;
+  background:#10120ee6;color:#fff7df;font-size:7px;font-weight:900;white-space:nowrap;
+}
+
+/* Aparición */
+.vfx-spawn{
+  z-index:13;
+  width:50px;height:25px;border-radius:50%;
+  border:2px solid #e7d36c;background:#e7d36c20;
+  box-shadow:0 0 14px #e7d36c88;
+}
+.vfx-spawn i{
+  position:absolute;left:50%;top:50%;
+  width:8px;height:8px;border-radius:50%;
+  background:#fff6b2;
+  box-shadow:-18px 0 0 #fff6b288,18px 0 0 #fff6b288,0 -12px 0 #fff6b277;
+}
+
+/* Desaparición */
+.vfx-vanish{
+  z-index:19;
+  width:48px;height:48px;border-radius:50%;
+  border:1px dashed #e4d7a4bb;
+}
+.vfx-vanish i{
+  position:absolute;left:50%;top:50%;
+  width:5px;height:5px;border-radius:50%;
+  background:#f3e4ad;box-shadow:0 0 6px #fff6;
+}
+.vfx-vanish i:nth-child(1){transform:translate(-20px,-8px)}
+.vfx-vanish i:nth-child(2){transform:translate(14px,-13px)}
+.vfx-vanish i:nth-child(3){transform:translate(-11px,15px)}
+.vfx-vanish i:nth-child(4){transform:translate(17px,10px)}
+
+/* Movimiento forzado */
+.vfx-forced{
+  z-index:21;color:#fff0a6;font-size:25px;
+  text-shadow:0 0 6px #fff,0 0 12px #e4bc4f;
+}
+
+/* Transferencia / consumo */
+.vfx-transfer{
+  z-index:20;width:20px;height:20px;border-radius:50%;
+  border:1px solid #f2dd87;
+  box-shadow:0 0 10px #efd46c99;
+}
+.vfx-transfer i{
+  position:absolute;left:50%;top:50%;
+  width:5px;height:5px;border-radius:50%;
+  background:#fff2ae;box-shadow:0 0 7px #fff2ae;
+}
+.vfx-transfer i:nth-child(1){transform:translate(-16px,-5px)}
+.vfx-transfer i:nth-child(2){transform:translate(7px,-12px)}
+.vfx-transfer i:nth-child(3){transform:translate(10px,8px)}
+.vfx-transfer.vfx-stone{border-color:#b6d4ff;box-shadow:0 0 11px #8ab9ff99}
+.vfx-transfer.vfx-ritual{border-color:#e3a4ff;box-shadow:0 0 11px #bd62ff99}
+
+/* Activación de trampa */
+.vfx-trap-activation{
+  z-index:21;width:54px;height:30px;border-radius:50%;
+  border:2px solid #ffd56f;background:#c89a1f20;
+  box-shadow:0 0 15px #f0ba3f99;
+  display:grid;place-items:center;
+}
+.vfx-trap-activation b{font-size:20px;text-shadow:0 0 7px #fff}
+.vfx-trap-activation i{
+  position:absolute;inset:-7px;border:1px dashed #ffe59b;border-radius:50%;
+}
+.vfx-trap-activation.vfx-mine{border-color:#8cecff;box-shadow:0 0 16px #51dfffaa}
+.vfx-trap-activation.vfx-spikes{border-color:#ffc58f;box-shadow:0 0 14px #ff9d5799}
+
+/* Marca / Vínculo: conexión breve, nunca permanente */
+.vfx-relation{
+  z-index:15;height:2px;
+  background:linear-gradient(90deg,transparent,#ffe87c 15%,#ffe87c 85%,transparent);
+  filter:drop-shadow(0 0 4px #ffe87c);
+}
+.vfx-relation span{position:absolute;inset:-3px 0;border-top:1px dashed #fff7b0}
+.vfx-relation b{
+  position:absolute;top:50%;transform:translate(-50%,-50%);
+  width:22px;height:22px;border-radius:50%;
+  display:grid;place-items:center;
+  background:#11150fe8;border:1px solid #ffe87c;
+  font-size:13px;
+}
+.vfx-relation.vfx-link{
+  background:linear-gradient(90deg,transparent,#dc9cff 15%,#dc9cff 85%,transparent);
+  filter:drop-shadow(0 0 4px #c05cff);
+}
+.vfx-relation.vfx-link b{border-color:#dc9cff}
+
+/* Transformación */
+.vfx-transform{
+  z-index:22;width:72px;height:72px;border-radius:50%;
+  border:2px solid #c2dcff;
+  box-shadow:0 0 17px #8ebcff99,inset 0 0 16px #8ebcff55;
+}
+.vfx-transform i{
+  position:absolute;inset:8px;border-radius:50%;
+  border:2px dashed #e6f2ff;
+}
+.vfx-transform span{
+  position:absolute;inset:20px;border-radius:50%;
+  background:#d9e8ff55;box-shadow:0 0 12px #b7d3ff;
+}
+
+/* Pulso del ejecutor */
+.vfx-activation-pulse{
+  z-index:12;width:58px;height:29px;border-radius:50%;
+  border:2px solid #f2d978;background:#f2d97816;
+  box-shadow:0 0 13px #e6c86177;
+}
+.vfx-activation-pulse i{
+  position:absolute;inset:6px;border-radius:50%;
+  border:1px solid #fff3b4aa;
+}
+.vfx-activation-pulse.vfx-stone{border-color:#a9ceff;box-shadow:0 0 13px #7cb1ff88}
+.vfx-activation-pulse.vfx-nature{border-color:#94f6a5;box-shadow:0 0 13px #57d97188}
+.vfx-activation-pulse.vfx-tech{border-color:#93efff;box-shadow:0 0 13px #4fdfff88}
+.vfx-activation-pulse.vfx-ritual{border-color:#dda0ff;box-shadow:0 0 13px #b75aff88}
+
+/* KO deportivo */
+.vfx-ko{
+  z-index:28;width:62px;height:40px;
+  display:grid;place-items:center;
+  border:2px solid #f1d36e;border-radius:7px;
+  background:#11150ff0;box-shadow:0 0 15px #e8c35b88;
+  color:#ffe98d;
+}
+.vfx-ko b{font-size:22px;font-weight:1000;letter-spacing:2px;line-height:1}
+.vfx-ko span{font-size:6px;font-weight:900;letter-spacing:1.5px;margin-top:-7px}
+
+@media (prefers-reduced-motion:reduce){
+  .combat-vfx{animation-duration:.01ms!important;animation-iteration-count:1!important}
+}
+
+@media(prefers-reduced-motion:reduce){.combat-vfx{animation:none!important}}

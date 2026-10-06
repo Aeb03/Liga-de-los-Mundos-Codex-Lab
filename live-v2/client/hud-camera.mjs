@@ -1,12 +1,13 @@
 export const HUD_STORAGE_KEY='live-v2-hud-v045';
 export const HUD_DEFAULTS=Object.freeze({
+  log:{x:null,y:null,collapsed:true,orientation:'horizontal'},
   player:{x:null,y:null,collapsed:false,orientation:'vertical'},
   enemy:{x:null,y:null,collapsed:false,orientation:'vertical'},
   command:{x:null,y:null,collapsed:false,orientation:'horizontal'},
   round:{x:null,y:null,collapsed:false,orientation:'horizontal'},
   camera:{x:null,y:null,collapsed:false,orientation:'horizontal'}
 });
-const LOCKED_HORIZONTAL=new Set(['round','command']);
+const LOCKED_HORIZONTAL=new Set(['round','command','log']);
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 
 export function normalizeHudSettings(raw={}){

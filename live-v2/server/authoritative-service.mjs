@@ -1,3 +1,4 @@
+import { confirmedFeedback } from '../feedback-cues.mjs';
 import { confirmedAudioCues } from '../audio-cues.mjs';
 import {
   createUnit,
@@ -136,6 +137,7 @@ export class AuthoritativeService {
           err("VERSION_CONFLICT", "Versión obsoleta");
         const started = this.clock();
         let events = [];
+        const beforeCombat=structuredClone(m.combat);
         const slot = input.slotId ? m.slots[input.slotId] : null;
         if (slot && slot.controllerId !== identity)
           err("FORBIDDEN", "El slot pertenece a otro controlador");
@@ -329,6 +331,14 @@ export class AuthoritativeService {
           m.presentation.audio ??= [];
           m.presentation.audio.push({version:m.version,serverTime:started,cues});
           m.presentation.audio=m.presentation.audio.slice(-32);
+        }
+        const feedback=confirmedFeedback(events,beforeCombat,m.combat,input);
+        if(feedback.effects.length||feedback.logs.length){
+          m.presentation ??= {moves:[],facings:{}};
+          m.presentation.feedback ??= [];
+          if(feedback.effects.length)m.presentation.feedback.push({version:m.version,serverTime:started,effects:feedback.effects});
+          m.presentation.feedback=m.presentation.feedback.slice(-16);
+          m.presentation.log=[...(m.presentation.log??[]),...feedback.logs.map(text=>({version:m.version,text}))].slice(-8);
         }
         const diagnostic = {
           commandId: input.id,

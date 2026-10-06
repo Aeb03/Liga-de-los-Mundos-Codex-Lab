@@ -1,10 +1,13 @@
+import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261006-feedback1';
+import { createVfxPlayer } from './vfx.mjs?v=20261006-feedback1';
+import { renderResult } from './feedback-ui.mjs?v=20261006-feedback1';
 import { ConfirmedAudioPlayback } from '../audio-cues.mjs?v=20261005-audio1';
 import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261005-skills2';
-import { renderArena } from './presentation.mjs?v=20261005-vines1';
-import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261005-skills2';
+import { renderArena } from './presentation.mjs?v=20261006-feedback1';
+import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261006-feedback1';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261005-vines1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261005-vines1';
 import { createAoEState, bindAoEGesture, sameCell } from './aoe-preview.mjs?v=20261005-aoe1';
@@ -31,6 +34,10 @@ async function api(operation,args){
   return requestJson(`${labUrl}/functions/v1/live-v2-command`,{method:'POST',headers:{authorization:`Bearer ${auth.access_token}`,apikey:publishableKey,'content-type':'application/json'},body:JSON.stringify({operation,args})});
 }
 const motion=new MotionPresenter();
+const vfx=createVfxPlayer();
+const feedbackPlayback=new ConfirmedFeedbackPlayback({clock:()=>game.now(),play:effects=>vfx.playBatch(effects,{reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches})});
+let resultPending=false,resultTimer=null,previousMatch=null,previousPhase=null;
+
 const audioPlayback=new ConfirmedAudioPlayback({clock:()=>game.now(),play:(key,{delay,dedupe})=>{window.LigaMusic?.duck?.();window.LigaAudio?.schedule?.(key,delay,{dedupe,dedupeMs:120});}});
 for(const id of Object.keys(catalog))for(const direction of ['down-right','down-left','up-right','up-left']){const image=new Image();image.src=spriteSource(id,direction);}
 const game=new LiveSession({api,storage:localStorage,onChange:()=>render(),onError:notify});
@@ -39,7 +46,7 @@ const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
 const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.order[game.state.combat.turnIndex]);
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
 function remaining(){const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
-function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261005-audio1');url.searchParams.set('match',game.state.id);return url.href;}
+function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261006-feedback1');url.searchParams.set('match',game.state.id);return url.href;}
 function roomId(value){
   let id=value.trim();try{const url=new URL(id);id=url.searchParams.get('match')??'';}catch{}
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('Pegá el enlace o el identificador completo de la sala.');return id.toLowerCase();
@@ -166,6 +173,14 @@ function arena(){
   return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudSettings,camera,abilitySelection,inspectedId});
 }
 function render(force=false){
+  const sameMatch=previousMatch===game.state?.id;
+  if(!sameMatch){vfx.clear();clearTimeout(resultTimer);resultPending=false;}
+  if(sameMatch&&previousPhase==='combat'&&game.state?.phase==='finished'){
+    resultPending=true;clearTimeout(resultTimer);resultTimer=setTimeout(()=>{resultPending=false;vfx.clear();render(true);},1200);
+  }
+  previousMatch=game.state?.id;previousPhase=game.state?.phase;
+  const showResult=game.state?.phase==='finished'&&!resultPending;
+
   const scene=game.state?.phase==='finished'?'none':['combat','deployment'].includes(game.state?.phase)?'arenaCentral':'lobby';
   document.body.dataset.liveAudioScene=scene;
   window.LigaMusic?.sync?.();
@@ -173,15 +188,15 @@ function render(force=false){
   if(game.state?.id&&game.state.id!==cameraMatchId){cameraMatchId=game.state.id;camera={x:0,y:0,rotation:0,zoom:1};}
   if(abilitySelection && (!canMove() || abilitySelection.unitId!==activeUnit()?.id || abilitySelection.version!==game.state?.version)) abilitySelection=null;
   motion.receive(game.state,{connected:game.online,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches});
-  document.body.classList.toggle('in-arena',Boolean(game.state&&game.state.phase!=='preparation'));
+  document.body.classList.toggle('in-arena',Boolean(game.state&&game.state.phase!=='preparation'&&!showResult));
   const indicator=document.querySelector('#connection');indicator.textContent=game.state?(game.sync.pendingCommand()?'Acción pendiente':game.online?'Conectado al Lab':'Sin conexión'):'Supabase Lab';indicator.classList.toggle('offline',!game.online);
-  const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings]);
+  const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings,resultPending]);
   if(!force&&signature===lastRendered){remaining();return;}lastRendered=signature;
   if(!game.state){app.innerHTML=`<section class="panel welcome"><span class="tag">Prueba LIVE v2 · 1v1</span><h2>Dos celulares, una partida</h2><p>Creá una sala y compartí su enlace. Cada celular controlará un campeón.</p><button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><form class="join-form" id="join"><input type="text" id="room" placeholder="Pegá el enlace o identificador de sala" aria-label="Enlace de sala"><button ${joining?'disabled':''}>Unirme</button></form><p class="phase-text">Se conserva tu sesión en este navegador para reconectar.</p></section>`;return;}
   skillHoldCleanup();skillHoldCleanup=()=>{};aoeCleanup();aoeCleanup=()=>{};
-  app.innerHTML=roomBar()+(game.state.phase==='preparation'?preparation():arena());
+  app.innerHTML=roomBar()+(game.state.phase==='preparation'?preparation():showResult?renderResult(game.state,actor,{logCollapsed:hudSettings.log.collapsed}):arena());
   motion.paint(app);
-  if(game.state.phase!=='preparation'){
+  if(game.state.phase!=='preparation'&&!showResult){
     const battle=app.querySelector('.live-battle');
     bindDraggableHud(battle,{storage:localStorage,onStored:next=>{hudSettings=next;}});
     Object.assign(camera,applyCameraDom(battle,camera));
@@ -202,6 +217,7 @@ function render(force=false){
       });
     }
   }
+  feedbackPlayback.receive(game.state,{visible:!document.hidden&&!showResult,connected:game.online});
 }
 async function send(type,args){try{const confirmed=await game.send(type,args);await game.refresh();return confirmed;}catch(error){notify(error.message);return false;}}
 async function tapCell(x,y){
@@ -344,6 +360,7 @@ app.addEventListener('click',async event=>{
     case 'korganDisarm':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId==='korganDisarm'?null:{abilityId:'korganDisarm',unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
     case 'hookPull1':case 'hookPull2':if(canMove()&&!blocked()&&abilitySelection?.abilityId==='hook'&&abilitySelection.targetId){const distance=target.dataset.action==='hookPull2'?2:1;abilitySelection.distance=distance;render(true);await send('ability',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial,abilityId:'hook',targetId:abilitySelection.targetId,distance});abilitySelection=null;render(true);}break;
     case 'needle':case 'transfer':case 'ritual':case 'curse':case 'paintransfer':case 'dance':case 'trap_spikes':case 'trap_mine':case 'grenade':case 'shot':case 'hook':case 'hunterstep':case 'germinate':case 'wither':case 'thorn':case 'vines':case 'sap':case 'spores':case 'awakening':case 'reabsorption':case 'piplusMark':case 'precise':case 'vector':case 'impulse':case 'interference':case 'rupture':case 'fixation':case 'fusion':case 'recycle':case 'bow':case 'stonearmor':case 'absorb':case 'collapse':case 'magnetism':case 'createPillar':case 'hammer':case 'sword':case 'daggers':case 'shield':case 'spear':case 'quake':case 'rock':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId===target.dataset.action?null:selectionForAbility(target.dataset.action);game.preview=null;render(true);}break;
+    case 'toggleLog':hudSettings=saveHudSetting(localStorage,'log',{collapsed:!hudSettings.log.collapsed});render(true);break;
     case 'moveMode':abilitySelection=null;game.preview=null;render(true);break;
     case 'resetHud':hudSettings=resetHudSettings(localStorage);render(true);break;
     case 'rotateCameraLeft':case 'rotateCameraRight':{
@@ -368,6 +385,7 @@ app.addEventListener('click',async event=>{
         if(blocked())break;
         const confirmed=await game.send('abandon',{slotId:ownSlot()?.id});
         if(!confirmed){notify('No se pudo confirmar el abandono. La partida sigue activa para permitir reconexión.');break;}
+        render(true);break;
       }
       localStorage.removeItem('live-v2-lab2-match');
       history.replaceState(null,'',location.pathname);
@@ -378,7 +396,7 @@ app.addEventListener('click',async event=>{
 });
 app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;if(event.target.dataset.inspectId){event.preventDefault();inspectedId=event.target.dataset.inspectId;render(true);return;}if(event.target.dataset.action==='moveMode'){event.preventDefault();abilitySelection=null;game.preview=null;render(true);return;}if(event.target.dataset.x!=null){event.preventDefault();tapCell(Number(event.target.dataset.x),Number(event.target.dataset.y));}});
 window.addEventListener('offline',()=>game.disconnect());window.addEventListener('online',()=>game.refresh());
-document.addEventListener('visibilitychange',()=>{if(document.hidden){audioPlayback.suspend();game.preview=null;game.sync.preview=null;}else game.refresh();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){feedbackPlayback.suspend();vfx.clear();audioPlayback.suspend();game.preview=null;game.sync.preview=null;}else game.refresh();});
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);
 render(true);
 const invited=new URL(location.href).searchParams.get('match')??localStorage.getItem('live-v2-lab2-match');

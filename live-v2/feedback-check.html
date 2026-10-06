@@ -1,0 +1,23 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVE v2 — Prueba visual de feedback</title><link rel="stylesheet" href="client/ui.css"><link rel="stylesheet" href="client/presentation.css?v=20261005-aoe1"><link rel="stylesheet" href="client/feedback-ui.css?v=20261006-feedback1"><link rel="stylesheet" href="client/vfx.css?v=20261006-feedback1"><style>.qa-tools{position:fixed;z-index:200;top:8px;right:8px;display:flex;flex-wrap:wrap;gap:4px;max-width:72vw;background:#0a162a;padding:5px;border-radius:8px}.qa-tools button{padding:5px;font-size:11px}.qa-label{font-size:10px;align-self:center}body.in-arena .room-bar{display:none}</style><body class="in-arena"><div class="qa-tools"><span class="qa-label">Prueba visual local · sin sala</span><button id="damage">Daño y escudo</button><button id="area">Área de Onod</button><button id="win">Victoria</button><button id="lose">Derrota</button><button id="arena">Arena</button></div><main id="app"></main><script type="module">
+import {createUnit,initializeCombat,useAbility,applyDamage} from './combat-core.mjs?v=20261005-vines1';
+import {confirmedFeedback} from './feedback-cues.mjs?v=20261006-feedback1';
+import {renderArena} from './client/presentation.mjs?v=20261006-feedback1';
+import {renderResult} from './client/feedback-ui.mjs?v=20261006-feedback1';
+import {createVfxPlayer} from './client/vfx.mjs?v=20261006-feedback1';
+import {loadHudSettings,bindDraggableHud,saveHudSetting,applyCameraDom,bindBattleCamera} from './client/hud-camera.mjs?v=20261006-feedback1';
+const app=document.querySelector('#app'),vfx=createVfxPlayer();let hud=loadHudSettings(localStorage),state,camera={rotation:0,x:0,y:0,zoom:1};
+hud.log.collapsed=false;
+function reset(champion='arfeli'){
+ const slots={A1:{id:'A1',team:'A',slot:1,controllerId:'demo',championId:champion,position:{x:5,y:5},skills:champion==='onod'?['thorn','vines','sap','spores']:['sword','bow','shield','daggers'],confirmed:true},B1:{id:'B1',team:'B',slot:1,controllerId:'rival',championId:'coloso',position:{x:6,y:5},skills:['rock','stonearmor','quake','collapse'],confirmed:true}};
+ const units=Object.values(slots).map(s=>createUnit(s));units[0].initiative=99;
+ const combat=initializeCombat({units}).state;combat.units[1].shield=[{amount:6,sourceId:'B1'}];
+ state={id:'visual-fixture',version:1,phase:'combat',slots,combat,presentation:{log:[]}};vfx.clear();draw();
+}
+function draw(){document.body.classList.toggle('in-arena',state.phase!=='finished');app.innerHTML=state.phase==='finished'?renderResult(state,'demo',{logCollapsed:hud.log.collapsed}):renderArena({state,actor:'demo',slotId:'A1',blocked:false,canMove:true,remaining:24,hudSettings:hud,camera});const battle=app.querySelector('.live-battle');if(battle){bindDraggableHud(battle,{storage:localStorage,onStored:next=>hud=next});applyCameraDom(battle,camera);bindBattleCamera(battle,camera);}}
+function accept(out,before,command){const f=confirmedFeedback(out.events,before,out.state,command);state.combat=out.state;state.version++;state.presentation.log=f.logs.map(text=>({version:state.version,text}));draw();vfx.playBatch(f.effects);}
+document.querySelector('#damage').onclick=()=>{reset();const before=structuredClone(state.combat),c={unitId:'A1',abilityId:'sword',targetId:'B1'};accept(useAbility(before,c),before,c);};
+document.querySelector('#area').onclick=()=>{reset('onod');const before=structuredClone(state.combat),c={unitId:'A1',abilityId:'vines',position:{x:6,y:5}};accept(useAbility(before,c),before,c);};
+function result(win){reset();const id=win?'B1':'A1',before=structuredClone(state.combat);accept(applyDamage(before,{targetId:id,amount:200,ignoreShield:true}),before,{});setTimeout(()=>{vfx.clear();state.phase='finished';state.result={winnerTeam:win?'A':'B'};draw();},1200);}
+document.querySelector('#win').onclick=()=>result(true);document.querySelector('#lose').onclick=()=>result(false);document.querySelector('#arena').onclick=()=>reset();
+app.addEventListener('click',e=>{const target=e.target.closest('button');if(target?.dataset.action==='toggleLog'){hud=saveHudSetting(localStorage,'log',{collapsed:!hud.log.collapsed});draw();}if(target?.dataset.action==='leave')reset();});reset();
+</script></body></html>

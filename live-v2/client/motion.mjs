@@ -24,6 +24,14 @@ function paintChampionImage(group,image,direction){
   image.setAttribute('href',spriteSource(champion,direction,monolith));
   for(const [key,value] of Object.entries(box))image.setAttribute(key,String(value));
 }
+export const compareDepth=(a,b)=>a.y-b.y||a.x-b.x;
+export function sortDepthLayer(root){
+  for(const layer of root.querySelectorAll('.arena-depth-layer')){
+    const children=[...layer.children];
+    const ordered=children.map(node=>({node,x:Number(node.dataset.depthX)+(Number(node.dataset.depthOffsetX)||0),y:Number(node.dataset.depthY)+(Number(node.dataset.depthOffsetY)||0)})).sort(compareDepth);
+    if(ordered.some((entry,index)=>entry.node!==children[index]))for(const {node} of ordered)layer.appendChild(node);
+  }
+}
 const same=(a,b)=>a?.x===b?.x&&a?.y===b?.y;
 export function confirmedRoutes(previous,next) {
   if(!previous?.combat||!next?.combat||previous.id!==next.id||next.version<=previous.version||previous.version<(next.presentation?.fromVersion??0))return [];
@@ -79,19 +87,22 @@ export class MotionPresenter {
       this.frameId=null;
       for(const group of root.querySelectorAll('[data-motion-unit]')){
         const id=group.dataset.motionUnit,sample=this.timeline.sample(id,this.clock());
-        if(!sample){group.removeAttribute('transform');paintChampionImage(group,group.querySelector('image'),group.dataset.facing);continue;}
+        if(!sample){group.dataset.depthOffsetX='0';group.dataset.depthOffsetY='0';group.removeAttribute('transform');paintChampionImage(group,group.querySelector('image'),group.dataset.facing);continue;}
         // Isometric offset from the authoritative final position; no state mutation.
         const offset=projectedOffset(sample,{x:Number(group.dataset.x),y:Number(group.dataset.y)},Number(group.dataset.cameraRotation)||0);
+        group.dataset.depthOffsetX=String(offset.x);group.dataset.depthOffsetY=String(offset.y);
         group.setAttribute('transform',`translate(${offset.x} ${offset.y-(sample.lift??0)})`);
         const image=group.querySelector('image'),direction=rotateFacing(sample.direction,Number(group.dataset.cameraRotation)||0);paintChampionImage(group,image,direction);
       }
       for(const group of root.querySelectorAll('[data-motion-object]')){
         const id=group.dataset.motionObject,sample=this.timeline.sample(id,this.clock()),image=group.querySelector('image'),variant=group.dataset.dollVariant??'muneco-houngan-01';
-        if(!sample){group.removeAttribute('transform');image.setAttribute('href',`../assets/tactical/objects/${variant}/${group.dataset.facing??'down-right'}.png`);continue;}
+        if(!sample){group.dataset.depthOffsetX='0';group.dataset.depthOffsetY='0';group.removeAttribute('transform');image.setAttribute('href',`../assets/tactical/objects/${variant}/${group.dataset.facing??'down-right'}.png`);continue;}
         const offset=projectedOffset(sample,{x:Number(group.dataset.x),y:Number(group.dataset.y)},Number(group.dataset.cameraRotation)||0);
+        group.dataset.depthOffsetX=String(offset.x);group.dataset.depthOffsetY=String(offset.y);
         group.setAttribute('transform',`translate(${offset.x} ${offset.y})`);
         image.setAttribute('href',`../assets/tactical/objects/${variant}/${rotateFacing(sample.direction,Number(group.dataset.cameraRotation)||0)}.png`);
       }
+      sortDepthLayer(root);
       if(this.timeline.tracks.size)this.frameId=this.frame(tick);
     };
     tick();

@@ -159,3 +159,14 @@ test('AoE fijado usa magenta semántico sin reemplazar las casillas de alcance L
   assert.match(html,/Área afectada/);
   assert.match(html,/Área fijada\. Arrastrá para cambiarla o tocá otra vez el centro para lanzar\./);
 });
+
+test('obstacles and champions interleave by camera depth in all four views',()=>{
+ const state=fixture();state.combat.board.obstacles=['3,5','8,5','7,5'];
+ const before=structuredClone(state);
+ for(const rotation of [0,1,2,3]){
+  const html=renderArena({state,actor:'shared',slotId:'A1',camera:{rotation}});
+  const expected=[...state.combat.units.map(u=>({x:u.x,y:u.y,label:`data-motion-unit="${u.id}"`})),...state.combat.board.obstacles.map(k=>{const [x,y]=k.split(',').map(Number);return {x,y,label:`Obstáculo de arena en ${x}, ${y}`};})].map(e=>({...e,p:boardPoint(e.x,e.y,rotation)})).sort((a,b)=>a.p.y-b.p.y||a.p.x-b.p.x);
+  const indices=expected.map(e=>html.indexOf(e.label));assert.ok(indices.every(i=>i>=0));assert.deepEqual(indices,[...indices].sort((a,b)=>a-b));
+ }
+ assert.deepEqual(state,before);
+});

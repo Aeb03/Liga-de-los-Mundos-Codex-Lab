@@ -47,3 +47,11 @@ test('animación proyecta cada paso según la rotación de cámara',()=>{
  assert.deepEqual(projectedOffset({x:3.5,y:3},{x:4,y:3},2),{x:10,y:5});
  assert.deepEqual(projectedOffset({x:3.5,y:3},{x:4,y:3},3),{x:-10,y:5});
 });
+
+test('moving entities cross static obstacles at their displayed depth',async()=>{
+ const {sortDepthLayer}=await import('./motion.mjs');
+ const obstacle={dataset:{depthX:'260',depthY:'100'}},unit={dataset:{depthX:'260',depthY:'120',depthOffsetY:'-40'}};
+ const layer={children:[obstacle,unit],appendChild(node){this.children=this.children.filter(n=>n!==node);this.children.push(node);}};
+ const root={querySelectorAll:()=>[layer]};sortDepthLayer(root);assert.deepEqual(layer.children,[unit,obstacle]);
+ unit.dataset.depthOffsetY='0';sortDepthLayer(root);assert.deepEqual(layer.children,[obstacle,unit]);
+});

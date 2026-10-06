@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createUnit,initializeCombat,useAbility,endTurn,serializeState} from './combat-core.mjs';
+import {createUnit,initializeCombat,useAbility,endTurn,serializeState,markPiplus} from './combat-core.mjs';
 import {confirmedFeedback,ConfirmedFeedbackPlayback} from './feedback-cues.mjs';
 import {renderResult,renderCombatLog} from './client/feedback-ui.mjs';
 const make=(a='arfeli',b='coloso')=>{
@@ -47,6 +47,37 @@ test('polling/replies replay VFX once, reconnect/background baseline skips old a
  p.receive(s(2),{connected:false});p.receive(s(3));assert.equal(played.length,1);
  p.suspend();p.receive(s(4));p.receive(s(5),{visible:false});p.receive(s(6,-10000));assert.equal(played.length,1);
  p.receive(s(7));assert.equal(played.length,2);
+});
+test('offline absorption, shield loss and mark projectile are restored from confirmed core events',()=>{
+ const before=make('coloso');before.units[0].hp=80;
+ before.objects.push({id:'pillar1',number:1,type:'pillar',kind:'object',ownerId:'A1',team:'A',x:5,y:4,hp:15,maxHp:15,alive:true,shield:[],blocksLOS:true,createdByColosoTurn:0});
+ before.nextPillarId=2;
+ const command={unitId:'A1',abilityId:'absorb',targetId:'pillar1'},out=useAbility(before,command),f=confirmedFeedback(out.events,before,out.state,command);
+ assert.deepEqual(f.effects.find(e=>e.type==='transfer'),{type:'transfer',from:{x:5,y:4},to:{x:5,y:5},variant:'stone'});
+ const markedBefore=make('piplus'),marked=markPiplus(markedBefore,{unitId:'A1',targetId:'B1'});
+ const mark=confirmedFeedback(marked.events,markedBefore,marked.state);
+ assert(mark.effects.some(e=>e.type==='projectile'&&e.variant==='tech'));
+ assert(mark.effects.some(e=>e.type==='relation'&&e.kind==='mark'));
+ const shield=confirmedFeedback([{type:'damage.applied',targetId:'B1',hpLost:0,absorbed:6}],before,before);
+ assert(shield.effects.some(e=>e.type==='float'&&e.variant==='shield'&&e.text==='-6'));
+});
+test('impact coordinates follow event order around forced movement instead of the final snapshot',()=>{
+ const before=make(),after=structuredClone(before);after.units[1].x=8;
+ const f=confirmedFeedback([
+  {type:'damage.applied',targetId:'B1',hpLost:10},
+  {type:'unit.moved',unitId:'B1',forced:true,path:[{x:6,y:5},{x:7,y:5},{x:8,y:5}]},
+  {type:'damage.applied',targetId:'B1',hpLost:2,source:'wound.move'}
+ ],before,after);
+ assert.deepEqual(f.effects.filter(e=>e.type==='float').map(e=>e.subject),[{x:6,y:5},{x:8,y:5}]);
+});
+test('ritual and rupture consume their visual relationship; reabsorption transfers every consumed sprout',()=>{
+ for(const [champion,id,kind] of [['houngan','ritual','link'],['piplus','rupture','mark']]){
+  const before=make(champion),f=confirmedFeedback([{type:'ability.used',unitId:'A1',abilityId:id,targetId:'B1'}],before,before);
+  assert(f.effects.some(e=>e.type==='relation'&&e.kind===kind&&e.mode==='use'));
+ }
+ const before=make('onod');before.objects=[{id:'sprout1',x:5,y:4},{id:'sprout2',x:4,y:5}];
+ const f=confirmedFeedback([{type:'ability.used',unitId:'A1',abilityId:'reabsorption'},...before.objects.map(o=>({type:'object.destroyed',objectId:o.id,source:'reabsorption'}))],before,before);
+ assert.equal(f.effects.filter(e=>e.type==='transfer').length,2);
 });
 test('result is player-relative, preserves PV/KO and abandonment; no unsupported rematch',()=>{
  const state={id:'m',phase:'finished',slots:{A1:{id:'A1',team:'A',controllerId:'a',championId:'arfeli'},B1:{id:'B1',team:'B',controllerId:'b',championId:'coloso'}},combat:make(),result:{winnerTeam:'A'},presentation:{log:[{text:'<script>malicioso</script>'}]}};

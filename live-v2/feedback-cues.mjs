@@ -3,6 +3,7 @@ import { collapseCells, korganGrenadeCells, onodEffectCells } from './combat-cor
 const icons={wound:'🩸',poison:'☠️',burn:'🔥',pmPenaltyNext:'🌿',vines:'🌿',paPenaltyNext:'🔨',houganPainTransfer:'🩸',houganDance:'🪆'};
 const labels={wound:'Herida',poison:'Veneno',burn:'Quemadura',pmPenaltyNext:'−PM',vines:'Enredaderas',paPenaltyNext:'−PA',houganPainTransfer:'Dolor 50/50',houganDance:'Danza preparada'};
 const variants={arfeli:'physical',coloso:'stone',piplus:'tech',onod:'nature',korgan:'tech',houngan:'ritual'};
+const physicalAbilities=new Set(['bow','shot','daggers','spear','sword','hammer','hook']);
 const cell=e=>e&&Number.isInteger(e.x)&&Number.isInteger(e.y)?{x:e.x,y:e.y}:null;
 const entities=s=>[...(s?.units??[]),...(s?.objects??[])];
 const find=(s,id)=>entities(s).find(u=>u.id===id);
@@ -10,26 +11,33 @@ const name=e=>e?.name??({pillar:'Pilar',sprout:'Brote',doll:'Muñeco Vudú'})[e?
 export function confirmedFeedback(events,before,after,command={}){
  const effects=[],logs=[],add=(type,data)=>effects.push({type,...data});
  const subject=id=>cell(find(after,id)??find(before,id));
- const action=events.find(e=>e.type==='ability.used'),actor=find(before,action?.unitId)??find(after,action?.unitId),variant=variants[actor?.championId]??'generic';
+ const positions=new Map(entities(before).map(e=>[e.id,cell(e)]));
+ const action=events.find(e=>e.type==='ability.used'),actor=find(before,action?.unitId)??find(after,action?.unitId),variant=physicalAbilities.has(action?.abilityId)?'physical':variants[actor?.championId]??'generic';
  const cancelled=action&&events.some(e=>e.type==='damage.applied'&&e.source==='poison.ability'&&e.targetId===action.unitId&&e.killed);
  if(action&&!cancelled&&!['trap_spikes','trap_mine'].includes(action.abilityId)){
   const skill=catalog[actor?.championId]?.skills.find(s=>s.id===action.abilityId)?.name??action.abilityId;
   logs.push(`✦ ${name(actor)} usa ${skill}.`);if(cell(actor))add('activation',{subject:cell(actor),variant});
   const target=find(before,action.targetId)??find(after,action.targetId);
-  if(['bow','rock','thorn','precise','vector','shot','needle','curse'].includes(action.abilityId)&&cell(target))add('projectile',{from:cell(actor),to:cell(target),variant});
+  if(['bow','rock','thorn','precise','vector','shot','hook','needle','curse'].includes(action.abilityId)&&cell(target))add('projectile',{from:cell(actor),to:cell(target),variant});
   let cells=[];
   if(['vines','spores','awakening'].includes(action.abilityId)&&before)cells=onodEffectCells(before,{...action,position:action.position??command.position});
   if(action.abilityId==='grenade')cells=korganGrenadeCells(action.position??command.position);
   if(action.abilityId==='collapse'&&target&&command.direction)cells=collapseCells(target,command.direction);
   if(cells.length)add('area',{cells:cells.map(cell).filter(Boolean),variant});
-  if(action.abilityId==='transfer'&&cell(target))add('transfer',{from:cell(target),to:cell(actor),variant});
+  if(['transfer','absorb'].includes(action.abilityId)&&cell(target))add('transfer',{from:cell(target),to:cell(actor),variant});
+  if(action.abilityId==='quake'&&cell(target))add('area',{cells:[cell(target)],variant:'stone'});
+  if(action.abilityId==='rupture'&&cell(target))add('relation',{from:cell(actor),to:cell(target),kind:'mark',mode:'use'});
+  if(action.abilityId==='ritual'&&cell(target))add('relation',{from:cell(actor),to:cell(target),kind:'link',mode:'use'});
+  if(action.abilityId==='reabsorption')for(const e of events.filter(e=>e.type==='object.destroyed'&&e.source==='reabsorption')){
+   const sprout=find(before,e.objectId);if(cell(sprout))add('transfer',{from:cell(sprout),to:cell(actor),variant:'nature'});
+  }
  }
  for(const e of events){
-  const id=e.targetId??e.unitId??e.objectId,t=find(after,id)??find(before,id),p=subject(id);
+  const id=e.targetId??e.unitId??e.objectId,t=find(after,id)??find(before,id),p=positions.get(id)??subject(id);
   if(e.type==='damage.applied'){
    if(e.hpLost>0){add('float',{subject:p,text:`-${e.hpLost}`,variant:'damage'});logs.push(`💥 ${name(t)} pierde ${e.hpLost} PV.`);}
    if(e.hpLost>0||e.absorbed>0)add('impact',{subject:p,variant:e.absorbed>0?'shield':variant});
-   if(e.absorbed>0)logs.push(`🛡️ ${name(t)} absorbe ${e.absorbed} de daño con escudo.`);
+   if(e.absorbed>0){add('float',{subject:p,text:`-${e.absorbed}`,variant:'shield'});logs.push(`🛡️ ${name(t)} absorbe ${e.absorbed} de daño con escudo.`);}
    if(e.absorbed>0&&!t?.shield?.some(s=>s.amount>0))add('shieldBreak',{subject:p});
    const state=e.source?.startsWith('burn.')?'burn':e.source==='poison.ability'?'poison':e.source?.startsWith('wound.')?'wound':null;
    if(state)add('statusActivation',{subject:p,icon:icons[state],label:labels[state]});
@@ -40,13 +48,14 @@ export function confirmedFeedback(events,before,after,command={}){
   if(e.type==='status.applied'&&icons[e.status]){add('statusApplied',{subject:p,icon:icons[e.status],label:labels[e.status]});logs.push(`${icons[e.status]} ${name(t)}: ${labels[e.status]}${Number.isInteger(e.value)?' '+e.value:''}.`);}
   if(e.type==='status.expired'&&e.status==='vines')logs.push(`🌿 Enredaderas termina sobre ${name(t)}.`);
   if(e.type==='unit.moved'||e.type==='object.moved'){
+   if(cell(e.path?.at(-1)))positions.set(e.unitId??e.objectId,cell(e.path.at(-1)));
    if(e.forced)add('forced',{subject:cell(e.path?.at(-1)),source:cell(e.path?.[0]),away:true});
    if(e.path?.length>1)logs.push(`➜ ${name(t)} ${e.forced?'se desplaza':'avanza'} ${e.path.length-1} casilla${e.path.length===2?'':'s'}.`);
   }
-  if(e.type==='object.created'){const obj=e.object;add('spawn',{subject:cell(obj),variant:variants[find(after,obj.ownerId)?.championId]??'generic'});logs.push(`✦ Aparece ${name(obj)}.`);}
+  if(e.type==='object.created'){const obj=e.object;positions.set(obj.id,cell(obj));add('spawn',{subject:cell(obj),variant:variants[find(after,obj.ownerId)?.championId]??'generic'});if(obj.type==='doll'&&subject(obj.linkedTargetId))add('relation',{from:cell(obj),to:subject(obj.linkedTargetId),kind:'link',mode:'use'});logs.push(`✦ Aparece ${name(obj)}.`);}
   if(e.type==='object.destroyed'){add('vanish',{subject:p,variant});logs.push(`✦ ${name(t)} desaparece.`);}
   if(e.type==='trap.triggered'){add('trapActivation',{subject:cell(e),trapType:e.trapType});logs.push(`⚠️ ${e.trapType==='spikes'?'Pinchos':'Mina eléctrica'} se activa sobre ${name(t)}.`);}
-  if(e.type==='piplus.marked'){add('relation',{from:subject(e.unitId),to:subject(e.targetId),kind:'mark',mode:'apply'});logs.push(`🎯 ${name(find(after,e.unitId))} marca a ${name(t)}.`);}
+  if(e.type==='piplus.marked'){add('projectile',{from:subject(e.unitId),to:subject(e.targetId),variant:'tech'});add('relation',{from:subject(e.unitId),to:subject(e.targetId),kind:'mark',mode:'apply'});logs.push(`🎯 ${name(find(after,e.unitId))} marca a ${name(t)}.`);}
   if(e.type==='link.changed'&&e.targetId){add('relation',{from:subject(e.unitId),to:subject(e.targetId),kind:'link',mode:'apply'});logs.push(`🪡 ${name(find(after,e.unitId))} vincula a ${name(t)}.`);}
   if(e.type==='hougan.paintransfer.split')add('transfer',{from:subject(e.unitId),to:subject(e.dollId),variant:'ritual'});
   if(e.type==='coloso.action'&&['fusion','exit'].includes(e.action)){add('transform',{subject:subject(e.unitId),variant:'stone'});logs.push(`🗿 ${name(find(after,e.unitId))} ${e.monolith?'entra en Monolito':'sale del Monolito'}.`);}

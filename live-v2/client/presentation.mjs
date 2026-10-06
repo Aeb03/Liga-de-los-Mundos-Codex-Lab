@@ -1,7 +1,7 @@
-import { renderCombatLog } from './feedback-ui.mjs?v=20261006-feedback1';
+import { renderCombatLog } from './feedback-ui.mjs?v=20261006-feedback2';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261005-houganadv1';
 import { spriteSource } from './motion.mjs?v=20261005-skills2';
-import { normalizeHudSettings, hudClass, hudControls, rotateCell, rotateFacing, cameraParallax } from './hud-camera.mjs?v=20261006-feedback1';
+import { normalizeHudSettings, hudClass, hudControls, rotateCell, rotateFacing, cameraParallax } from './hud-camera.mjs?v=20261006-feedback2';
 import { catalog } from './catalog.mjs?v=20261005-houganadv1';
 import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable } from '../combat-core.mjs?v=20261005-vines1';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -91,7 +91,7 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
   const forcedCells=new Set((overlay.forced?.moves??[]).map(move=>key(move.path.at(-1))));
   const validTargets=new Set(overlay.targets);
   const targetCells=new Set([...(state.combat?.units??[]),...(state.combat?.objects??[]),...(state.combat?.traps??[])].filter(u=>validTargets.has(u.id)).map(key));
-  const reachable=canMove&&!abilitySelection?new Set((dollPhase?houganDollMovementAvailable(state.combat,active.id):movementAvailable(state.combat,active.id)).map(key)):new Set();
+  const reachable=canMove&&!finished&&!abilitySelection?new Set((dollPhase?houganDollMovementAvailable(state.combat,active.id):movementAvailable(state.combat,active.id)).map(key)):new Set();
   const route=new Set(preview?.path.map(key)??[]),dest=preview?.path.at(-1);
   const obstacles=new Set(state.combat?.board.obstacles??['5,4','6,4','5,7','6,7']);
   let cells='';for(let y=0;y<12;y++)for(let x=0;x<12;x++){

@@ -1,9 +1,9 @@
-import { renderCombatLog } from './feedback-ui.mjs?v=20261006-2v2a';
-import { abilityOverlay } from './ability-overlay.mjs?v=20261006-2v2a';
+import { renderCombatLog } from './feedback-ui.mjs?v=20261006-four1';
+import { abilityOverlay } from './ability-overlay.mjs?v=20261006-four1';
 import { spriteSource } from './motion.mjs?v=20261005-skills2';
-import { normalizeHudSettings, hudClass, hudControls, rotateCell, rotateFacing, cameraParallax } from './hud-camera.mjs?v=20261006-2v2a';
+import { normalizeHudSettings, hudClass, hudControls, rotateCell, rotateFacing, cameraParallax } from './hud-camera.mjs?v=20261006-four1';
 import { catalog } from './catalog.mjs?v=20261005-houganadv1';
-import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable } from '../combat-core.mjs?v=20261006-2v2a';
+import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable } from '../combat-core.mjs?v=20261006-four1';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=p=>`${p.x},${p.y}`;
 export const boardPoint=(x,y,rotation=0)=>{const v=rotateCell(x,y,rotation);return {x:260+(v.x-v.y)*20,y:30+(v.x+v.y)*10};};

@@ -10,9 +10,9 @@ export class SupabaseRepository {
     return data;
   }
   createRoom(actorId, room) {
-    const mode=room?.mode??'1v1';
-    if(!['1v1','2v2'].includes(mode))throw new ProtocolError('UNSUPPORTED_FORMAT','Formato inválido');
-    return this.rpc(mode==='2v2'?'live_v2_create_team_room':'live_v2_create_room', {
+    const mode=room?.mode??'1v1',players=room?.players??2;
+    if(!['1v1','2v2'].includes(mode)||![2,4].includes(players)||(players===4&&mode!=='2v2'))throw new ProtocolError('UNSUPPORTED_FORMAT','Formato inválido');
+    return this.rpc(players===4?'live_v2_create_four_player_room':mode==='2v2'?'live_v2_create_team_room':'live_v2_create_room', {
       p_actor: actorId,
       p_match: room.id,
     });

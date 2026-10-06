@@ -271,3 +271,5 @@
 }
 
 .team-slot-chooser{display:flex;align-items:center;gap:8px;font-size:12px;margin:8px 0}.in-arena .team-slot-chooser{position:absolute;top:84px;left:50%;transform:translateX(-50%);z-index:5;background:#15262bee;border:1px solid #61787c;border-radius:9px;padding:3px 8px;margin:0}.in-arena .team-slot-chooser select{padding:5px;font-size:12px;min-height:30px}.teams .unit-card p{margin-bottom:0}
+
+.invite-row{display:flex;gap:6px;align-items:center;margin:6px 0}.invite-row button{font-size:11px;flex-shrink:0}.invite-row input{min-width:0}.welcome [data-action="joinSlot"]{margin:6px}

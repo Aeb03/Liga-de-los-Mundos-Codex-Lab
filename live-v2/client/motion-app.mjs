@@ -1,19 +1,19 @@
-import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261006-2v2a';
-import { createVfxPlayer } from './vfx.mjs?v=20261006-2v2a';
-import { renderResult } from './feedback-ui.mjs?v=20261006-2v2a';
+import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261006-four1';
+import { createVfxPlayer } from './vfx.mjs?v=20261006-four1';
+import { renderResult } from './feedback-ui.mjs?v=20261006-four1';
 import { ConfirmedAudioPlayback } from '../audio-cues.mjs?v=20261005-audio1';
 import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261005-skills2';
-import { renderArena } from './presentation.mjs?v=20261006-2v2a';
-import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261006-2v2a';
+import { renderArena } from './presentation.mjs?v=20261006-four1';
+import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261006-four1';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261005-vines1';
-import { abilityOverlay } from './ability-overlay.mjs?v=20261006-2v2a';
+import { abilityOverlay } from './ability-overlay.mjs?v=20261006-four1';
 import { createAoEState, bindAoEGesture, sameCell } from './aoe-preview.mjs?v=20261005-aoe1';
 import { catalog } from './catalog.mjs?v=20261005-houganadv1';
 import { LiveSession, newId } from './session.mjs?v=20261004-lab2';
-import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261006-2v2a';
+import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261006-four1';
 
 const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
@@ -23,6 +23,7 @@ let notifyTimer;function notify(message){notice.textContent=errors[message]??mes
 let deadlineExpired=false,abilitySelection=null,inspectedId=null,lastInspectionFocus='';
 let skillHoldCleanup=()=>{},aoeCleanup=()=>{};
 let hudSettings=loadHudSettings(localStorage),camera={x:0,y:0,rotation:0,zoom:1},cameraMatchId=null;
+let pendingInvite=null;
 let actor=null,joining=false,draft=null,slotId=null,lastRendered='',reloading=false;
 async function ensureAuth(){
   let {data:{session},error}=await client.auth.getSession();if(error)throw error;
@@ -46,24 +47,26 @@ const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
 const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.order[game.state.combat.turnIndex]);
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
 function remaining(){const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
-function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261006-2v2a');url.searchParams.set('match',game.state.id);return url.href;}
+function link(inviteSlot=null){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261006-four1');url.searchParams.set('match',game.state.id);if(game.state.players===4){url.searchParams.set('players','4');if(inviteSlot)url.searchParams.set('slot',inviteSlot);}return url.href;}
 function roomId(value){
   let id=value.trim();try{const url=new URL(id);id=url.searchParams.get('match')??'';}catch{}
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('Pegá el enlace o el identificador completo de la sala.');return id.toLowerCase();
 }
-async function enter(id,create=false,mode='1v1'){
+async function enter(id,create=false,mode='1v1',players=2,inviteSlot='B1'){
   if(joining)return;joining=true;render(true);
   try{
     await ensureAuth();let state;
-    if(create)state=(await api('create',{room:{id,mode}})).data;
+    if(create)state=(await api('create',{room:{id,mode,players}})).data;
     else{
       try{state=(await api('snapshot',{matchId:id})).data;}
-      catch(error){if(error.message!=='FORBIDDEN')throw error;state=(await api('join',{matchId:id,slotId:'B1'})).data;}
+      catch(error){if(error.message!=='FORBIDDEN')throw error;if(players===4&&!inviteSlot){pendingInvite={id};return;}state=(await api('join',{matchId:id,slotId:inviteSlot??'B1'})).data;}
     }
     const url=new URL(location.href);url.searchParams.set('match',id);history.replaceState(null,'',url);
-    await game.attach(actor,state);notify(create?'Sala creada. Compartí el enlace con el otro celular.':'Conectado a la sala.');
+    pendingInvite=null;await game.attach(actor,state);notify(create?'Sala creada. Compartí el enlace con el otro celular.':'Conectado a la sala.');
   }catch(error){notify(error.message);}finally{joining=false;render(true);}
 }
+function joinInvitation(value){const id=roomId(value);let players=2,slot='B1';try{const url=new URL(value);if(url.searchParams.get('players')==='4'){players=4;slot=url.searchParams.get('slot');}}catch{}return enter(id,false,'2v2',players,slot);}
+function invitePanel(){return game.state.players===4?`<p>Cuatro celulares: compartí el enlace general para elegir puesto o los enlaces individuales.</p>${['A2','B1','B2'].map(id=>`<div class="invite-row"><button data-action="copyInvite" data-slot="${id}">Copiar ${id} · ${id[0]==='A'?'azul':'rojo'}</button><input class="link-field" value="${escape(link(id))}" readonly aria-label="Invitación ${id}"></div>`).join('')}`:'';}
 function teams(){return `<div class="teams">${Object.values(game.state.slots).map(s=>{
   const u=game.state.combat?.units.find(u=>u.id===s.id),mine=s.controllerId===actor;
   return `<article class="unit-card ${mine?'':'enemy'} ${activeUnit()?.id===s.id?'active':''}"><div class="row">${s.championId?`<img src="../assets/champions/${s.championId}/${s.championId}-avatar.png" alt="">`:''}<strong>${escape(catalog[s.championId]?.name??'Sin selección')}</strong><span class="tag">${escape(s.id)} · ${mine?'Tu control':'Rival'}</span></div><p>${u?`${u.hp} PV · ${u.pa} PA · ${u.pm} PM`:game.state.phase==='preparation'&&!s.controllerId?'Esperando otro celular':game.state.phase==='preparation'?(s.ready?'Listo':'Preparando'):(s.confirmed?'Posición confirmada':'Desplegando')}</p></article>`;
@@ -79,7 +82,7 @@ function preparation(){
   setupDraft();const s=ownSlot(),locked=Boolean(s?.ready);
   return `<div class="grid"><section class="panel"><h2>Elegí tu campeón${ownSlots().length>1?` · ${slotId}`:''}</h2>${slotChooser()}<div class="selection">${Object.entries(catalog).map(([id,c])=>{
     const d=championDefinitions()[id];return `<button class="champion ${draft.champion===id?'chosen':''}" data-champion="${id}" ${locked||blocked()?'disabled':''}><img src="../assets/champions/${id}/${id}-avatar.png" alt=""><span>${c.name}<small>${d.hp} PV · ${d.pm} PM · Ini ${d.initiative}</small></span></button>`;
-  }).join('')}</div><p>Elegí cuatro habilidades para la partida. Hougan tiene sus seis habilidades del offline habilitadas, incluido Transferencia de Dolor y Danza Vudú.</p><div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando todos los campeones estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala"></aside></div>`;
+  }).join('')}</div><p>Elegí cuatro de las seis habilidades.</p>${draft.champion==='houngan'?`<div class="row"><button data-action="houganSupport" ${locked||blocked()?'disabled':''}>Soporte · Vínculo aliado</button><button data-action="houganOffense" ${locked||blocked()?'disabled':''}>Ofensivo · Vínculo enemigo</button></div><p class="phase-text">Soporte: Aguja cura al compañero; Muñeco aliado convierte la mitad del daño recibido en curación. Transferencia de Dolor protege a Hougan y Danza Vudú reposiciona al Vinculado.</p>`:''}<div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando todos los campeones estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala">${invitePanel()}</aside></div>`;
 }
 const key=p=>`${p.x},${p.y}`;
 function blocked(){return joining||game.busy||!game.online||Boolean(game.sync.pendingCommand());}
@@ -193,7 +196,8 @@ function render(force=false){
   document.querySelector('h1 small').textContent=game.state?.mode??(Object.keys(game.state?.slots??{}).length===4?'2v2':'1v1 / 2v2');
   const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings,resultPending]);
   if(!force&&signature===lastRendered){remaining();return;}lastRendered=signature;
-  if(!game.state){app.innerHTML=`<section class="panel welcome"><span class="tag">Prueba LIVE v2 · 1v1 / 2v2</span><h2>Dos celulares, una partida</h2><p>Creá una sala y compartí su enlace. En 1v1 cada celular controla un campeón; en 2v2 controla dos.</p><label>Formato <select id="room-mode"><option value="1v1">1v1 · un campeón por jugador</option><option value="2v2">2v2 · dos campeones por jugador</option></select></label><button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><form class="join-form" id="join"><input type="text" id="room" placeholder="Pegá el enlace o identificador de sala" aria-label="Enlace de sala"><button ${joining?'disabled':''}>Unirme</button></form><p class="phase-text">Se conserva tu sesión en este navegador para reconectar.</p></section>`;return;}
+  if(pendingInvite){app.innerHTML=`<section class="panel welcome"><h2>Elegí tu puesto en el 2v2</h2><p>Cada celular controla un campeón. A1 pertenece al creador.</p>${['A2','B1','B2'].map(id=>`<button data-action="joinSlot" data-slot="${id}" ${joining?'disabled':''}>${id} · Equipo ${id[0]==='A'?'azul':'rojo'}</button>`).join('')}<p>Si el puesto está ocupado, elegí otro.</p></section>`;return;}
+  if(!game.state){app.innerHTML=`<section class="panel welcome"><span class="tag">Prueba LIVE v2 · 1v1 / 2v2</span><h2>Dos celulares, una partida</h2><p>Creá una sala y compartí su enlace. Elegí 1v1 o 2v2. El 2v2 admite dos celulares con dos campeones cada uno, o cuatro celulares con un campeón cada uno.</p><label>Formato <select id="room-mode"><option value="1v1">1v1 · un campeón por jugador</option><option value="2v2">2v2 · 2 celulares, dos campeones por jugador</option><option value="2v2-four">2v2 · 4 celulares, un campeón por jugador</option></select></label><button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><form class="join-form" id="join"><input type="text" id="room" placeholder="Pegá el enlace o identificador de sala" aria-label="Enlace de sala"><button ${joining?'disabled':''}>Unirme</button></form><p class="phase-text">Se conserva tu sesión en este navegador para reconectar.</p></section>`;return;}
   skillHoldCleanup();skillHoldCleanup=()=>{};aoeCleanup();aoeCleanup=()=>{};
   app.innerHTML=roomBar()+(game.state.phase==='preparation'?preparation():showResult?renderResult(game.state,actor,{logCollapsed:hudSettings.log.collapsed}):arena());
   motion.paint(app);
@@ -336,7 +340,7 @@ async function tapCell(x,y){
     const preview=previewPath(game.state.combat,unit.id,path);if(preview.lethal){notify('LETHAL_TACKLE');game.preview=null;render(true);return;}game.preview={...preview,path};render(true);
   }catch(error){game.preview=null;notify(errors[error.code]??'Esa casilla no está disponible.');render(true);}
 }
-app.addEventListener('submit',event=>{if(event.target.id==='join'){event.preventDefault();try{enter(roomId(document.querySelector('#room').value));}catch(error){notify(error.message);}}});
+app.addEventListener('submit',event=>{if(event.target.id==='join'){event.preventDefault();try{joinInvitation(document.querySelector('#room').value);}catch(error){notify(error.message);}}});
 app.addEventListener('change',event=>{
   if(event.target.id==='slot'){slotId=event.target.value;draft=null;game.preview=null;render(true);}
   if(event.target.dataset.skill){const id=event.target.dataset.skill;draft.skills=event.target.checked?[...draft.skills,id]:draft.skills.filter(s=>s!==id);draft.dirty=true;render(true);}
@@ -369,7 +373,10 @@ app.addEventListener('click',async event=>{
       camera={x:0,y:0,rotation:normalizeRotation(camera.rotation+step),zoom:camera.zoom??1};render(true);
       requestAnimationFrame(()=>centerCameraOn(app.querySelector('.live-battle'),camera,focus));break;
     }
-    case 'create':await enter(newId(),true,document.querySelector('#room-mode')?.value??'1v1');break;
+    case 'create':{const format=document.querySelector('#room-mode')?.value??'1v1';await enter(newId(),true,format==='2v2-four'?'2v2':format,format==='2v2-four'?4:2);break;}
+    case 'joinSlot':if(pendingInvite)await enter(pendingInvite.id,false,'2v2',4,target.dataset.slot);break;
+    case 'copyInvite':try{await navigator.clipboard.writeText(link(target.dataset.slot));notify('Invitación copiada.');}catch{notify('Copiá el enlace individual de ese puesto.');}break;
+    case 'houganSupport':case 'houganOffense':if(draft?.champion==='houngan'&&!ownSlot()?.ready&&!blocked()){draft.skills=target.dataset.action==='houganSupport'?['needle','transfer','paintransfer','dance']:['needle','transfer','ritual','curse'];draft.dirty=true;render(true);}break;
     case 'copy':try{await navigator.clipboard.writeText(link());notify('Enlace copiado.');}catch{notify('Copiá el enlace que aparece en la sala.');}break;
     case 'ready':{
       const own=ownSlot();if(own.ready){await send('setReady',{slotId:own.id,ready:false});break;}
@@ -401,4 +408,4 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){feedbackPl
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);
 render(true);
 const invited=new URL(location.href).searchParams.get('match')??localStorage.getItem('live-v2-lab2-match');
-if(invited){try{await enter(roomId(invited));}catch(error){notify(error.message);}}
+if(invited){try{await joinInvitation(location.search.includes('match=')?location.href:invited);}catch(error){notify(error.message);}}

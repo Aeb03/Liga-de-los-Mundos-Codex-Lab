@@ -63,6 +63,7 @@ export function createMatch({ id, creatorId, slots, createdAt }) {
     id,
     creatorId,
     mode: slots.length===4?"2v2":"1v1",
+    players: new Set(slots.map(s=>s.controllerId)).size>2?4:2,
     phase: "preparation",
     version: 0,
     turnSerial: 0,
@@ -148,7 +149,8 @@ export class AuthoritativeService {
           if (m.phase === "finished") err("MATCH_FINISHED", "La partida ya terminó");
           const ownedSlots=Object.values(m.slots).filter(s=>s.controllerId===identity);
           if(!ownedSlots.length)err("FORBIDDEN","No pertenece a la partida");
-          const otherSlots=Object.values(m.slots).filter(s=>s.controllerId!==identity);
+          const forfeitingTeams=new Set(ownedSlots.map(s=>s.team));
+          const otherSlots=Object.values(m.slots).filter(s=>!forfeitingTeams.has(s.team));
           const remainingTeams=[...new Set(otherSlots.map(s=>s.team))];
           const winnerTeam=m.phase==="combat"&&remainingTeams.length===1?remainingTeams[0]:null;
           m.phase="finished";

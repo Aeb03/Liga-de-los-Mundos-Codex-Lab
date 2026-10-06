@@ -1,6 +1,6 @@
 # Paridad Offline → LIVE v2: VFX, Registro y resultado
 
-Build: `20261006-feedback2`. Base: checkpoint de audio validado en celular por Adrián.
+Build: `20261006-feedback3`. Base: checkpoint de audio validado en celular por Adrián.
 
 ## Implementación
 

@@ -1,10 +1,10 @@
-<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVE v2 — Prueba visual de feedback</title><link rel="stylesheet" href="client/ui.css"><link rel="stylesheet" href="client/presentation.css?v=20261005-aoe1"><link rel="stylesheet" href="client/feedback-ui.css?v=20261006-feedback2"><link rel="stylesheet" href="client/vfx.css?v=20261006-feedback2"><style>.qa-tools{position:fixed;z-index:200;top:8px;right:8px;display:flex;flex-wrap:wrap;gap:4px;max-width:72vw;background:#0a162a;padding:5px;border-radius:8px}.qa-tools button{padding:5px;font-size:11px}.qa-label{font-size:10px;align-self:center}body.in-arena .room-bar{display:none}</style><body class="in-arena"><div class="qa-tools"><span class="qa-label">Prueba visual local · sin sala</span><button id="damage">Daño y escudo</button><button id="area">Área de Onod</button><button id="win">Victoria</button><button id="lose">Derrota</button><button id="arena">Arena</button></div><main id="app"></main><script type="module">
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVE v2 — Prueba visual de feedback</title><link rel="stylesheet" href="client/ui.css"><link rel="stylesheet" href="client/presentation.css?v=20261005-aoe1"><link rel="stylesheet" href="client/feedback-ui.css?v=20261006-feedback3"><link rel="stylesheet" href="client/vfx.css?v=20261006-feedback3"><style>.qa-tools{position:fixed;z-index:200;top:8px;right:8px;display:flex;flex-wrap:wrap;gap:4px;max-width:72vw;background:#0a162a;padding:5px;border-radius:8px}.qa-tools button{padding:5px;font-size:11px}.qa-label{font-size:10px;align-self:center}body.in-arena .room-bar{display:none}</style><body class="in-arena"><div class="qa-tools"><span class="qa-label">Prueba visual local · sin sala</span><button id="damage">Daño y escudo</button><button id="area">Área de Onod</button><button id="win">Victoria</button><button id="lose">Derrota</button><button id="arena">Arena</button></div><main id="app"></main><script type="module">
 import {createUnit,initializeCombat,useAbility,applyDamage} from './combat-core.mjs?v=20261005-vines1';
-import {confirmedFeedback} from './feedback-cues.mjs?v=20261006-feedback2';
-import {renderArena} from './client/presentation.mjs?v=20261006-feedback2';
-import {renderResult} from './client/feedback-ui.mjs?v=20261006-feedback2';
-import {createVfxPlayer} from './client/vfx.mjs?v=20261006-feedback2';
-import {loadHudSettings,bindDraggableHud,saveHudSetting,applyCameraDom,bindBattleCamera} from './client/hud-camera.mjs?v=20261006-feedback2';
+import {confirmedFeedback} from './feedback-cues.mjs?v=20261006-feedback3';
+import {renderArena} from './client/presentation.mjs?v=20261006-feedback3';
+import {renderResult} from './client/feedback-ui.mjs?v=20261006-feedback3';
+import {createVfxPlayer} from './client/vfx.mjs?v=20261006-feedback3';
+import {loadHudSettings,bindDraggableHud,saveHudSetting,applyCameraDom,bindBattleCamera} from './client/hud-camera.mjs?v=20261006-feedback3';
 const app=document.querySelector('#app'),vfx=createVfxPlayer();let hud=loadHudSettings(localStorage),state,camera={rotation:0,x:0,y:0,zoom:1};
 hud.log.collapsed=false;
 function reset(champion='arfeli'){

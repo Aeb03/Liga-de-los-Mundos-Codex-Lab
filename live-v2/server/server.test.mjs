@@ -507,7 +507,7 @@ test('Onod authority: Brotes, selection, ownership, stale turn, deadline and ide
 test('Onod Enredaderas authority accepts exact ground center, rejects blocked input without mutation, synchronizes once',async()=>{
  let {x,out}=await readyOnodPiplus();
  const ground=cmd('vines-ground','ability',out.version,{slotId:'B1',expectedTurn:out.turn,abilityId:'vines',position:{x:5,y:5}});
- out=await x.svc.command('u2',ground);assert.equal(out.state.combat.units[0].hp,86);assert.equal(out.state.combat.units[0].status.pmPenaltyNext,1);assert.equal(out.state.combat.units[1].pa,3);
+ out=await x.svc.command('u2',ground);assert.equal(out.state.combat.units[0].hp,86);assert.equal(out.state.combat.units[0].status.vinesSourceId,'B1');assert.equal(out.state.combat.units[1].pa,3);
  assert.deepEqual(await x.svc.command('u2',ground),out);assert.deepEqual((await x.svc.snapshot('u1','m')).combat,out.state.combat);
  const before=await x.svc.snapshot('u2','m');await assert.rejects(()=>x.svc.command('u2',{...ground,id:'invalid-vines',expectedVersion:out.version,position:{x:0,y:0}}),e=>e.code==='INVALID_TARGET');assert.deepEqual(await x.svc.snapshot('u2','m'),before);
  out=await x.svc.command('u2',cmd('vines-end','endTurn',out.version,{slotId:'B1',expectedTurn:out.turn}));assert.equal(out.state.combat.units[0].pm,2);

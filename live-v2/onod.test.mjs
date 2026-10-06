@@ -34,7 +34,7 @@ test('Espina 6 daño y Veneno 1: escudo, límite, objetos enemigos, muertos y re
  s=make();s.board.obstacles=['6,5'];atomic(s,()=>cast(s,'thorn'),'INVALID_TARGET');
 });
 test('Enredaderas: centro vacío o propio, cruz 6/4, penalización máxima, bordes y no fuego amigo',()=>{
- let s=make('piplus',{x:7,y:5}),r=cast(s,'vines',null,{x:7,y:5});assert.equal(r.state.units[1].hp,84);assert.equal(r.state.units[1].status.pmPenaltyNext,1);
+ let s=make('piplus',{x:7,y:5}),r=cast(s,'vines',null,{x:7,y:5});assert.equal(r.state.units[1].hp,84);assert.equal(r.state.units[1].status.vinesSourceId,'o');
  r=cast(s,'vines',null,{x:6,y:5});assert.equal(r.state.units[1].hp,86);assert.equal(r.state.units[0].hp,95);
  s.units[1].status.pmPenaltyNext=3;r=cast(s,'vines',null,{x:6,y:5});assert.equal(r.state.units[1].status.pmPenaltyNext,3);
  assert.equal(onodEffectCells(s,{unitId:'o',abilityId:'vines',position:{x:0,y:0}}).length,3);
@@ -111,4 +111,21 @@ test('Preview de Onod es puro: cruz, daño, acumulación, curación, HUD y Brote
  s.units[0].hp=80;const preview=previewAbility(s,{unitId:'o',abilityId:'sap',targetId:'o'});assert.equal(preview.healing[0].amount,12);
  const slots={o:{...s.units[0],skills:['thorn','vines','sap','spores']},e:{...s.units[1],skills:['precise','vector','impulse','fixation']}};
  const html=renderArena({state:{phase:'combat',slots,combat:s},actor:'a',slotId:'o',canMove:true,blocked:false,remaining:24,abilitySelection:{abilityId:'vines',position:{x:6,y:5}}});assert(html.includes('brote-onod.png'));assert(html.includes('Brote 1: 12/12 PV'));assert(html.includes('Germinar'));assert(!html.includes('NaN'));assert(html.includes('centro 6 daño'));
+});
+
+test('Enredaderas persiste al inicio rival y vence al inicio de Onod, con snapshot',()=>{
+ let s=cast(make('piplus',{x:7,y:5}),'vines',null,{x:7,y:5}).state;
+ assert.equal(s.units[1].pm,2);
+ s=endTurn(restoreState(serializeState(s)),{unitId:'o'}).state;
+ assert.equal(s.units[1].pm,2);assert.equal(s.units[1].status.vinesSourceId,'o');
+ assert(renderArena({state:{phase:'combat',slots:{},combat:s},actor:'b',slotId:'e',canMove:true,blocked:false,remaining:24}).includes('hasta el próximo turno de Onod'));
+ s=endTurn(s,{unitId:'e'}).state;assert.equal(s.units[1].status.vinesSourceId,undefined);
+ s=endTurn(s,{unitId:'o'}).state;assert.equal(s.units[1].pm,3);
+});
+
+test('Enredaderas repetida no acumula reducción de PM y convive con penalización mayor',()=>{
+ let s=make('piplus',{x:7,y:5});s.units[1].status.pmPenaltyNext=3;
+ s=cast(s,'vines',null,{x:7,y:5}).state;s=cast(s,'vines',null,{x:7,y:5}).state;
+ assert.equal(s.units[1].pm,2);s=endTurn(s,{unitId:'o'}).state;
+ assert.equal(s.units[1].pm,0);assert.equal(s.units[1].status.vinesSourceId,'o');
 });

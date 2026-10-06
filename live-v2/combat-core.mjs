@@ -107,6 +107,7 @@ function validateSupportedState(state) {
     ids.add(unit.id); positions.add(key(unit)); teams.add(unit.team); teamSlots.add(teamSlot);
   }
   for(const unit of state.units){
+    if(unit.status.vinesSourceId!=null&&!state.units.some(t=>t.id===unit.status.vinesSourceId&&t.championId==='onod'&&t.team!==unit.team))fail('INVALID_STATUS','Origen de Enredaderas inválido');
     if(unit.markedTargetId!=null&&!state.units.some(t=>t.id===unit.markedTargetId&&t.team!==unit.team&&unit.championId==='piplus'))fail('INVALID_CHAMPION_STATE','Marca inválida');
     if(unit.linkedTargetId!=null&&(!state.units.some(t=>t.id===unit.linkedTargetId&&t.id!==unit.id)||unit.championId!=='houngan'))fail('INVALID_CHAMPION_STATE','Vínculo Vudú inválido');
     for(const field of ['houganPainTransfer','houganDance']){
@@ -357,7 +358,13 @@ function expireSourceShields(state, sourceId, events) {
 function beginTurn(state) {
   const next = clone(state), events = [], unit = activeUnit(next);
   expireSourceShields(next, unit.id, events);
-  const paPenalty = Math.max(0, unit.status.paPenaltyNext || 0), pmPenalty = Math.max(0, unit.status.pmPenaltyNext || 0);
+  for (const target of next.units) {
+    if (target.status.vinesSourceId === unit.id) {
+      delete target.status.vinesSourceId;
+      events.push({type:'status.expired',targetId:target.id,status:'vines',sourceId:unit.id});
+    }
+  }
+  const paPenalty = Math.max(0, unit.status.paPenaltyNext || 0), pmPenalty = Math.max(0, unit.status.pmPenaltyNext || 0, unit.status.vinesSourceId ? 1 : 0);
   unit.pa = Math.max(0, unit.maxPa - paPenalty); unit.status.paPenaltyNext = 0;
   unit.pm = unit.monolith ? 0 : Math.max(0, unit.maxPm - pmPenalty); unit.status.pmPenaltyNext = 0;
   if (unit.monolith) unit.monolithStoredPm = unit.maxPm;
@@ -1139,7 +1146,7 @@ function useOnodAbility(state,unit,id,targetId,position){
     const t=entities(next).find(t=>t.alive&&t.team!==u.team&&key(t)===key(cell));if(!t)continue;
     damage(t,id==='vines'?(cell.zone==='center'?6:4):id==='awakening'?8*cell.hits:8,`ability.${id}`);
     if(id==='spores')poison(t);
-    if(id==='vines'&&t.alive&&t.kind==='champion'){t.status.pmPenaltyNext=Math.max(t.status.pmPenaltyNext,1);events.push({type:'status.applied',targetId:t.id,status:'pmPenaltyNext',value:t.status.pmPenaltyNext});}
+    if(id==='vines'&&t.alive&&t.kind==='champion'){if(!t.status.vinesSourceId)t.pm=Math.max(0,t.pm-1);t.status.vinesSourceId=u.id;events.push({type:'status.applied',targetId:t.id,status:'vines',value:1,sourceId:u.id});}
   }
   if(id==='reabsorption'){const eligible=absorbableSprouts(next,u);for(const s of eligible)consumePillar(s,events,id);u.pa+=eligible.length;u.onodGerminateBlockedThisTurn=true;u.onodReabsorptionUsedThisTurn=true;events.push({type:'resource.gained',unitId:u.id,resource:'pa',amount:eligible.length});}
   finishIfNeeded(next,events);return {state:next,events};

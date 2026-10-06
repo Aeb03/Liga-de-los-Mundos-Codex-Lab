@@ -25,7 +25,7 @@ export const OFFLINE_SKILL_TEXT=Object.freeze({
   rupture:'Sólo contra el enemigo Marcado. Inflige 14 de daño y consume la Marca. Después de usarla, Marcar Objetivo queda bloqueado durante el resto del turno. Requiere línea de visión salvo que Fijación de Objetivo esté activa.',
   fixation:'Sólo contra el enemigo Marcado. La próxima habilidad ofensiva usada contra ese objetivo durante este turno ignora la línea de visión y luego consume la Fijación. La Marca permanece. Si no se usa, Fijación expira al terminar el turno.',
   thorn:'6 de daño + Veneno 1. Alcance 4. Requiere línea de visión. Máximo 2 usos por turno.',
-  vines:'Elegí una casilla a alcance 3. Área en cruz de 5 casillas: centro 6 de daño y las 4 cardinales 4 de daño. Los combatientes enemigos alcanzados pierden 1 PM en su próximo turno. Requiere línea de visión hacia la casilla central.',
+  vines:'Elegí una casilla a alcance 3. Área en cruz de 5 casillas: centro 6 de daño y las 4 cardinales 4 de daño. Los combatientes enemigos alcanzados pierden 1 PM hasta el inicio del próximo turno de Onod. Requiere línea de visión hacia la casilla central.',
   sap:'Cura 8 PV a Onod o a un aliado a alcance 3. Cura 12 si el objetivo está ortogonalmente adyacente a un Brote propio. Máximo 2 usos por turno. Requiere línea de visión.',
   spores:'Elegí cualquier Brote propio activo, sin límite de distancia desde Onod. El Brote no se consume. Los 8 espacios que lo rodean se previsualizan; cada enemigo dentro recibe 8 de daño y Veneno 1.',
   awakening:'Activa simultáneamente TODOS los Brotes propios sin consumirlos. Cada Brote inflige 8 de daño a enemigos ortogonalmente adyacentes. El daño se acumula: un enemigo alcanzado por 2 Brotes recibe 16; por 3, recibe 24.',

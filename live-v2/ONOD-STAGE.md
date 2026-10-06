@@ -7,7 +7,7 @@ Portación de `onod-rework-0629.js` del commit base `0b4983953a37fca0a60867f1007
 | Germinar | 1 PA | Casilla libre, alcance Manhattan 3 con LOS. Brote de 12 PV, máximo 2 creaciones por turno y 3 activos. Los Brotes ocupan casilla pero no bloquean LOS. No dispara Veneno. |
 | Marchitar | 0 PA | Retira un Brote propio sin beneficio ni límite de distancia, una vez por turno. No dispara Veneno. |
 | Espina Venenosa | 2 PA | Alcance 4 con LOS, 6 daño y Veneno 1 a combatiente superviviente; máximo 2 usos. También daña objetos enemigos sin aplicarles estados. |
-| Enredaderas | 3 PA | Centro elegido a alcance 3 con LOS, incluso vacío o propio. Cruz: centro 6, cardinales 4. Combatientes enemigos supervivientes reciben −1 PM en su próximo turno, sin acumular una penalización inferior sobre otra mayor. |
+| Enredaderas | 3 PA | Centro elegido a alcance 3 con LOS, incluso vacío o propio. Cruz: centro 6, cardinales 4. Combatientes enemigos supervivientes reciben −1 PM hasta el inicio del próximo turno de Onod, sin acumular una penalización inferior sobre otra mayor. |
 | Savia Vital | 3 PA | Cura a Onod o aliado a alcance 3 con LOS: 8 PV, 12 junto a un Brote propio ortogonal; máximo 2 usos. |
 | Esporas Tóxicas | 4 PA | Cualquier Brote propio activo, sin distancia ni LOS. No lo consume. En las ocho casillas que lo rodean, enemigos reciben 8 daño y combatientes supervivientes Veneno 1. |
 | Despertar del Bosque | 4 PA | Se confirma sobre Onod. Cada Brote propio inflige 8 daño a enemigos ortogonalmente adyacentes; acumula 16/24 cuando coinciden 2/3 Brotes. No consume Brotes. |

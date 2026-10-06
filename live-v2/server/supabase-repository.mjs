@@ -10,7 +10,9 @@ export class SupabaseRepository {
     return data;
   }
   createRoom(actorId, room) {
-    return this.rpc("live_v2_create_room", {
+    const mode=room?.mode??'1v1';
+    if(!['1v1','2v2'].includes(mode))throw new ProtocolError('UNSUPPORTED_FORMAT','Formato inválido');
+    return this.rpc(mode==='2v2'?'live_v2_create_team_room':'live_v2_create_room', {
       p_actor: actorId,
       p_match: room.id,
     });

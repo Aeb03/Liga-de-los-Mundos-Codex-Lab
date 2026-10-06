@@ -1,9 +1,9 @@
-import { renderCombatLog } from './feedback-ui.mjs?v=20261006-feedback3';
-import { abilityOverlay } from './ability-overlay.mjs?v=20261005-houganadv1';
+import { renderCombatLog } from './feedback-ui.mjs?v=20261006-2v2a';
+import { abilityOverlay } from './ability-overlay.mjs?v=20261006-2v2a';
 import { spriteSource } from './motion.mjs?v=20261005-skills2';
-import { normalizeHudSettings, hudClass, hudControls, rotateCell, rotateFacing, cameraParallax } from './hud-camera.mjs?v=20261006-feedback3';
+import { normalizeHudSettings, hudClass, hudControls, rotateCell, rotateFacing, cameraParallax } from './hud-camera.mjs?v=20261006-2v2a';
 import { catalog } from './catalog.mjs?v=20261005-houganadv1';
-import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable } from '../combat-core.mjs?v=20261005-vines1';
+import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable } from '../combat-core.mjs?v=20261006-2v2a';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=p=>`${p.x},${p.y}`;
 export const boardPoint=(x,y,rotation=0)=>{const v=rotateCell(x,y,rotation);return {x:260+(v.x-v.y)*20,y:30+(v.x+v.y)*10};};
@@ -146,7 +146,7 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
     finished?`Ganó el equipo ${escape(state.result?.winnerTeam??'—')}.`:active?.controllerId===actor?'Tu turno: tocá una casilla para ver el recorrido.':'Esperando el turno rival.'));
   const allConfirmed=Object.values(state.slots).every(s=>s.confirmed);
   const dollControls=`<div class="move-action" data-action="dollMoveMode" role="button" tabindex="0" aria-label="Movimiento del Muñeco">🪆 MOVER MUÑECO · ${dollPhase?.pm??0}/3 PM</div><button class="live-action end-action" data-action="dollEnd" ${blocked||!canMove?'disabled':''}>Finalizar movimiento</button>`;
-  const controls=dollPhase?dollControls:deployment?`<button class="live-action" data-action="confirmPosition" ${blocked||!own?.position||own.confirmed?'disabled':''}>${own?.confirmed?'Confirmado':'Confirmar posición'}</button>${state.creatorId===actor?`<button class="live-action end-action" data-action="start" ${blocked||!allConfirmed?'disabled':''}>Iniciar combate</button>`:'<span>El creador iniciará cuando ambos confirmen.</span>'}`:
+  const controls=dollPhase?dollControls:deployment?`<button class="live-action" data-action="confirmPosition" ${blocked||!own?.position||own.confirmed?'disabled':''}>${own?.confirmed?'Confirmado':'Confirmar posición'}</button>${state.creatorId===actor?`<button class="live-action end-action" data-action="start" ${blocked||!allConfirmed?'disabled':''}>Iniciar combate</button>`:'<span>El creador iniciará cuando todos confirmen.</span>'}`:
     finished?'<span>Combate finalizado</span>':`<div class="move-action" data-action="moveMode" role="button" tabindex="0" aria-label="Movimiento">MOVER<span>${active?.controllerId===actor?active.pm:'—'} PM</span></div><button class="live-action end-action" data-action="end" ${blocked||!canMove?'disabled':''}>Terminar turno</button>`;
   const turnOrder=state.combat?`<ol class="turn-order" aria-label="Orden de turnos">${turnSequence(state.combat).map((u,i)=>`<li class="${i===0?'current':''}" ${i===0?'aria-current="step"':''} title="${escape(catalog[u.championId]?.name)} · ${escape(u.id)}"><img src="../assets/champions/${u.championId}/${u.championId}-avatar.png" alt="${escape(catalog[u.championId]?.name)}"><span>${i+1} · ${escape(catalog[u.championId]?.name)}<small>${escape(u.id)}</small></span></li>`).join('')}</ol>`:'';
   const championCard=viewed?(viewed.kind==='object'

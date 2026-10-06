@@ -1,19 +1,19 @@
-import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261006-feedback3';
-import { createVfxPlayer } from './vfx.mjs?v=20261006-feedback3';
-import { renderResult } from './feedback-ui.mjs?v=20261006-feedback3';
+import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261006-2v2a';
+import { createVfxPlayer } from './vfx.mjs?v=20261006-2v2a';
+import { renderResult } from './feedback-ui.mjs?v=20261006-2v2a';
 import { ConfirmedAudioPlayback } from '../audio-cues.mjs?v=20261005-audio1';
 import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261005-skills2';
-import { renderArena } from './presentation.mjs?v=20261006-feedback3';
-import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261006-feedback3';
+import { renderArena } from './presentation.mjs?v=20261006-2v2a';
+import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261006-2v2a';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261005-vines1';
-import { abilityOverlay } from './ability-overlay.mjs?v=20261005-vines1';
+import { abilityOverlay } from './ability-overlay.mjs?v=20261006-2v2a';
 import { createAoEState, bindAoEGesture, sameCell } from './aoe-preview.mjs?v=20261005-aoe1';
 import { catalog } from './catalog.mjs?v=20261005-houganadv1';
 import { LiveSession, newId } from './session.mjs?v=20261004-lab2';
-import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261005-vines1';
+import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261006-2v2a';
 
 const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
@@ -46,16 +46,16 @@ const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
 const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.order[game.state.combat.turnIndex]);
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
 function remaining(){const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
-function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261006-feedback3');url.searchParams.set('match',game.state.id);return url.href;}
+function link(){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261006-2v2a');url.searchParams.set('match',game.state.id);return url.href;}
 function roomId(value){
   let id=value.trim();try{const url=new URL(id);id=url.searchParams.get('match')??'';}catch{}
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('Pegá el enlace o el identificador completo de la sala.');return id.toLowerCase();
 }
-async function enter(id,create=false){
+async function enter(id,create=false,mode='1v1'){
   if(joining)return;joining=true;render(true);
   try{
     await ensureAuth();let state;
-    if(create)state=(await api('create',{room:{id}})).data;
+    if(create)state=(await api('create',{room:{id,mode}})).data;
     else{
       try{state=(await api('snapshot',{matchId:id})).data;}
       catch(error){if(error.message!=='FORBIDDEN')throw error;state=(await api('join',{matchId:id,slotId:'B1'})).data;}
@@ -68,18 +68,18 @@ function teams(){return `<div class="teams">${Object.values(game.state.slots).ma
   const u=game.state.combat?.units.find(u=>u.id===s.id),mine=s.controllerId===actor;
   return `<article class="unit-card ${mine?'':'enemy'} ${activeUnit()?.id===s.id?'active':''}"><div class="row">${s.championId?`<img src="../assets/champions/${s.championId}/${s.championId}-avatar.png" alt="">`:''}<strong>${escape(catalog[s.championId]?.name??'Sin selección')}</strong><span class="tag">${escape(s.id)} · ${mine?'Tu control':'Rival'}</span></div><p>${u?`${u.hp} PV · ${u.pa} PA · ${u.pm} PM`:game.state.phase==='preparation'&&!s.controllerId?'Esperando otro celular':game.state.phase==='preparation'?(s.ready?'Listo':'Preparando'):(s.confirmed?'Posición confirmada':'Desplegando')}</p></article>`;
 }).join('')}</div>`;}
-function roomBar(){return `<div class="room-bar row spread"><span class="tag">${escape(game.state.id.slice(0,8))} · Sala 1v1</span><button data-action="copy" class="subtle">Copiar enlace</button><button data-action="leave" class="subtle">${game.state.phase==='finished'?'Salir':'Abandonar partida'}</button></div>`;}
+function roomBar(){return `<div class="room-bar row spread"><span class="tag">${escape(game.state.id.slice(0,8))} · Sala ${game.state.mode??(Object.keys(game.state.slots).length===4?'2v2':'1v1')}</span><button data-action="copy" class="subtle">Copiar enlace</button><button data-action="leave" class="subtle">${game.state.phase==='finished'?'Salir':'Abandonar partida'}</button></div>`;}
 function setupDraft(){
   const own=ownSlots();if(!own.some(s=>s.id===slotId))slotId=own[0]?.id;
   const s=ownSlot();if(!draft||draft.slot!==slotId)draft={slot:slotId,champion:s?.championId??'arfeli',skills:[...(s?.skills.length?s.skills:catalog[s?.championId??'arfeli'].skills.slice(0,4).map(a=>a.id))],dirty:false};
   if(!draft.dirty&&s?.championId){draft.champion=s.championId;draft.skills=[...s.skills];}
 }
-function slotChooser(){return ownSlots().length>1?`<label>Slot que controlás <select id="slot">${ownSlots().map(s=>`<option ${s.id===slotId?'selected':''}>${s.id}</option>`).join('')}</select></label>`:'';}
+function slotChooser(){return ownSlots().length>1&&game.state.phase!=='combat'&&game.state.phase!=='finished'?`<label class="team-slot-chooser">Campeón que preparás <select id="slot">${ownSlots().map(s=>`<option value="${s.id}" ${s.id===slotId?'selected':''}>${s.id} · ${catalog[s.championId]?.name??'Sin selección'}${s.ready?' · Listo':''}${s.confirmed?' · Confirmado':''}</option>`).join('')}</select></label>`:'';}
 function preparation(){
   setupDraft();const s=ownSlot(),locked=Boolean(s?.ready);
-  return `<div class="grid"><section class="panel"><h2>Elegí tu campeón</h2>${slotChooser()}<div class="selection">${Object.entries(catalog).map(([id,c])=>{
+  return `<div class="grid"><section class="panel"><h2>Elegí tu campeón${ownSlots().length>1?` · ${slotId}`:''}</h2>${slotChooser()}<div class="selection">${Object.entries(catalog).map(([id,c])=>{
     const d=championDefinitions()[id];return `<button class="champion ${draft.champion===id?'chosen':''}" data-champion="${id}" ${locked||blocked()?'disabled':''}><img src="../assets/champions/${id}/${id}-avatar.png" alt=""><span>${c.name}<small>${d.hp} PV · ${d.pm} PM · Ini ${d.initiative}</small></span></button>`;
-  }).join('')}</div><p>Elegí cuatro habilidades para la partida. Hougan tiene sus seis habilidades del offline habilitadas, incluido Transferencia de Dolor y Danza Vudú.</p><div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando ambos estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala"></aside></div>`;
+  }).join('')}</div><p>Elegí cuatro habilidades para la partida. Hougan tiene sus seis habilidades del offline habilitadas, incluido Transferencia de Dolor y Danza Vudú.</p><div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando todos los campeones estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala"></aside></div>`;
 }
 const key=p=>`${p.x},${p.y}`;
 function blocked(){return joining||game.busy||!game.online||Boolean(game.sync.pendingCommand());}
@@ -190,9 +190,10 @@ function render(force=false){
   motion.receive(game.state,{connected:game.online,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches});
   document.body.classList.toggle('in-arena',Boolean(game.state&&game.state.phase!=='preparation'&&!showResult));
   const indicator=document.querySelector('#connection');indicator.textContent=game.state?(game.sync.pendingCommand()?'Acción pendiente':game.online?'Conectado al Lab':'Sin conexión'):'Supabase Lab';indicator.classList.toggle('offline',!game.online);
+  document.querySelector('h1 small').textContent=game.state?.mode??(Object.keys(game.state?.slots??{}).length===4?'2v2':'1v1 / 2v2');
   const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings,resultPending]);
   if(!force&&signature===lastRendered){remaining();return;}lastRendered=signature;
-  if(!game.state){app.innerHTML=`<section class="panel welcome"><span class="tag">Prueba LIVE v2 · 1v1</span><h2>Dos celulares, una partida</h2><p>Creá una sala y compartí su enlace. Cada celular controlará un campeón.</p><button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><form class="join-form" id="join"><input type="text" id="room" placeholder="Pegá el enlace o identificador de sala" aria-label="Enlace de sala"><button ${joining?'disabled':''}>Unirme</button></form><p class="phase-text">Se conserva tu sesión en este navegador para reconectar.</p></section>`;return;}
+  if(!game.state){app.innerHTML=`<section class="panel welcome"><span class="tag">Prueba LIVE v2 · 1v1 / 2v2</span><h2>Dos celulares, una partida</h2><p>Creá una sala y compartí su enlace. En 1v1 cada celular controla un campeón; en 2v2 controla dos.</p><label>Formato <select id="room-mode"><option value="1v1">1v1 · un campeón por jugador</option><option value="2v2">2v2 · dos campeones por jugador</option></select></label><button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><form class="join-form" id="join"><input type="text" id="room" placeholder="Pegá el enlace o identificador de sala" aria-label="Enlace de sala"><button ${joining?'disabled':''}>Unirme</button></form><p class="phase-text">Se conserva tu sesión en este navegador para reconectar.</p></section>`;return;}
   skillHoldCleanup();skillHoldCleanup=()=>{};aoeCleanup();aoeCleanup=()=>{};
   app.innerHTML=roomBar()+(game.state.phase==='preparation'?preparation():showResult?renderResult(game.state,actor,{logCollapsed:hudSettings.log.collapsed}):arena());
   motion.paint(app);
@@ -368,16 +369,16 @@ app.addEventListener('click',async event=>{
       camera={x:0,y:0,rotation:normalizeRotation(camera.rotation+step),zoom:camera.zoom??1};render(true);
       requestAnimationFrame(()=>centerCameraOn(app.querySelector('.live-battle'),camera,focus));break;
     }
-    case 'create':await enter(newId(),true);break;
+    case 'create':await enter(newId(),true,document.querySelector('#room-mode')?.value??'1v1');break;
     case 'copy':try{await navigator.clipboard.writeText(link());notify('Enlace copiado.');}catch{notify('Copiá el enlace que aparece en la sala.');}break;
     case 'ready':{
       const own=ownSlot();if(own.ready){await send('setReady',{slotId:own.id,ready:false});break;}
       if(draft.skills.length!==4)return;
       const confirmed=await send('select',{slotId:own.id,championId:draft.champion,skills:[...draft.skills]});
       const saved=game.state.slots[own.id];
-      if(confirmed&&saved.championId===draft.champion&&JSON.stringify([...saved.skills].sort())===JSON.stringify([...draft.skills].sort())&&!blocked()){draft.dirty=false;await send('setReady',{slotId:own.id,ready:true});}break;
+      if(confirmed&&saved.championId===draft.champion&&JSON.stringify([...saved.skills].sort())===JSON.stringify([...draft.skills].sort())&&!blocked()){draft.dirty=false;await send('setReady',{slotId:own.id,ready:true});const next=ownSlots().find(s=>!s.ready);if(next){slotId=next.id;draft=null;render(true);}}break;
     }
-    case 'confirmPosition':await send('confirmPosition',{slotId:ownSlot().id});break;
+    case 'confirmPosition':if(await send('confirmPosition',{slotId:ownSlot().id})){const next=ownSlots().find(s=>!s.confirmed);if(next){slotId=next.id;draft=null;render(true);}}break;
     case 'start':await send('startCombat',{});break;
     case 'end':await send('endTurn',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial});break;
     case 'leave':{

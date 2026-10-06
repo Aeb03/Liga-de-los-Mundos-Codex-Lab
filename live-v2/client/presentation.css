@@ -269,3 +269,5 @@
   border-color:#ffb7dc!important;
   box-shadow:0 0 7px rgba(255,76,175,.72);
 }
+
+.team-slot-chooser{display:flex;align-items:center;gap:8px;font-size:12px;margin:8px 0}.in-arena .team-slot-chooser{position:absolute;top:84px;left:50%;transform:translateX(-50%);z-index:5;background:#15262bee;border:1px solid #61787c;border-radius:9px;padding:3px 8px;margin:0}.in-arena .team-slot-chooser select{padding:5px;font-size:12px;min-height:30px}.teams .unit-card p{margin-bottom:0}

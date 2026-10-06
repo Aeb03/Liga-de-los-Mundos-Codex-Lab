@@ -39,8 +39,8 @@ const err = (c, m) => {
   throw new ProtocolError(c, m);
 };
 export function createMatch({ id, creatorId, slots, createdAt }) {
-  if (!id || !creatorId || !Array.isArray(slots) || slots.length !== 2)
-    err("UNSUPPORTED_FORMAT", "Etapa 2 habilita exactamente 1v1");
+  if (!id || !creatorId || !Array.isArray(slots) || ![2,4].includes(slots.length))
+    err("UNSUPPORTED_FORMAT", "Sólo se habilitan 1v1 y 2v2");
   const ids = new Set();
   for (const s of slots) {
     if (
@@ -56,11 +56,13 @@ export function createMatch({ id, creatorId, slots, createdAt }) {
       err("INVALID_SLOT", "Slot inválido");
     ids.add(s.id);
   }
-  if (new Set(slots.map((s) => s.team)).size !== 2)
-    err("UNSUPPORTED_FORMAT", "Se requiere un slot A y uno B");
+  const teamSize=slots.length/2;
+  if (!["A","B"].every(team=>slots.filter(s=>s.team===team).length===teamSize&&Array.from({length:teamSize},(_,i)=>`${team}${i+1}`).every(id=>ids.has(id))))
+    err("UNSUPPORTED_FORMAT", "Los equipos deben tener igual cantidad de slots consecutivos");
   return {
     id,
     creatorId,
+    mode: slots.length===4?"2v2":"1v1",
     phase: "preparation",
     version: 0,
     turnSerial: 0,

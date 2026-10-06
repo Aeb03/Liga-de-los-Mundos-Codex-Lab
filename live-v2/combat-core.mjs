@@ -75,7 +75,7 @@ function validateSupportedState(state) {
   if (state.summons.length) {
     fail('UNSUPPORTED_MECHANIC', 'Invocaciones están fuera de alcance en esta etapa');
   }
-  if (!Array.isArray(state.units) || state.units.length !== 2) fail('UNSUPPORTED_FORMAT', 'El estado soportado es exactamente 1v1');
+  if (!Array.isArray(state.units) || ![2,4].includes(state.units.length)) fail('UNSUPPORTED_FORMAT', 'El estado soporta 1v1 y 2v2');
   const ids = new Set(), positions = new Set(), teams = new Set(), teamSlots = new Set();
   for (const unit of state.units) {
     if (!unit || unit.kind !== 'champion' || !DEFINITIONS[unit.championId]) fail('UNSUPPORTED_ENTITY', 'Sólo se admiten los seis campeones efectivos');
@@ -149,9 +149,9 @@ function validateSupportedState(state) {
     const p=state.dollPhase,owner=state.units.find(u=>u.id===p?.ownerId),doll=state.objects.find(o=>o.id===p?.dollId);
     if(!p||owner?.championId!=='houngan'||!owner.alive||!doll?.alive||doll.type!=='doll'||doll.ownerId!==owner.id||!Number.isInteger(p.pm)||p.pm<0||p.pm>3||p.maxPm!==3)fail('INVALID_DOLL_PHASE','Fase de movimiento del Muñeco inválida');
   }
-  if (teams.size !== 2) fail('UNSUPPORTED_FORMAT', 'El estado 1v1 requiere dos equipos distintos');
+  if (teams.size !== 2 || [...teams].some(team=>state.units.filter(u=>u.team===team).length!==state.units.length/2)) fail('UNSUPPORTED_FORMAT', 'Se requieren dos equipos equilibrados');
   for (const unit of state.units) for (const stack of unit.shield) if (!ids.has(stack.sourceId)) fail('INVALID_SHIELD', 'El generador del escudo no existe');
-  if (!Array.isArray(state.order) || state.order.length !== 2 || new Set(state.order).size !== 2 || state.order.some(id => !state.units.some(u=>u.id===id))) fail('INVALID_ORDER', 'El orden debe ser una permutación de las dos unidades');
+  if (!Array.isArray(state.order) || state.order.length !== state.units.length || new Set(state.order).size !== state.units.length || state.order.some(id => !state.units.some(u=>u.id===id))) fail('INVALID_ORDER', 'El orden debe incluir cada campeón una sola vez');
   if (!Number.isInteger(state.turnIndex) || state.turnIndex < 0 || state.turnIndex >= state.order.length || !Number.isInteger(state.round) || state.round < 1) fail('INVALID_TURN', 'Índice de turno o ronda inválidos');
   if (!['active', 'ended'].includes(state.phase)) fail('INVALID_PHASE', 'Fase de combate inválida');
   const aliveTeams = new Set(state.units.filter(unit => unit.alive).map(unit => unit.team));
@@ -169,8 +169,8 @@ function chooseTie(units, random) {
 }
 
 export function initializeCombat({ units, obstacles = [], random, clock }) {
-  if (!Array.isArray(units) || units.length !== 2 || units[0].team === units[1].team) {
-    fail('UNSUPPORTED_FORMAT', 'Esta vertical admite exactamente 1v1 entre equipos distintos');
+  if (!Array.isArray(units) || ![2,4].includes(units.length) || new Set(units.map(u=>u.team)).size!==2 || units.some(u=>units.filter(v=>v.team===u.team).length!==units.length/2)) {
+    fail('UNSUPPORTED_FORMAT', 'Se admiten 1v1 y 2v2 con equipos equilibrados');
   }
   const copy = clone(units);
   const occupied = new Set();
@@ -186,10 +186,27 @@ export function initializeCombat({ units, obstacles = [], random, clock }) {
   if (new Set(obstacleKeys).size !== obstacleKeys.length) fail('INVALID_OBSTACLE', 'Hay obstáculos repetidos');
   const sorted = [...copy].sort((a, b) => b.initiative - a.initiative);
   let tieBreak = null;
-  if (sorted[0].initiative === sorted[1].initiative) {
+  if (copy.length===2 && sorted[0].initiative === sorted[1].initiative) {
     const tie = chooseTie(copy, random);
     sorted.splice(0, 2, tie.winner, copy.find(u => u.id !== tie.winner.id));
     tieBreak = { candidates: copy.map(u => u.id), randomValue: tie.value, winnerId: tie.winner.id };
+  }
+  if(copy.length===4){
+    const groups=[];
+    for(let start=0;start<sorted.length;){
+      let end=start+1;while(end<sorted.length&&sorted[end].initiative===sorted[start].initiative)end++;
+      const group=sorted.slice(start,end),draws=[];
+      if(group.length>1){
+        for(let i=group.length-1;i>0;i--){
+          const value=typeof random==='function'?random():random;
+          if(typeof value!=='number'||value<0||value>=1)fail('RANDOM_REQUIRED','Un empate requiere azar explícito en [0, 1)');
+          draws.push(value);const j=Math.floor(value*(i+1));[group[i],group[j]]=[group[j],group[i]];
+        }
+        sorted.splice(start,group.length,...group);groups.push({initiative:group[0].initiative,order:group.map(u=>u.id),draws});
+      }
+      start=end;
+    }
+    if(groups.length)tieBreak={groups};
   }
   let state = {
     schemaVersion: CORE_VERSION, board: { width: BOARD_SIZE, height: BOARD_SIZE, obstacles: obstacleKeys.sort() },

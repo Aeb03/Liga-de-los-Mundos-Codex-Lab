@@ -89,11 +89,13 @@ function panel(){
         <span class="liga-audio-mute-icon">🔊</span>
         <span><b>Silenciar todo</b><small>Conserva los volúmenes configurados</small></span>
       </button>
+      <button type="button" class="danger liga-match-leave" hidden>Abandonar partida</button>
     </section>`;
 
   const close=()=>{root.hidden=true;root._returnFocus?.focus?.();};
   root.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();}if(e.key==='Tab'){const controls=[...root.querySelectorAll('button,input')];const first=controls[0],last=controls.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
   root.querySelector('.liga-audio-close').onclick=close;
+  root.querySelector('.liga-match-leave').onclick=()=>{close();document.querySelector('#app .room-bar [data-action="leave"]')?.click();};
   root.addEventListener('pointerdown',e=>{if(e.target===root)close()});
 
   root.querySelectorAll('[data-audio-range]').forEach(input=>{
@@ -137,6 +139,7 @@ function refreshPanel(){
 function open(){
   refreshPanel();
   panel()._returnFocus=document.activeElement;
+  panel().querySelector('.liga-match-leave').hidden=!document.body.classList.contains('in-arena');
   panel().hidden=false;
   panel().querySelector('.liga-audio-close').focus();
 }

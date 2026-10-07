@@ -282,3 +282,6 @@ body.in-arena>#rotate,body.in-arena>.app-display-tools{display:none}
 body.in-arena>main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;overflow:hidden}
 body.in-arena .room-bar{flex:none}
 body.in-arena .live-battle{flex:1;min-height:0;height:auto;width:100%}
+
+/* Room controls stay in preparation; the camera gear opens match options. */
+body.in-arena>header,body.in-arena .room-bar{display:none}

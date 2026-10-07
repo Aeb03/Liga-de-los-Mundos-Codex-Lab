@@ -15,6 +15,7 @@ export function planAI(combat,slot){
   const state=structuredClone(combat);state.traps=state.traps.filter(t=>t.team===slot.team);
   const unit=state.units.find(u=>u.id===slot.id);
   if(state.dollPhase)return {out:endHouganDollPhase(combat,{unitId:slot.id}),action:{type:'houganDollEnd'}};
+  if(!unit.alive)return {out:endTurn(combat,{unitId:slot.id}),action:{type:'endTurn'}};
   let best=null;
   const consider=(args)=>{try{
     if((unit.skillUsesThisTurn[args.abilityId]??0)>0&&['shield','stonearmor','interference'].includes(args.abilityId))return;

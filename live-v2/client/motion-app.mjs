@@ -7,7 +7,7 @@ import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261007-flex1';
-import { renderArena } from './presentation.mjs?v=20261007-ux1';
+import { renderArena } from './presentation.mjs?v=20261007-dollmove1';
 import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261007-flex1';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261005-vines1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261007-flex1';
@@ -193,7 +193,7 @@ function arena(){
 }
 function render(force=false){
   social?.paint();
-  const turnKey=`${game.state?.id}:${game.state?.turnSerial}`;
+  const turnKey=`${game.state?.id}:${game.state?.turnSerial}:${game.state?.combat?.dollPhase?.dollId??''}`;
   if(movementTurn!==turnKey||!canMove()){movementTurn=turnKey;movementArmed=false;}
   const sameMatch=previousMatch===game.state?.id;
   if(!sameMatch){vfx.clear();clearTimeout(resultTimer);resultPending=false;}
@@ -259,7 +259,7 @@ async function tapCell(x,y,confirm=false){
   if(game.state.phase==='deployment'){await send('setPosition',{slotId:ownSlot().id,position:{x,y}});return;}
   if(!canMove())return;
   const unit=activeUnit(),selected=game.preview;
-  if(!abilitySelection&&!movementArmed&&!game.state.combat?.dollPhase)return;
+  if(!abilitySelection&&!movementArmed)return;
   if(game.state.combat?.dollPhase){
     const phase=game.state.combat.dollPhase;
     if(phase.ownerId!==unit.id)return;
@@ -396,7 +396,7 @@ app.addEventListener('click',async event=>{
   if(target.dataset.champion){draft={slot:slotId,champion:target.dataset.champion,skills:catalog[target.dataset.champion].skills.slice(0,4).map(a=>a.id),dirty:true};render(true);return;}
   switch(target.dataset.action){
     case 'exit':if(canMove()&&!blocked())await send('colosoAction',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial,action:'exit',targetId:activeUnit().id});break;
-    case 'dollMoveMode':if(game.preview)await confirmSelection();else{abilitySelection=null;render(true);}break;
+    case 'dollMoveMode':if(canMove()&&!blocked()){if(game.preview)await confirmSelection();else{movementArmed=!movementArmed;abilitySelection=null;render(true);}}break;
     case 'dollEnd':if(canMove()&&!blocked()&&game.state.combat?.dollPhase){await send('houganDollEnd',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial});game.preview=null;render(true);}break;
     case 'houganDoll':if(canMove()&&!blocked()){if(abilitySelection?.abilityId==='houganDoll'){await confirmSelection();break;}abilitySelection={abilityId:'houganDoll',unitId:activeUnit().id,version:game.state.version,targetId:null,position:null};game.preview=null;render(true);}break;
     case 'korganDisarm':if(canMove()&&!blocked()){if(abilitySelection?.abilityId==='korganDisarm'){await confirmSelection();break;}abilitySelection={abilityId:'korganDisarm',unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
@@ -441,7 +441,7 @@ app.addEventListener('click',async event=>{
     }
   }
 });
-app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;if(event.target.dataset.inspectId){event.preventDefault();inspectedId=event.target.dataset.inspectId;render(true);return;}if(event.target.dataset.action==='moveMode'){event.preventDefault();event.target.click();return;}if(event.target.dataset.x!=null){event.preventDefault();tapCell(Number(event.target.dataset.x),Number(event.target.dataset.y));}});
+app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;if(event.target.dataset.inspectId){event.preventDefault();inspectedId=event.target.dataset.inspectId;render(true);return;}if(['moveMode','dollMoveMode'].includes(event.target.dataset.action)){event.preventDefault();event.target.click();return;}if(event.target.dataset.x!=null){event.preventDefault();tapCell(Number(event.target.dataset.x),Number(event.target.dataset.y));}});
 window.addEventListener('offline',()=>game.disconnect());window.addEventListener('online',()=>game.refresh());
 document.addEventListener('visibilitychange',()=>{if(document.hidden){feedbackPlayback.suspend();vfx.clear();audioPlayback.suspend();game.preview=null;game.sync.preview=null;}else game.refresh();});
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);

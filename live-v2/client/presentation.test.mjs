@@ -182,3 +182,19 @@ test('rival turn keeps own skills consultable; inspection switches skills withou
  const rival=renderArena({...args,inspectedId:'B1'});
  assert.match(rival,/data-skill="rock" data-skill-champion="coloso" data-action="rock" aria-disabled="true"/);
 });
+
+test('doll movement range appears only when armed and respects remaining PM',()=>{
+ const state=fixture();state.slots.A1.championId='houngan';
+ state.combat=initializeCombat({units:Object.values(state.slots).map(s=>createUnit({...s,slot:1}))}).state;
+ state.combat.turnIndex=state.combat.order.indexOf('A1');
+ state.combat.objects.push({id:'doll1',number:1,kind:'object',type:'doll',ownerId:'A1',team:'A',x:4,y:5,hp:16,maxHp:16,alive:true,shield:[],blocksLOS:false,linkedTargetId:'B1',linkMode:'enemy',movePm:3});
+ state.combat.nextDollId=2;
+ state.combat.dollPhase={ownerId:'A1',dollId:'doll1',pm:3,maxPm:3};
+ const args={state,actor:'shared',slotId:'A1',canMove:true,blocked:false,remaining:20};
+ assert.doesNotMatch(renderArena(args),/tile\s+reachable/);
+ assert.match(renderArena({...args,movementArmed:true}),/tile\s+reachable/);
+ assert.match(renderArena({...args,movementArmed:true}),/aria-pressed="true" data-action="dollMoveMode"/);
+ assert.doesNotMatch(renderArena({...args,movementArmed:true,canMove:false}),/tile\s+reachable/);
+ state.combat.dollPhase.pm=0;
+ assert.doesNotMatch(renderArena({...args,movementArmed:true}),/tile\s+reachable/);
+});

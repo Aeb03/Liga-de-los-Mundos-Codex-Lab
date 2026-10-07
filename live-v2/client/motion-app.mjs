@@ -1,26 +1,28 @@
 import { SocialPanel } from './social.mjs?v=20261006-social1';
-import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261006-four1';
-import { createVfxPlayer } from './vfx.mjs?v=20261006-four1';
-import { renderResult } from './feedback-ui.mjs?v=20261006-four1';
+import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261007-touch1';
+import { createVfxPlayer } from './vfx.mjs?v=20261007-touch1';
+import { renderResult } from './feedback-ui.mjs?v=20261007-touch1';
 import { ConfirmedAudioPlayback } from '../audio-cues.mjs?v=20261005-audio1';
 import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
-import { MotionPresenter, spriteSource } from './motion.mjs?v=20261006-depth1';
-import { renderArena } from './presentation.mjs?v=20261006-depth1';
-import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261006-four1';
+import { MotionPresenter, spriteSource } from './motion.mjs?v=20261007-touch1';
+import { renderArena } from './presentation.mjs?v=20261007-touch1';
+import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261007-touch1';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261005-vines1';
-import { abilityOverlay } from './ability-overlay.mjs?v=20261006-four1';
+import { abilityOverlay } from './ability-overlay.mjs?v=20261007-touch1';
 import { createAoEState, bindAoEGesture, sameCell } from './aoe-preview.mjs?v=20261005-aoe1';
 import { catalog } from './catalog.mjs?v=20261005-houganadv1';
 import { LiveSession, newId } from './session.mjs?v=20261004-lab2';
-import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261006-four1';
+import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261007-touch1';
 
 const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const errors={CONNECTION_TIMEOUT:'La conexión tardó demasiado. Reintentá; no confirmamos ninguna acción localmente.',UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'Ese puesto está ocupado. Elegí otro puesto.',SLOT_UNAVAILABLE:'Ese puesto no está disponible para tu sesión.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'No tenés suficientes PA.',ABILITY_LIMIT:'Alcanzaste el límite de usos este turno.',BLOCKED_LOS:'La línea de visión está bloqueada.',OUT_OF_RANGE:'El objetivo está fuera del alcance.',ABILITY_NOT_SELECTED:'La habilidad no está en tus cuatro elegidas.',ONOD_ACTION_UNAVAILABLE:'Germinar o Marchitar no está disponible en esa casilla o este turno.',KORGAN_ACTION_UNAVAILABLE:'Desarmar Trampa no está disponible.',HOUGAN_ACTION_UNAVAILABLE:'Muñeco Vudú no está disponible.',DOLL_PHASE_ACTIVE:'Primero resolvé el movimiento del Muñeco Vudú.',DOLL_PHASE_INACTIVE:'La fase del Muñeco ya terminó.',INVALID_DISTANCE:'Elegí atraer 1 o 2 casillas.',MARK_UNAVAILABLE:'La Marca ya se usó, está bloqueada o el objetivo no es válido.',INVALID_TARGET:'Ese objetivo no es válido para la acción elegida.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
+errors.DUPLICATE_CHAMPION='Tu compañero ya eligió ese campeón. Elegí otro.';
 let notifyTimer;function notify(message){notice.textContent=errors[message]??message;notice.style.display='block';clearTimeout(notifyTimer);notifyTimer=setTimeout(()=>notice.style.display='none',6000);}
+let movementArmed=false,movementTurn=null;
 let deadlineExpired=false,abilitySelection=null,inspectedId=null,lastInspectionFocus='';
 let skillHoldCleanup=()=>{},aoeCleanup=()=>{};
 let hudSettings=loadHudSettings(localStorage),camera={x:0,y:0,rotation:0,zoom:1},cameraMatchId=null;
@@ -49,7 +51,7 @@ const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
 const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.order[game.state.combat.turnIndex]);
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
 function remaining(){const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
-function link(inviteSlot=null){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261006-four1');url.searchParams.set('match',game.state.id);if(game.state.players===4){url.searchParams.set('players','4');if(inviteSlot)url.searchParams.set('slot',inviteSlot);}return url.href;}
+function link(inviteSlot=null){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261007-touch1');url.searchParams.set('match',game.state.id);if(game.state.players===4){url.searchParams.set('players','4');if(inviteSlot)url.searchParams.set('slot',inviteSlot);}return url.href;}
 function roomId(value){
   let id=value.trim();try{const url=new URL(id);id=url.searchParams.get('match')??'';}catch{}
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('Pegá el enlace o el identificador completo de la sala.');return id.toLowerCase();
@@ -83,7 +85,7 @@ function slotChooser(){return ownSlots().length>1&&game.state.phase!=='combat'&&
 function preparation(){
   setupDraft();const s=ownSlot(),locked=Boolean(s?.ready);
   return `<div class="grid"><section class="panel"><h2>Elegí tu campeón${ownSlots().length>1?` · ${slotId}`:''}</h2>${slotChooser()}<div class="selection">${Object.entries(catalog).map(([id,c])=>{
-    const d=championDefinitions()[id];return `<button class="champion ${draft.champion===id?'chosen':''}" data-champion="${id}" ${locked||blocked()?'disabled':''}><img src="../assets/champions/${id}/${id}-avatar.png" alt=""><span>${c.name}<small>${d.hp} PV · ${d.pm} PM · Ini ${d.initiative}</small></span></button>`;
+    const d=championDefinitions()[id];return `<button class="champion ${draft.champion===id?'chosen':''}" data-champion="${id}" ${locked||blocked()||Object.values(game.state.slots).some(s=>s.id!==ownSlot().id&&s.team===ownSlot().team&&s.championId===id)?'disabled':''}><img src="../assets/champions/${id}/${id}-avatar.png" alt=""><span>${c.name}<small>${d.hp} PV · ${d.pm} PM · Ini ${d.initiative}</small></span></button>`;
   }).join('')}</div><p>Elegí cuatro de las seis habilidades.</p>${draft.champion==='houngan'?`<div class="row"><button data-action="houganSupport" ${locked||blocked()?'disabled':''}>Soporte · Vínculo aliado</button><button data-action="houganOffense" ${locked||blocked()?'disabled':''}>Ofensivo · Vínculo enemigo</button></div><p class="phase-text">Soporte: Aguja cura al compañero; Muñeco aliado convierte la mitad del daño recibido en curación. Transferencia de Dolor protege a Hougan y Danza Vudú reposiciona al Vinculado.</p>`:''}<div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando todos los campeones estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala">${invitePanel()}</aside></div>`;
 }
 const key=p=>`${p.x},${p.y}`;
@@ -175,10 +177,12 @@ async function commitAoE(state){
 
 function arena(){
   setupDraft();syncInspection();
-  return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudSettings,camera,abilitySelection,inspectedId});
+  return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudSettings,camera,abilitySelection,inspectedId,movementArmed});
 }
 function render(force=false){
   social?.paint();
+  const turnKey=`${game.state?.id}:${game.state?.turnSerial}`;
+  if(movementTurn!==turnKey||!canMove()){movementTurn=turnKey;movementArmed=false;}
   const sameMatch=previousMatch===game.state?.id;
   if(!sameMatch){vfx.clear();clearTimeout(resultTimer);resultPending=false;}
   if(sameMatch&&previousPhase==='combat'&&game.state?.phase==='finished'){
@@ -197,7 +201,7 @@ function render(force=false){
   document.body.classList.toggle('in-arena',Boolean(game.state&&game.state.phase!=='preparation'&&!showResult));
   const indicator=document.querySelector('#connection');indicator.textContent=game.state?(game.sync.pendingCommand()?'Acción pendiente':game.online?'Conectado al Lab':'Sin conexión'):'Supabase Lab';indicator.classList.toggle('offline',!game.online);
   document.querySelector('h1 small').textContent=game.state?.mode??(Object.keys(game.state?.slots??{}).length===4?'2v2':'1v1 / 2v2');
-  const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings,resultPending]);
+  const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,movementArmed,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings,resultPending]);
   if(!force&&signature===lastRendered){remaining();return;}lastRendered=signature;
   if(pendingInvite){app.innerHTML=`<section class="panel welcome"><h2>Elegí tu puesto en el 2v2</h2><p>Cada celular controla un campeón. A1 pertenece al creador.</p>${['A2','B1','B2'].map(id=>`<button data-action="joinSlot" data-slot="${id}" ${joining?'disabled':''}>${id} · Equipo ${id[0]==='A'?'azul':'rojo'}</button>`).join('')}<p>Si el puesto está ocupado, elegí otro.</p></section>`;return;}
   if(!game.state){app.innerHTML=`<section class="panel welcome"><span class="tag">Prueba LIVE v2 · 1v1 / 2v2</span><h2>Dos celulares, una partida</h2><p>Creá una sala y compartí su enlace. Elegí 1v1 o 2v2. El 2v2 admite dos celulares con dos campeones cada uno, o cuatro celulares con un campeón cada uno.</p><label>Formato <select id="room-mode"><option value="1v1">1v1 · un campeón por jugador</option><option value="2v2">2v2 · 2 celulares, dos campeones por jugador</option><option value="2v2-four">2v2 · 4 celulares, un campeón por jugador</option></select></label><button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><form class="join-form" id="join"><input type="text" id="room" placeholder="Pegá el enlace o identificador de sala" aria-label="Enlace de sala"><button ${joining?'disabled':''}>Unirme</button></form><p class="phase-text">Se conserva tu sesión en este navegador para reconectar.</p></section>`;return;}
@@ -217,10 +221,10 @@ function render(force=false){
         setState:next=>syncAoeSelection(next),
         isValid:(cell,state)=>aoeValidCell(cell,state),
         effectFor:state=>aoeEffectFor(state),
-        onCommit:state=>commitAoE(state),
+        onCommit:()=>render(true),
         onChange:(state,meta)=>{
           syncAoeSelection(state);
-          if(meta.phase==='up'&&!meta.commit)render(true);
+          if(meta.phase==='up')render(true);
         }
       });
     }
@@ -228,17 +232,27 @@ function render(force=false){
   feedbackPlayback.receive(game.state,{visible:!document.hidden&&!showResult,connected:game.online});
 }
 async function send(type,args){try{const confirmed=await game.send(type,args);await game.refresh();return confirmed;}catch(error){notify(error.message);return false;}}
-async function tapCell(x,y){
+async function confirmSelection(){
+  if(!canMove()||blocked())return;
+  const selection=abilitySelection;
+  if(selection?.aoe?.target){await commitAoE(selection.aoe);return;}
+  const entity=[...(game.state.combat.units??[]),...(game.state.combat.objects??[]),...(game.state.combat.traps??[])].find(t=>t.id===(selection?.secondaryTargetId??selection?.targetId));
+  const cell=selection?.position??entity??game.preview?.path?.at(-1);
+  if(!cell){notify('Elegí primero una casilla u objetivo válido.');return;}
+  await tapCell(cell.x,cell.y,true);
+}
+async function tapCell(x,y,confirm=false){
   if(blocked())return;
   if(game.state.phase==='deployment'){await send('setPosition',{slotId:ownSlot().id,position:{x,y}});return;}
   if(!canMove())return;
   const unit=activeUnit(),selected=game.preview;
+  if(!abilitySelection&&!movementArmed&&!game.state.combat?.dollPhase)return;
   if(game.state.combat?.dollPhase){
     const phase=game.state.combat.dollPhase;
     if(phase.ownerId!==unit.id)return;
     try{
       const path=calculateHouganDollPath(game.state.combat,unit.id,{x,y});
-      if(selected&&key(selected.path.at(-1))===`${x},${y}`){
+      if(confirm&&selected&&key(selected.path.at(-1))===`${x},${y}`){
         await send('houganDollMove',{slotId:unit.id,expectedTurn:game.state.turnSerial,path:selected.path});game.preview=null;render(true);return;
       }
       game.preview={path,cost:path.length-1,tackleDamage:0,woundDamage:0,remainingHp:game.state.combat.objects.find(o=>o.id===phase.dollId)?.hp??0};render(true);return;
@@ -249,66 +263,68 @@ async function tapCell(x,y){
     if(['trap_spikes','trap_mine','hunterstep'].includes(id)){
       const cells=id==='hunterstep'?hunterStepDestinations(game.state.combat,unit.id):id==='grenade'?korganGrenadeDestinations(game.state.combat,unit.id):korganTrapDestinations(game.state.combat,unit.id,id);
       if(!cells.some(p=>p.x===x&&p.y===y))return;
-      if(abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};
+      if(confirm&&abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};
       render(true);return;
     }
     if(id==='houganDoll'){
       const cells=houganDollDestinations(game.state.combat,unit.id);
       if(!cells.some(p=>p.x===x&&p.y===y))return;
-      if(abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send('houganAction',{slotId:unit.id,expectedTurn:game.state.turnSerial,action:'doll',position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};
+      if(confirm&&abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send('houganAction',{slotId:unit.id,expectedTurn:game.state.turnSerial,action:'doll',position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};
       render(true);return;
     }
     if(id==='korganDisarm'){
       const targets=korganDisarmTargets(game.state.combat,unit.id),trap=game.state.combat.traps.find(t=>targets.includes(t.id)&&t.x===x&&t.y===y);
       if(!trap)return;
+      if(!confirm){abilitySelection.targetId=trap.id;render(true);return;}
       await send('korganAction',{slotId:unit.id,expectedTurn:game.state.turnSerial,action:'disarm',targetId:trap.id});abilitySelection=null;render(true);return;
     }
     if(id==='hook'){
       const valid=abilityTargets(game.state.combat,unit.id,id),target=game.state.combat.units.find(t=>valid.includes(t.id)&&t.x===x&&t.y===y);
       if(!target)return;
-      abilitySelection.targetId=target.id;abilitySelection.distance=null;render(true);return;
+      if(confirm&&abilitySelection.distance){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,targetId:target.id,distance:abilitySelection.distance});abilitySelection=null;render(true);return;}
+      abilitySelection.targetId=target.id;if(!confirm)abilitySelection.distance=null;render(true);return;
     }
     if(id==='germinate'){
       const cells=germinateDestinations(game.state.combat,unit.id);if(!cells.some(p=>p.x===x&&p.y===y))return;
-      if(abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send(id==='germinate'?'onodAction':'ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,...(id==='germinate'?{action:'germinate'}:{abilityId:id}),position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};render(true);return;
+      if(confirm&&abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send(id==='germinate'?'onodAction':'ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,...(id==='germinate'?{action:'germinate'}:{abilityId:id}),position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};render(true);return;
     }
     if(['vines','grenade'].includes(id)){
       if(!aoeValidCell({x,y},abilitySelection.aoe))return;
-      if(abilitySelection.aoe?.locked&&sameCell(abilitySelection.aoe.target,{x,y})){await commitAoE(abilitySelection.aoe);return;}
+      if(confirm&&abilitySelection.aoe?.locked&&sameCell(abilitySelection.aoe.target,{x,y})){await commitAoE(abilitySelection.aoe);return;}
       const next=createAoEState(id,{target:{x,y},locked:true});syncAoeSelection(next);render(true);return;
     }
     if(id==='spores'){
       const valid=abilityTargets(game.state.combat,unit.id,id),sprout=game.state.combat.objects.find(o=>o.alive&&valid.includes(o.id)&&o.x===x&&o.y===y);
       if(!sprout)return;
-      if(abilitySelection.aoe?.locked&&abilitySelection.targetId===sprout.id){await commitAoE(abilitySelection.aoe);return;}
+      if(confirm&&abilitySelection.aoe?.locked&&abilitySelection.targetId===sprout.id){await commitAoE(abilitySelection.aoe);return;}
       abilitySelection.targetId=sprout.id;
       abilitySelection.aoe=createAoEState('spores',{target:{x:sprout.x,y:sprout.y},locked:true,mode:'fixed'});
       render(true);return;
     }
     if(id==='awakening'){
       if(x!==unit.x||y!==unit.y||!abilityTargets(game.state.combat,unit.id,id).includes(unit.id))return;
-      if(abilitySelection.aoe?.locked){await commitAoE(abilitySelection.aoe);return;}
+      if(confirm&&abilitySelection.aoe?.locked){await commitAoE(abilitySelection.aoe);return;}
       abilitySelection.targetId=unit.id;abilitySelection.aoe=createAoEState('awakening',{target:{x:unit.x,y:unit.y},locked:true,mode:'fixed'});render(true);return;
     }
     if(id==='wither'){
       const targets=onodActionTargets(game.state.combat,unit.id,'wither'),target=game.state.combat.objects.find(s=>targets.includes(s.id)&&s.x===x&&s.y===y);if(!target)return;
-      if(abilitySelection.targetId===target.id){await send('onodAction',{slotId:unit.id,expectedTurn:game.state.turnSerial,action:'wither',targetId:target.id});abilitySelection=null;}else abilitySelection.targetId=target.id;render(true);return;
+      if(confirm&&abilitySelection.targetId===target.id){await send('onodAction',{slotId:unit.id,expectedTurn:game.state.turnSerial,action:'wither',targetId:target.id});abilitySelection=null;}else abilitySelection.targetId=target.id;render(true);return;
     }
     if(id==='impulse'){
       if(!impulseDestinations(game.state.combat,unit.id).some(p=>p.x===x&&p.y===y))return;
-      if(abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};render(true);return;
+      if(confirm&&abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};render(true);return;
     }
     if(id==='piplusMark'){
       const valid=piplusMarkTargets(game.state.combat,unit.id),target=game.state.combat.units.find(t=>valid.includes(t.id)&&t.x===x&&t.y===y);if(!target)return;
-      if(abilitySelection.targetId===target.id){await send('piplusMark',{slotId:unit.id,expectedTurn:game.state.turnSerial,targetId:target.id});abilitySelection=null;}else abilitySelection.targetId=target.id;render(true);return;
+      if(confirm&&abilitySelection.targetId===target.id){await send('piplusMark',{slotId:unit.id,expectedTurn:game.state.turnSerial,targetId:target.id});abilitySelection=null;}else abilitySelection.targetId=target.id;render(true);return;
     }
     if(id==='createPillar'){
       if(!pillarAvailable(game.state.combat,unit.id).some(p=>p.x===x&&p.y===y))return;
-      if(abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send('createPillar',{slotId:unit.id,expectedTurn:game.state.turnSerial,position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};render(true);return;
+      if(confirm&&abilitySelection.position?.x===x&&abilitySelection.position?.y===y){await send('createPillar',{slotId:unit.id,expectedTurn:game.state.turnSerial,position:{x,y}});abilitySelection=null;}else abilitySelection.position={x,y};render(true);return;
     }
     if(['fusion','recycle'].includes(id)){
       const valid=colosoActionTargets(game.state.combat,unit.id,id),target=game.state.combat.objects.find(p=>valid.includes(p.id)&&p.x===x&&p.y===y);if(!target)return;
-      if(abilitySelection.targetId===target.id){await send('colosoAction',{slotId:unit.id,expectedTurn:game.state.turnSerial,action:id,targetId:target.id});abilitySelection=null;}else abilitySelection.targetId=target.id;render(true);return;
+      if(confirm&&abilitySelection.targetId===target.id){await send('colosoAction',{slotId:unit.id,expectedTurn:game.state.turnSerial,action:id,targetId:target.id});abilitySelection=null;}else abilitySelection.targetId=target.id;render(true);return;
     }
     if(id==='collapse'){
       if(!abilitySelection.targetId){
@@ -323,20 +339,20 @@ async function tapCell(x,y){
       const pillar=game.state.combat.objects.find(p=>p.alive&&p.id===abilitySelection.targetId);
       if(!pillar)return;
       const cell={x,y};if(!aoeValidCell(cell,abilitySelection.aoe))return;
-      if(abilitySelection.aoe?.locked&&sameCell(abilitySelection.aoe.target,cell)){await commitAoE(abilitySelection.aoe);return;}
+      if(confirm&&abilitySelection.aoe?.locked&&sameCell(abilitySelection.aoe.target,cell)){await commitAoE(abilitySelection.aoe);return;}
       const next=createAoEState('collapse',{target:cell,locked:true});syncAoeSelection(next);render(true);return;
     }
     if(id==='magnetism'&&abilitySelection.targetId){
       const valid=magnetismTargets(game.state.combat,unit.id,abilitySelection.targetId),target=game.state.combat.units.find(p=>valid.includes(p.id)&&p.x===x&&p.y===y);if(!target)return;
-      if(abilitySelection.secondaryTargetId===target.id){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,targetId:abilitySelection.targetId,secondaryTargetId:target.id});abilitySelection=null;}else abilitySelection.secondaryTargetId=target.id;render(true);return;
+      if(confirm&&abilitySelection.secondaryTargetId===target.id){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,targetId:abilitySelection.targetId,secondaryTargetId:target.id});abilitySelection=null;}else abilitySelection.secondaryTargetId=target.id;render(true);return;
     }
     const valid=abilityTargets(game.state.combat,unit.id,id);
     const target=[...game.state.combat.units,...game.state.combat.objects].find(u=>valid.includes(u.id)&&u.x===x&&u.y===y);
     if(!target){notify('Elegí una casilla de objetivo marcada.');return;}
-    if(!['collapse','magnetism'].includes(id)&&abilitySelection.targetId===target.id){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,targetId:target.id});abilitySelection=null;render(true);return;}
+    if(confirm&&!['collapse','magnetism'].includes(id)&&abilitySelection.targetId===target.id){await send('ability',{slotId:unit.id,expectedTurn:game.state.turnSerial,abilityId:id,targetId:target.id});abilitySelection=null;render(true);return;}
     abilitySelection.targetId=target.id;render(true);return;
   }
-  if(selected&&key(selected.path.at(-1))===`${x},${y}`){
+  if(confirm&&selected&&key(selected.path.at(-1))===`${x},${y}`){
     await send('move',{slotId:unit.id,expectedTurn:game.state.turnSerial,path:selected.path});return;
   }
   try{const path=calculatePath(game.state.combat,unit.id,{x,y});if(path.length<2){game.preview=null;render(true);return;}
@@ -355,21 +371,21 @@ app.addEventListener('click',async event=>{
   if(target.dataset.inspectId){
     const entity=[...(game.state?.combat?.units??[]),...(game.state?.combat?.objects??[])].find(item=>item.id===target.dataset.inspectId&&item.alive!==false);
     const fromRoster=Boolean(target.closest?.('.live-roster'));
-    if(entity&&abilitySelection&&canMove()&&!fromRoster){await tapCell(entity.x,entity.y);return;}
+    if(entity&&(abilitySelection||movementArmed)&&canMove()&&!fromRoster){await tapCell(entity.x,entity.y);return;}
     inspectedId=entity?.id??null;render(true);return;
   }
   if(target.dataset.x!=null){await tapCell(Number(target.dataset.x),Number(target.dataset.y));return;}
   if(target.dataset.champion){draft={slot:slotId,champion:target.dataset.champion,skills:catalog[target.dataset.champion].skills.slice(0,4).map(a=>a.id),dirty:true};render(true);return;}
   switch(target.dataset.action){
     case 'exit':if(canMove()&&!blocked())await send('colosoAction',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial,action:'exit',targetId:activeUnit().id});break;
-    case 'dollMoveMode':game.preview=null;abilitySelection=null;render(true);break;
+    case 'dollMoveMode':if(game.preview)await confirmSelection();else{abilitySelection=null;render(true);}break;
     case 'dollEnd':if(canMove()&&!blocked()&&game.state.combat?.dollPhase){await send('houganDollEnd',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial});game.preview=null;render(true);}break;
-    case 'houganDoll':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId==='houganDoll'?null:{abilityId:'houganDoll',unitId:activeUnit().id,version:game.state.version,targetId:null,position:null};game.preview=null;render(true);}break;
-    case 'korganDisarm':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId==='korganDisarm'?null:{abilityId:'korganDisarm',unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
-    case 'hookPull1':case 'hookPull2':if(canMove()&&!blocked()&&abilitySelection?.abilityId==='hook'&&abilitySelection.targetId){const distance=target.dataset.action==='hookPull2'?2:1;abilitySelection.distance=distance;render(true);await send('ability',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial,abilityId:'hook',targetId:abilitySelection.targetId,distance});abilitySelection=null;render(true);}break;
-    case 'needle':case 'transfer':case 'ritual':case 'curse':case 'paintransfer':case 'dance':case 'trap_spikes':case 'trap_mine':case 'grenade':case 'shot':case 'hook':case 'hunterstep':case 'germinate':case 'wither':case 'thorn':case 'vines':case 'sap':case 'spores':case 'awakening':case 'reabsorption':case 'piplusMark':case 'precise':case 'vector':case 'impulse':case 'interference':case 'rupture':case 'fixation':case 'fusion':case 'recycle':case 'bow':case 'stonearmor':case 'absorb':case 'collapse':case 'magnetism':case 'createPillar':case 'hammer':case 'sword':case 'daggers':case 'shield':case 'spear':case 'quake':case 'rock':if(canMove()&&!blocked()){abilitySelection=abilitySelection?.abilityId===target.dataset.action?null:selectionForAbility(target.dataset.action);game.preview=null;render(true);}break;
+    case 'houganDoll':if(canMove()&&!blocked()){if(abilitySelection?.abilityId==='houganDoll'){await confirmSelection();break;}abilitySelection={abilityId:'houganDoll',unitId:activeUnit().id,version:game.state.version,targetId:null,position:null};game.preview=null;render(true);}break;
+    case 'korganDisarm':if(canMove()&&!blocked()){if(abilitySelection?.abilityId==='korganDisarm'){await confirmSelection();break;}abilitySelection={abilityId:'korganDisarm',unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
+    case 'hookPull1':case 'hookPull2':if(canMove()&&!blocked()&&abilitySelection?.abilityId==='hook'&&abilitySelection.targetId){const distance=target.dataset.action==='hookPull2'?2:1;abilitySelection.distance=distance;render(true);}break;
+    case 'needle':case 'transfer':case 'ritual':case 'curse':case 'paintransfer':case 'dance':case 'trap_spikes':case 'trap_mine':case 'grenade':case 'shot':case 'hook':case 'hunterstep':case 'germinate':case 'wither':case 'thorn':case 'vines':case 'sap':case 'spores':case 'awakening':case 'reabsorption':case 'piplusMark':case 'precise':case 'vector':case 'impulse':case 'interference':case 'rupture':case 'fixation':case 'fusion':case 'recycle':case 'bow':case 'stonearmor':case 'absorb':case 'collapse':case 'magnetism':case 'createPillar':case 'hammer':case 'sword':case 'daggers':case 'shield':case 'spear':case 'quake':case 'rock':if(canMove()&&!blocked()){if(abilitySelection?.abilityId===target.dataset.action)await confirmSelection();else{abilitySelection=selectionForAbility(target.dataset.action);game.preview=null;render(true);}}break;
     case 'toggleLog':hudSettings=saveHudSetting(localStorage,'log',{collapsed:!hudSettings.log.collapsed});render(true);break;
-    case 'moveMode':abilitySelection=null;game.preview=null;render(true);break;
+    case 'moveMode':if(!abilitySelection&&game.preview)await confirmSelection();else{movementArmed=true;abilitySelection=null;game.preview=null;render(true);}break;
     case 'resetHud':hudSettings=resetHudSettings(localStorage);render(true);break;
     case 'rotateCameraLeft':case 'rotateCameraRight':{
       const focus=inspectedId??activeUnit()?.id,step=target.dataset.action==='rotateCameraLeft'?-1:1;
@@ -394,7 +410,9 @@ app.addEventListener('click',async event=>{
     case 'leave':{
       if(game.state.phase!=='finished'){
         if(blocked())break;
-        const confirmed=await game.send('abandon',{slotId:ownSlot()?.id});
+        await game.refresh();
+        let confirmed=await game.send('abandon',{});
+        if(!confirmed&&game.online&&!game.sync.pendingCommand()){await game.refresh();if(game.state.phase==='finished')confirmed=true;else confirmed=await game.send('abandon',{});}
         if(!confirmed){notify('No se pudo confirmar el abandono. La partida sigue activa para permitir reconexión.');break;}
         render(true);break;
       }
@@ -405,7 +423,7 @@ app.addEventListener('click',async event=>{
     }
   }
 });
-app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;if(event.target.dataset.inspectId){event.preventDefault();inspectedId=event.target.dataset.inspectId;render(true);return;}if(event.target.dataset.action==='moveMode'){event.preventDefault();abilitySelection=null;game.preview=null;render(true);return;}if(event.target.dataset.x!=null){event.preventDefault();tapCell(Number(event.target.dataset.x),Number(event.target.dataset.y));}});
+app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;if(event.target.dataset.inspectId){event.preventDefault();inspectedId=event.target.dataset.inspectId;render(true);return;}if(event.target.dataset.action==='moveMode'){event.preventDefault();event.target.click();return;}if(event.target.dataset.x!=null){event.preventDefault();tapCell(Number(event.target.dataset.x),Number(event.target.dataset.y));}});
 window.addEventListener('offline',()=>game.disconnect());window.addEventListener('online',()=>game.refresh());
 document.addEventListener('visibilitychange',()=>{if(document.hidden){feedbackPlayback.suspend();vfx.clear();audioPlayback.suspend();game.preview=null;game.sync.preview=null;}else game.refresh();});
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);
@@ -418,3 +436,4 @@ function confirmedSocial(){return social.user&&!social.user.is_anonymous&&social
 render(true);
 const invited=new URL(location.href).searchParams.get('match')??localStorage.getItem('live-v2-lab2-match');
 if(invited){try{await joinInvitation(location.search.includes('match=')?location.href:invited);}catch(error){notify(error.message);}}
+

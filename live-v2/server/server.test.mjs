@@ -134,7 +134,7 @@ test("movimiento exacto, permisos, vencimiento y cierre backend sin celulares", 
       ),
     (e) => e.code === "FORBIDDEN",
   );
-  x.now = 31000;
+  x.now = 41000;
   await assert.rejects(
     () =>
       x.svc.command(
@@ -363,7 +363,7 @@ test('Dagas persists to both members once; wounded move preserves confirmed rout
  out=await x.svc.command('u1',cmd('end-dagger','endTurn',v,{slotId:'A1',expectedTurn:0}));
  const route=[{x:3,y:5},{x:4,y:5},{x:5,y:5}];out=await x.svc.command('u2',cmd('wounded-move','move',out.version,{slotId:'B1',expectedTurn:1,path:route}));
  assert.equal(out.state.combat.units[1].hp,99);assert.deepEqual(out.state.presentation.moves.at(-1).path,route);
- const expiry=cmd('wound-expiry','expireTurn',out.version,{expectedTurn:1});x.now=31000;out=await x.svc.command('backend',expiry);assert.equal(out.state.combat.units[1].status.wound,1);assert.deepEqual(await x.svc.command('backend',expiry),out);assert.equal(out.state.turnSerial,2);
+ const expiry=cmd('wound-expiry','expireTurn',out.version,{expectedTurn:1});x.now=41000;out=await x.svc.command('backend',expiry);assert.equal(out.state.combat.units[1].status.wound,1);assert.deepEqual(await x.svc.command('backend',expiry),out);assert.equal(out.state.turnSerial,2);
  assert.deepEqual((await x.svc.snapshot('u1','m')).combat,(await x.svc.snapshot('u2','m')).combat);
 });
 test('death during movement persists shortened animation path and finishes match atomically',async()=>{
@@ -540,3 +540,4 @@ test('feedback/log history is shared, bounded and retry does not duplicate it',a
  assert.equal(out.state.presentation.feedback.length,16);assert.equal(out.state.presentation.log.length,8);
  assert.deepEqual((await x.svc.snapshot('u2','m')).presentation.log,out.state.presentation.log);
 });
+

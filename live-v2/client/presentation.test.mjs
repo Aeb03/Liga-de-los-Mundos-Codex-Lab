@@ -157,7 +157,7 @@ test('AoE fijado usa magenta semántico sin reemplazar las casillas de alcance L
   assert.match(html,/aoe-preview-center/);
   assert.match(html,/aoe-preview-locked/);
   assert.match(html,/Área afectada/);
-  assert.match(html,/Área fijada\. Arrastrá para cambiarla o tocá otra vez el centro para lanzar\./);
+  assert.match(html,/Área fijada\. Arrastrá para cambiarla o tocá nuevamente la habilidad para lanzar\./);
 });
 
 test('obstacles and champions interleave by camera depth in all four views',()=>{
@@ -170,3 +170,4 @@ test('obstacles and champions interleave by camera depth in all four views',()=>
  }
  assert.deepEqual(state,before);
 });
+

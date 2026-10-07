@@ -12,7 +12,7 @@ test('2v2 initiatives include all four units and all tied groups use explicit ra
  const units=slots.map((s,i)=>createUnit({...s,championId:'arfeli',position:{x:4+i,y:5}}));
  assert.throws(()=>initializeCombat({units}),(e)=>e.code==='RANDOM_REQUIRED');
  const tied=initializeCombat({units,random:()=>.75}).state;
- assert.equal(tied.tieBreak.groups[0].draws.length,3);assert.equal(new Set(tied.order).size,4);
+ assert.equal(tied.tieBreak.groups.length,3);assert(tied.tieBreak.groups.every(g=>g.draws.length===1));assert.equal(new Set(tied.order).size,4);
  const unfair=structuredClone(units);unfair[3].team='A';
  assert.throws(()=>initializeCombat({units:unfair,random:()=>.25}),(e)=>e.code==='UNSUPPORTED_FORMAT');
 });
@@ -51,3 +51,4 @@ test('room repository defaults old clients to 1v1 and routes 2v2 to isolated RPC
  await repo.createRoom('a',{id:'m'});await repo.createRoom('a',{id:'n',mode:'2v2'});
  assert.equal(calls[0].name,'live_v2_create_room');assert.equal(calls[1].name,'live_v2_create_team_room');assert.throws(()=>repo.createRoom('a',{id:'x',mode:'3v3'}),(e)=>e.code==='UNSUPPORTED_FORMAT');
 });
+

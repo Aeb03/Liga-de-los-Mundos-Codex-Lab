@@ -99,6 +99,7 @@ export function bindDraggableHud(root,{storage=globalThis.localStorage,onStored=
       const dx=event.clientX-startX,dy=event.clientY-startY;
       if(!moved&&Math.hypot(dx,dy)<1.5)return;
       moved=true;event.preventDefault();
+    try{stage.setPointerCapture(event.pointerId);}catch{}
       const pr=panel.getBoundingClientRect(),fixed=hudIsFixed(panel),cr=hudBox(root,panel);
       const minX=fixed?cr.left:2,minY=fixed?cr.top:2,maxX=fixed?cr.left+cr.width-pr.width-2:cr.width-pr.width-2,maxY=fixed?cr.top+cr.height-pr.height-2:cr.height-pr.height-2;
       nextX=clamp(left+dx,minX,Math.max(minX,maxX));
@@ -201,7 +202,7 @@ export function bindBattleCamera(root,camera,{onChange=()=>{}}={}){
   const down=event=>{
     if(event.pointerType==='mouse'&&event.button!==0)return;
     const point={x:event.clientX,y:event.clientY};pointers.set(event.pointerId,point);
-    try{stage.setPointerCapture(event.pointerId);}catch{}
+
     if(pointers.size===1)beginPan(point);
     else if(pointers.size===2){event.preventDefault();beginPinch();}
   };
@@ -219,6 +220,7 @@ export function bindBattleCamera(root,camera,{onChange=()=>{}}={}){
     const dx=event.clientX-startPoint.x,dy=event.clientY-startPoint.y;
     if(!moved&&Math.hypot(dx,dy)<7)return;
     moved=true;event.preventDefault();
+    try{stage.setPointerCapture(event.pointerId);}catch{}
     next=clampCamera({x:base.x+dx,y:base.y+dy,rotation:base.rotation,zoom:base.zoom},stage.offsetWidth,stage.offsetHeight);
     queue();
   };
@@ -252,3 +254,4 @@ export function centerCameraOn(root,camera,entityId){
   const centered=clampCamera({x:camera.x+(targetX-(er.left+er.width/2)),y:camera.y+(targetY-(er.top+er.height/2)),rotation:camera.rotation,zoom:camera.zoom},stage.offsetWidth,stage.offsetHeight);
   Object.assign(camera,centered);applyCameraDom(root,camera);return camera;
 }
+

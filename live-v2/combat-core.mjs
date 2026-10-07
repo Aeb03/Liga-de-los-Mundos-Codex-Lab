@@ -83,7 +83,7 @@ function validateSupportedState(state) {
     if (typeof unit.team !== 'string' || !unit.team || !nonNegativeInteger(unit.slot) || typeof unit.controllerId !== 'string' || !unit.controllerId) fail('INVALID_UNIT_IDENTITY', 'Equipo, slot y controlador inválidos');
     const teamSlot = `${unit.team}\0${unit.slot}`;
     if (teamSlots.has(teamSlot)) fail('INVALID_UNIT_IDENTITY', 'El slot debe ser único dentro del equipo');
-    if (!inside(unit) || positions.has(key(unit)) || obstacleSet.has(key(unit))) fail('INVALID_POSITION', 'Posición de unidad inválida, repetida u obstruida');
+    if (!inside(unit) || (unit.alive && (positions.has(key(unit)) || obstacleSet.has(key(unit))))) fail('INVALID_POSITION', 'Posición de unidad inválida, repetida u obstruida');
     for (const field of ['hp', 'maxHp', 'pa', 'maxPa', 'pm', 'maxPm', 'initiative']) if (!nonNegativeInteger(unit[field])) fail('INVALID_RESOURCE', `Recurso inválido: ${field}`);
     if (unit.maxHp < 1 || unit.hp > unit.maxHp || unit.pa > unit.maxPa + (unit.championId==='onod'?3:unit.championId==='korgan'?1:0) || unit.pm > unit.maxPm || typeof unit.alive !== 'boolean' || unit.alive !== (unit.hp > 0)) fail('INVALID_RESOURCE', 'Vida, recursos o marca alive inconsistentes');
     const statusFields = ['wound', 'poison', 'burn', 'paPenaltyNext', 'pmPenaltyNext'];
@@ -104,7 +104,7 @@ function validateSupportedState(state) {
     if (!Array.isArray(unit.arfeliMasteryChain) || !Array.isArray(unit.stoneArmorTargetsUsed) || !Array.isArray(unit.piplusInterferenceTargets) || !unit.skillUsesThisTurn || typeof unit.skillUsesThisTurn !== 'object' || Array.isArray(unit.skillUsesThisTurn)) fail('INVALID_CHAMPION_STATE', 'Colecciones de turno del campeón inválidas');
     if (Object.values(unit.skillUsesThisTurn).some(value => !nonNegativeInteger(value))) fail('INVALID_CHAMPION_STATE', 'Contador de habilidad inválido');
     if (unit.piplusFixationTargetId !== null && typeof unit.piplusFixationTargetId !== 'string') fail('INVALID_CHAMPION_STATE', 'Objetivo de fijación inválido');
-    ids.add(unit.id); positions.add(key(unit)); teams.add(unit.team); teamSlots.add(teamSlot);
+    ids.add(unit.id); if(unit.alive)positions.add(key(unit)); teams.add(unit.team); teamSlots.add(teamSlot);
   }
   for(const unit of state.units){
     if(unit.status.vinesSourceId!=null&&!state.units.some(t=>t.id===unit.status.vinesSourceId&&t.championId==='onod'&&t.team!==unit.team))fail('INVALID_STATUS','Origen de Enredaderas inválido');
@@ -192,20 +192,16 @@ export function initializeCombat({ units, obstacles = [], random, clock }) {
     tieBreak = { candidates: copy.map(u => u.id), randomValue: tie.value, winnerId: tie.winner.id };
   }
   if(copy.length===4){
-    const groups=[];
-    for(let start=0;start<sorted.length;){
-      let end=start+1;while(end<sorted.length&&sorted[end].initiative===sorted[start].initiative)end++;
-      const group=sorted.slice(start,end),draws=[];
-      if(group.length>1){
-        for(let i=group.length-1;i>0;i--){
-          const value=typeof random==='function'?random():random;
-          if(typeof value!=='number'||value<0||value>=1)fail('RANDOM_REQUIRED','Un empate requiere azar explícito en [0, 1)');
-          draws.push(value);const j=Math.floor(value*(i+1));[group[i],group[j]]=[group[j],group[i]];
-        }
-        sorted.splice(start,group.length,...group);groups.push({initiative:group[0].initiative,order:group.map(u=>u.id),draws});
-      }
-      start=end;
-    }
+    const groups=[],teams=[...new Set(copy.map(u=>u.team))];
+    const draw=()=>{const value=typeof random==='function'?random():random;if(typeof value!=='number'||value<0||value>=1)fail('RANDOM_REQUIRED','Un empate requiere azar explícito en [0, 1)');return value;};
+    const queues=teams.map(team=>{
+      const list=copy.filter(u=>u.team===team).sort((a,b)=>b.initiative-a.initiative);
+      if(list[0].initiative===list[1].initiative){const value=draw();if(value>=.5)list.reverse();groups.push({team,order:list.map(u=>u.id),draws:[value]});}
+      return list;
+    });
+    let first=queues[0][0].initiative>=queues[1][0].initiative?0:1;
+    if(queues[0][0].initiative===queues[1][0].initiative){const value=draw();first=value<.5?0:1;groups.push({startingTeam:teams[first],draws:[value]});}
+    sorted.splice(0,4,queues[first][0],queues[1-first][0],queues[first][1],queues[1-first][1]);
     if(groups.length)tieBreak={groups};
   }
   let state = {
@@ -1168,3 +1164,4 @@ function useOnodAbility(state,unit,id,targetId,position){
   if(id==='reabsorption'){const eligible=absorbableSprouts(next,u);for(const s of eligible)consumePillar(s,events,id);u.pa+=eligible.length;u.onodGerminateBlockedThisTurn=true;u.onodReabsorptionUsedThisTurn=true;events.push({type:'resource.gained',unitId:u.id,resource:'pa',amount:eligible.length});}
   finishIfNeeded(next,events);return {state:next,events};
 }
+

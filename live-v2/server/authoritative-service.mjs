@@ -199,7 +199,7 @@ export class AuthoritativeService {
           const dollPhaseFinished=input.type==="houganDollEnd"||(input.type==="houganDollMove"&&wasDollPhase&&!m.combat.dollPhase);
           if (input.type === "endTurn" || dollPhaseFinished) {
             m.turnSerial++;
-            m.turnDeadline = started + 30000;
+            m.turnDeadline = started + 40000;
           }
           if (m.combat.phase === "ended") {
             m.phase = "finished";
@@ -218,6 +218,8 @@ export class AuthoritativeService {
             input.skills.some((x) => !valid.includes(x))
           )
             err("INVALID_SELECTION", "Campeón o habilidades inválidos");
+          if(Object.values(m.slots).some(s=>s.id!==slot.id&&s.team===slot.team&&s.championId===input.championId))
+            err("DUPLICATE_CHAMPION", "Tu compañero ya eligió ese campeón");
           Object.assign(slot, {
             championId: input.championId,
             skills: [...input.skills],
@@ -286,7 +288,7 @@ export class AuthoritativeService {
           m.combat = out.state;
           m.phase = "combat";
           m.turnSerial = 0;
-          m.turnDeadline = started + 30000;
+          m.turnDeadline = started + 40000;
           events = out.events;
         } else if (input.type === "expireTurn") {
           if (identity !== "backend") err("FORBIDDEN", "Sólo backend");
@@ -302,7 +304,7 @@ export class AuthoritativeService {
             : endTurn(m.combat,{unitId:m.combat.order[m.combat.turnIndex]});
           m.combat = out.state;
           m.turnSerial++;
-          m.turnDeadline = started + 30000;
+          m.turnDeadline = started + 40000;
           if (m.combat.phase === "ended") {
             m.phase = "finished";
             m.result = { winnerTeam: m.combat.winnerTeam, finishedAt: started };
@@ -435,3 +437,4 @@ export class MemoryRepository {
     return structuredClone(known.result);
   }
 }
+

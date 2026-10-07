@@ -7,7 +7,7 @@ import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261007-flex1';
-import { renderArena } from './presentation.mjs?v=20261007-flex1';
+import { renderArena } from './presentation.mjs?v=20261007-ux1';
 import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261007-flex1';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261005-vines1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261007-flex1';
@@ -101,10 +101,12 @@ function preparation(){
 const key=p=>`${p.x},${p.y}`;
 function blocked(){return joining||game.busy||!game.online||Boolean(game.sync.pendingCommand());}
 function syncInspection(){
-  const active=activeUnit(),dollId=game.state?.combat?.dollPhase?.dollId??null,focus=dollId??active?.id??'';
-  if(focus!==lastInspectionFocus){lastInspectionFocus=focus;inspectedId=focus||null;}
+  const active=activeUnit();
+  if(active?.controllerId===actor)slotId=active.id;
+  const focus=ownSlot()?.id??'';
+  if(focus!==lastInspectionFocus){lastInspectionFocus=focus;inspectedId=null;}
   const entities=[...(game.state?.combat?.units??[]),...(game.state?.combat?.objects??[])];
-  if(inspectedId&&!entities.some(entity=>entity.id===inspectedId&&entity.alive!==false))inspectedId=focus||null;
+  if(inspectedId&&!entities.some(entity=>entity.id===inspectedId&&entity.alive!==false))inspectedId=null;
 }
 function insideBoard(cell){return !!cell&&cell.x>=0&&cell.y>=0&&cell.x<12&&cell.y<12;}
 function selectionForAbility(id){
@@ -223,7 +225,7 @@ function render(force=false){
     bindDraggableHud(battle,{storage:localStorage,onStored:next=>{hudSettings=next;}});
     Object.assign(camera,applyCameraDom(battle,camera));
     bindBattleCamera(battle,camera);
-    skillHoldCleanup=bindSkillHoldInfo(battle,{getInfo:id=>offlineSkillInfo(activeUnit()?.championId,id)});
+    skillHoldCleanup=bindSkillHoldInfo(battle,{getInfo:(id,button)=>offlineSkillInfo(button.dataset.skillChampion,id)});
     if(abilitySelection?.aoe?.active){
       const board=battle.querySelector('.live-board');
       aoeCleanup=bindAoEGesture(board,{
@@ -252,6 +254,7 @@ async function confirmSelection(){
   await tapCell(cell.x,cell.y,true);
 }
 async function tapCell(x,y,confirm=false){
+  if(inspectedId){inspectedId=null;render(true);}
   if(blocked())return;
   if(game.state.phase==='deployment'){await send('setPosition',{slotId:ownSlot().id,position:{x,y}});return;}
   if(!canMove())return;
@@ -382,6 +385,7 @@ app.addEventListener('click',async event=>{
   const target=event.target.closest('[data-action],[data-hud-collapse],[data-hud-orient],[data-champion],[data-inspect-id],[data-x]');if(!target||target.disabled)return;
   if(target.dataset.hudCollapse){const key=target.dataset.hudCollapse;hudSettings=saveHudSetting(localStorage,key,{collapsed:!hudSettings[key]?.collapsed});render(true);return;}
   if(target.dataset.hudOrient){const key=target.dataset.hudOrient,current=hudSettings[key]?.orientation??'vertical';hudSettings=saveHudSetting(localStorage,key,{orientation:current==='vertical'?'horizontal':'vertical'});render(true);return;}
+  if(target.getAttribute?.('aria-disabled')==='true')return;
   if(target.dataset.inspectId){
     const entity=[...(game.state?.combat?.units??[]),...(game.state?.combat?.objects??[])].find(item=>item.id===target.dataset.inspectId&&item.alive!==false);
     const fromRoster=Boolean(target.closest?.('.live-roster'));
@@ -397,9 +401,9 @@ app.addEventListener('click',async event=>{
     case 'houganDoll':if(canMove()&&!blocked()){if(abilitySelection?.abilityId==='houganDoll'){await confirmSelection();break;}abilitySelection={abilityId:'houganDoll',unitId:activeUnit().id,version:game.state.version,targetId:null,position:null};game.preview=null;render(true);}break;
     case 'korganDisarm':if(canMove()&&!blocked()){if(abilitySelection?.abilityId==='korganDisarm'){await confirmSelection();break;}abilitySelection={abilityId:'korganDisarm',unitId:activeUnit().id,version:game.state.version,targetId:null};game.preview=null;render(true);}break;
     case 'hookPull1':case 'hookPull2':if(canMove()&&!blocked()&&abilitySelection?.abilityId==='hook'&&abilitySelection.targetId){const distance=target.dataset.action==='hookPull2'?2:1;abilitySelection.distance=distance;render(true);}break;
-    case 'needle':case 'transfer':case 'ritual':case 'curse':case 'paintransfer':case 'dance':case 'trap_spikes':case 'trap_mine':case 'grenade':case 'shot':case 'hook':case 'hunterstep':case 'germinate':case 'wither':case 'thorn':case 'vines':case 'sap':case 'spores':case 'awakening':case 'reabsorption':case 'piplusMark':case 'precise':case 'vector':case 'impulse':case 'interference':case 'rupture':case 'fixation':case 'fusion':case 'recycle':case 'bow':case 'stonearmor':case 'absorb':case 'collapse':case 'magnetism':case 'createPillar':case 'hammer':case 'sword':case 'daggers':case 'shield':case 'spear':case 'quake':case 'rock':if(canMove()&&!blocked()){if(abilitySelection?.abilityId===target.dataset.action)await confirmSelection();else{abilitySelection=selectionForAbility(target.dataset.action);game.preview=null;render(true);}}break;
+    case 'needle':case 'transfer':case 'ritual':case 'curse':case 'paintransfer':case 'dance':case 'trap_spikes':case 'trap_mine':case 'grenade':case 'shot':case 'hook':case 'hunterstep':case 'germinate':case 'wither':case 'thorn':case 'vines':case 'sap':case 'spores':case 'awakening':case 'reabsorption':case 'piplusMark':case 'precise':case 'vector':case 'impulse':case 'interference':case 'rupture':case 'fixation':case 'fusion':case 'recycle':case 'bow':case 'stonearmor':case 'absorb':case 'collapse':case 'magnetism':case 'createPillar':case 'hammer':case 'sword':case 'daggers':case 'shield':case 'spear':case 'quake':case 'rock':if(canMove()&&!blocked()){if(abilitySelection?.abilityId===target.dataset.action)await confirmSelection();else{movementArmed=false;abilitySelection=selectionForAbility(target.dataset.action);game.preview=null;render(true);}}break;
     case 'toggleLog':hudSettings=saveHudSetting(localStorage,'log',{collapsed:!hudSettings.log.collapsed});render(true);break;
-    case 'moveMode':if(!abilitySelection&&game.preview)await confirmSelection();else{movementArmed=true;abilitySelection=null;game.preview=null;render(true);}break;
+    case 'moveMode':if(!abilitySelection&&game.preview)await confirmSelection();else{movementArmed=!movementArmed;abilitySelection=null;game.preview=null;render(true);}break;
     case 'resetHud':hudSettings=resetHudSettings(localStorage);render(true);break;
     case 'rotateCameraLeft':case 'rotateCameraRight':{
       const focus=inspectedId??activeUnit()?.id,step=target.dataset.action==='rotateCameraLeft'?-1:1;

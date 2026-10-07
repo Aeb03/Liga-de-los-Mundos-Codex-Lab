@@ -31,8 +31,8 @@ test('sword targets are marked and action is enabled only for own valid active s
  const state=fixture();state.slots.A1.championId='arfeli';state.slots.A1.skills=['sword','daggers','bow','shield'];state.combat=initializeCombat({units:[createUnit({...state.slots.A1,slot:1,position:{x:2,y:5}}),createUnit({...state.slots.B1,slot:1,position:{x:3,y:5}})]}).state;
  const args={state,actor:'shared',slotId:'A1',remaining:24,blocked:false,canMove:true,abilitySelection:{targetId:'B1'}};
  const before=structuredClone(state);let html=renderArena(args);assert.match(html,/data-action="sword"  title/);assert.match(html,/ability-target ability-selected ability-effect/);assert.match(html,/Corte con Espada: 10 daño · 2 PA/);assert.match(html,/0\/2/);assert.deepEqual(state,before);
- html=renderArena({...args,canMove:false});assert.match(html,/data-action="sword" disabled/);
- state.combat.units[0].skillUsesThisTurn.sword=2;html=renderArena(args);assert.match(html,/data-action="sword" disabled/);assert.match(html,/2\/2/);
+ html=renderArena({...args,canMove:false});assert.match(html,/data-action="sword" aria-disabled="true"/);
+ state.combat.units[0].skillUsesThisTurn.sword=2;html=renderArena(args);assert.match(html,/data-action="sword" aria-disabled="true"/);assert.match(html,/2\/2/);
 });
 
 test('Dagas preview names wound and movement preview distinguishes normal wound damage without mutating',()=>{
@@ -60,7 +60,7 @@ test('paridad visual: estados compactos van sobre PV y Escudo queda en línea se
 test('paridad visual: inspección puede mostrar rival u objeto sin cambiar al campeón activo',()=>{
  const state=fixture();
  let html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,inspectedId:'B1'});
- assert.match(html,/Coloso · B1/);assert.match(html,/data-inspect-id="B1"/);assert.match(html,/Flecha de Precisión/);
+ assert.match(html,/Coloso · B1/);assert.match(html,/data-inspect-id="B1"/);assert.match(html,/data-skill-champion="coloso"/);assert.match(html,/data-action="rock" aria-disabled="true"/);
  const object={id:'pillar1',number:1,kind:'object',type:'pillar',ownerId:'B1',team:'B',x:8,y:5,hp:12,maxHp:15,alive:true,shield:[{amount:3,sourceId:'B1'}],blocksLOS:true,createdByColosoTurn:0};
  state.combat.objects.push(object);state.combat.nextPillarId=2;
  html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,inspectedId:'pillar1'});
@@ -129,7 +129,8 @@ test('HUD mantiene las cuatro habilidades visibles y sólo Mover + Fin turno com
   assert.match(html,/data-skill="vector"/);
   assert.match(html,/data-skill="impulse"/);
   assert.match(html,/data-skill="interference"/);
-  assert.match(html,/tile\s+reachable/);
+  assert.doesNotMatch(html,/tile\s+reachable/);
+ assert.match(renderArena({state,actor:'shared',slotId:'A1',canMove:true,movementArmed:true,remaining:20}),/tile\s+reachable/);
 });
 
 test('campeones tienen hitbox táctil para inspección directa desde la arena',()=>{
@@ -171,3 +172,13 @@ test('obstacles and champions interleave by camera depth in all four views',()=>
  assert.deepEqual(state,before);
 });
 
+
+test('rival turn keeps own skills consultable; inspection switches skills without authorizing actions',()=>{
+ const state=fixture();state.combat.turnIndex=state.combat.order.indexOf('B1');
+ const args={state,actor:'shared',slotId:'A1',canMove:false,blocked:false,remaining:20};
+ const html=renderArena(args);
+ assert.match(html,/data-skill="precise" data-skill-champion="piplus" data-action="precise" aria-disabled="true"/);
+ assert.doesNotMatch(html,/<button class="combat-skill[^>]* disabled/);
+ const rival=renderArena({...args,inspectedId:'B1'});
+ assert.match(rival,/data-skill="rock" data-skill-champion="coloso" data-action="rock" aria-disabled="true"/);
+});

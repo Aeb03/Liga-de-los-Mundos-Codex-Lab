@@ -285,3 +285,14 @@ body.in-arena .live-battle{flex:1;min-height:0;height:auto;width:100%}
 
 /* Room controls stay in preparation; the camera gear opens match options. */
 body.in-arena>header,body.in-arena .room-bar{display:none}
+
+/* Focused touch targets and deliberate movement preview. */
+.live-board [data-motion-unit]{pointer-events:none}
+.live-board [data-motion-unit] .piece-hitbox{pointer-events:all}
+.combat-skill[aria-disabled="true"]{opacity:.65;cursor:help}
+.live-board .tile.destination{fill:#e9c14dcc;stroke:#fff5be;stroke-width:3.5;filter:drop-shadow(0 0 3px #ffdc63)}
+.move-action[aria-pressed="true"]{outline:2px solid #ffdc77;outline-offset:2px}
+
+@keyframes selected-cell-pulse{from{stroke-width:5;fill:#fff0a5ee}to{stroke-width:3.5;fill:#e9c14dcc}}
+.live-board .tile.destination,.live-board .tile.ability-selected{stroke:#fff5be;stroke-width:3.5;filter:drop-shadow(0 0 3px #ffdc63);animation:selected-cell-pulse .25s ease-out}
+@media(prefers-reduced-motion:reduce){.live-board .tile.destination,.live-board .tile.ability-selected{animation:none}}

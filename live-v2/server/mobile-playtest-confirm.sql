@@ -57,3 +57,6 @@ begin
     values(p_match,p_command,p_actor,p_automatic,p_fingerprint,true,p_expected_version,p_expected_turn,p_result,p_state_hash);
   return p_result;
 end $function$
+
+REVOKE ALL ON FUNCTION public.live_v2_confirm_command(uuid,uuid,uuid,text,bigint,bigint,text,text,bigint,bigint,jsonb,jsonb,text,boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.live_v2_confirm_command(uuid,uuid,uuid,text,bigint,bigint,text,text,bigint,bigint,jsonb,jsonb,text,boolean) TO service_role;

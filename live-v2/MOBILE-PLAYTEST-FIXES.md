@@ -1,5 +1,7 @@
 # Four-phone playtest fixes — 2026-10-07
 
+Publication checkpoint: command and expiry Edge Functions v15 are active. Database behavior was verified with transactions rolled back afterward: expired abandonment and a 40-second deadline. Pages is still serving commit 5296cbe3; a fresh Pages build is required before mobile validation of the new interface.
+
 Adrián and friends connected and played with four real phones. This validates connectivity, not this new patch.
 
 - Move button arms movement; a tile previews the route; the same button confirms.

@@ -273,3 +273,12 @@
 .team-slot-chooser{display:flex;align-items:center;gap:8px;font-size:12px;margin:8px 0}.in-arena .team-slot-chooser{position:absolute;top:84px;left:50%;transform:translateX(-50%);z-index:5;background:#15262bee;border:1px solid #61787c;border-radius:9px;padding:3px 8px;margin:0}.in-arena .team-slot-chooser select{padding:5px;font-size:12px;min-height:30px}.teams .unit-card p{margin-bottom:0}
 
 .invite-row{display:flex;gap:6px;align-items:center;margin:6px 0}.invite-row button{font-size:11px;flex-shrink:0}.invite-row input{min-width:0}.welcome [data-action="joinSlot"]{margin:6px}
+
+
+/* Combat owns the viewport; installation controls remain in the lobby. */
+body.in-arena{height:100dvh;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+body.in-arena>header{flex:none}
+body.in-arena>#rotate,body.in-arena>.app-display-tools{display:none}
+body.in-arena>main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;overflow:hidden}
+body.in-arena .room-bar{flex:none}
+body.in-arena .live-battle{flex:1;min-height:0;height:auto;width:100%}

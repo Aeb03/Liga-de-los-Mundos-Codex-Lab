@@ -8,6 +8,7 @@ export class ProtocolError extends Error {
 }
 export const phases = ["preparation", "deployment", "combat", "finished"];
 export const commandTypes = [
+  "aiStep",
   "select",
   "setReady",
   "setPosition",
@@ -65,3 +66,4 @@ export function validateCommand(c) {
     throw new ProtocolError("INVALID_COMMAND", "Falta turno esperado");
   return c;
 }
+

@@ -1,3 +1,5 @@
+import { planAI } from './ai.mjs';
+import { randomUUID } from 'node:crypto';
 import { confirmedFeedback } from '../feedback-cues.mjs';
 import { confirmedAudioCues } from '../audio-cues.mjs';
 import {
@@ -98,8 +100,9 @@ function publicView(m, viewer) {
     slots: Object.fromEntries(
       Object.entries(m.slots).map(([id, s]) => [
         id,
-        m.phase === "deployment" && !own.has(id)
+        m.phase === "deployment" && !own.has(id) && !(s.controllerKind==='ai'&&ownTeams.has(s.team))
           ? {
+              ...structuredClone(s),
               id: s.id,
               team: s.team,
               slot: s.slot,
@@ -144,7 +147,17 @@ export class AuthoritativeService {
         const slot = input.slotId ? m.slots[input.slotId] : null;
         if (slot && slot.controllerId !== identity)
           err("FORBIDDEN", "El slot pertenece a otro controlador");
-        if (input.type === "abandon") {
+        if (input.type === "aiStep") {
+          if(!Object.values(m.slots).some(s=>s.controllerId===identity))err('FORBIDDEN','No pertenece a la partida');
+          if(m.phase!=='combat'||input.expectedTurn!==m.turnSerial)err('TURN_CONFLICT','Turno cambiado');
+          if(started>=m.turnDeadline)err('TURN_EXPIRED','El turno venció');
+          const bot=m.slots[m.combat.order[m.combat.turnIndex]];
+          if(bot.controllerKind!=='ai')err('FORBIDDEN','El turno pertenece a un jugador');
+          const planned=planAI(m.combat,bot);
+          m.combat=planned.out.state;events=planned.out.events;
+          if(['endTurn','houganDollEnd'].includes(planned.action.type)){m.turnSerial++;m.turnDeadline=started+40000;}
+          if(m.combat.phase==='ended'){m.phase='finished';m.result={winnerTeam:m.combat.winnerTeam,finishedAt:started};m.turnDeadline=null;}
+        } else if (input.type === "abandon") {
           if (identity === "backend") err("FORBIDDEN", "Backend no abandona partidas");
           if (m.phase === "finished") err("MATCH_FINISHED", "La partida ya terminó");
           const ownedSlots=Object.values(m.slots).filter(s=>s.controllerId===identity);
@@ -231,7 +244,12 @@ export class AuthoritativeService {
           if (typeof input.ready !== "boolean") err("INVALID_COMMAND", "ready debe ser booleano");
           slot.ready = input.ready;
           if (Object.values(m.slots).every((s) => s.ready))
-            m.phase = "deployment";
+            {m.phase = "deployment";
+              for(const bot of Object.values(m.slots).filter(s=>s.controllerKind==='ai')){
+                const free=[...DEPLOY[bot.team]].find(cell=>!Object.values(m.slots).some(s=>s.position&&`${s.position.x},${s.position.y}`===cell));
+                const [x,y]=free.split(',').map(Number);bot.position={x,y};bot.confirmed=true;
+              }
+            }
         } else if (input.type === "setPosition") {
           if (m.phase !== "deployment" || !slot)
             err("WRONG_PHASE", "Despliegue no disponible");
@@ -272,6 +290,7 @@ export class AuthoritativeService {
           const units = Object.values(m.slots).map((s) =>
             createUnit({
               championId: s.championId,
+              ...structuredClone(s),
               id: s.id,
               team: s.team,
               slot: s.slot,
@@ -369,6 +388,15 @@ export class AuthoritativeService {
         return result;
       },
     );
+  }
+  async advanceAI(identity,id) {
+    await this.snapshot(identity,id); // Membership before accessing private state.
+    const m=await this.repo.get(id);
+    if(m.phase==='combat'&&m.slots[m.combat.order[m.combat.turnIndex]]?.controllerKind==='ai'&&this.clock()<m.turnDeadline){
+      try{await this.command(identity,{id:randomUUID(),matchId:id,type:'aiStep',expectedVersion:m.version,expectedTurn:m.turnSerial});}
+      catch(error){if(!['VERSION_CONFLICT','TURN_CONFLICT','TURN_EXPIRED'].includes(error.code))throw error;}
+    }
+    return this.snapshot(identity,id);
   }
   async snapshot(identity, id) {
     const m = await this.repo.get(id);

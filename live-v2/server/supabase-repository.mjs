@@ -1,3 +1,4 @@
+import { normalizeLayout } from './room-layout.mjs';
 import { ProtocolError } from "./protocol.mjs";
 export class SupabaseRepository {
   constructor(client) {
@@ -12,6 +13,7 @@ export class SupabaseRepository {
   createRoom(actorId, room) {
     const mode=room?.mode??'1v1',players=room?.players??2;
     if(!['1v1','2v2'].includes(mode)||![2,4].includes(players)||(players===4&&mode!=='2v2'))throw new ProtocolError('UNSUPPORTED_FORMAT','Formato inválido');
+    if(room.layout)return this.rpc('live_v2_create_flexible_room',{p_actor:actorId,p_match:room.id,p_layout:normalizeLayout(room.layout)});
     return this.rpc(players===4?'live_v2_create_four_player_room':mode==='2v2'?'live_v2_create_team_room':'live_v2_create_room', {
       p_actor: actorId,
       p_match: room.id,
@@ -107,3 +109,4 @@ export class SupabaseRepository {
     return this.rpc("live_v2_claim_expired", { p_limit: limit });
   }
 }
+

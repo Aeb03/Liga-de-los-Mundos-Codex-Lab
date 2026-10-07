@@ -47,9 +47,10 @@ export function createEdgeHandler({
     if (operation === "join")
       return rooms.join(actor, args.matchId, args.slotId);
     if (operation === "snapshot")
-      return authority.snapshot(actor, args.matchId);
+      return authority.advanceAI ? authority.advanceAI(actor, args.matchId) : authority.snapshot(actor, args.matchId);
     if (operation === "recover")
       return authority.recover(actor, args.matchId, args.commandId);
     return authority.command(actor, args.command);
   };
 }
+

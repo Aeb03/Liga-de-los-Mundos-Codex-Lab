@@ -1,0 +1,32 @@
+{
+  "id": "./motion.html",
+  "name": "Liga de los Mundos — LIVE",
+  "short_name": "Liga LIVE",
+  "lang": "es",
+  "start_url": "./motion.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b171e",
+  "theme_color": "#142934",
+  "icons": [
+    {
+      "src": "../icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

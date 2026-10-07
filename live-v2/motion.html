@@ -2,12 +2,20 @@
 <html lang="es">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#142934">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Liga de los Mundos — LIVE v2 Lab</title>
 <link rel="stylesheet" href="client/ui.css?v=20261007-flex1">
 <link rel="stylesheet" href="client/presentation.css?v=20261007-flex1">
 <link rel="stylesheet" href="client/audio-options.css?v=20261005-audio1">
 <link rel="stylesheet" href="client/vfx.css?v=20261007-flex1">
 <link rel="stylesheet" href="client/feedback-ui.css?v=20261007-flex1">
+<style>
+.app-display-tools{padding:12px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center}.app-display-tools button{min-height:44px}.app-display-tools p{flex-basis:100%;text-align:center;margin:0} [hidden]{display:none!important}
+</style>
 </head>
 <body>
 <header><div><span class="eyebrow">LIGA DE LOS MUNDOS · LAB</span><h1>LIVE v2 <small>1v1 / 2v2</small></h1></div><div class="connection" id="connection">Preparado</div></header>
@@ -15,6 +23,8 @@
 <div id="social"></div>
 <main id="app"><section class="panel"><p>Cargando…</p></section></main>
 <div class="toast" id="notice" role="status" aria-live="polite"></div>
+<aside class="app-display-tools" aria-label="Instalación y pantalla"><button id="install-live" type="button">Instalar juego</button><button id="fullscreen-live" type="button">Pantalla completa</button><p id="install-help" role="status" hidden></p></aside>
+<script type="module" src="client/install.mjs?v=20261007-pwa1"></script>
 <footer>Prueba LIVE v2 · 2v2 · jugadores e IA</footer>
 <script src="client/audio-config.js?v=20261005-audio1"></script>
 <script src="client/audio-engine.js?v=20261005-audio1"></script>

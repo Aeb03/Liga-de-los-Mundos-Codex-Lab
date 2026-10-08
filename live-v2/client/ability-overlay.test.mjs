@@ -20,7 +20,7 @@ test('rock shows whole Manhattan diamond, marks blocked LOS, excludes blocked en
 test('disabled or stale selection cannot invent an effect; HUD hides overlays for rival/pending and cancels on movement',()=>{
  const combat=make({x:5,y:5},{x:6,y:5});const slots={a:{id:'a',team:'A',controllerId:'one',championId:'arfeli',skills:['sword','daggers','shield','bow']},b:{id:'b',team:'B',controllerId:'two',championId:'coloso',skills:['rock','stonearmor','absorb','quake']}};
  const args={state:{phase:'combat',combat,slots},actor:'one',slotId:'a',canMove:true,blocked:false,remaining:20,abilitySelection:{abilityId:'daggers',targetId:'b'}};
- let html=renderArena(args);assert.equal((html.match(/class="tile ability-range/g)||[]).length,4);assert.match(html,/ability-selected ability-effect/);assert.match(html,/Referencias de alcance/);
+ let html=renderArena(args);assert.equal((html.match(/class="tile ability-range/g)||[]).length,4);assert.match(html,/ability-selected ability-effect/);assert.doesNotMatch(html,/class="command-feedback"/);
  for(const extra of [{canMove:false},{blocked:true},{abilitySelection:null}]){html=renderArena({...args,...extra});assert(!html.includes('class="tile ability-range'));assert(!html.includes('ability-selected ability-effect'));}
  assert.deepEqual(abilityOverlay(combat,'a','impulse'),{range:[],targets:[],effect:[]});assert.deepEqual(abilityOverlay(combat,'b','rock'),{range:[],targets:[],effect:[]});
  combat.units[0].skillUsesThisTurn.daggers=1;assert.deepEqual(abilityOverlay(combat,'a','daggers','b').effect,[]);
@@ -33,3 +33,4 @@ test('rock range and blocked-cell map match pinned offline range-state and LOS s
  vm.runInContext(['lineCells','clearLOS','effectiveRange','inRange','requiresLOS','abilityRangeState'].map(extract).join('\n'),ctx);
  for(const mono of [false,true]){s.units[1].monolith=mono;const cells=new Map(abilityOverlay(s,'b','rock').range.map(p=>[`${p.x},${p.y}`,p]));for(let y=0;y<12;y++)for(let x=0;x<12;x++){const rs=ctx.abilityRangeState(s.units[1],'rock',x,y),got=cells.get(`${x},${y}`);assert.equal(Boolean(got),Boolean(rs?.inside));if(got)assert.equal(got.blocked,rs.blocked);}}
 });
+

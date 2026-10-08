@@ -311,3 +311,9 @@ body.in-arena #notice{position:static;flex:none;order:-1;transform:none;margin:0
 @media(orientation:landscape) and (max-height:300px){.live-command:not(.collapsed) .command-main{height:54px}.live-command .command-controls,.live-command .active-champion{max-height:54px}}
 .live-command .command-controls{justify-content:flex-start;align-self:stretch;min-height:0;overscroll-behavior:contain}
 .live-command .command-controls>*{flex-shrink:0}
+
+/* Compact command row: no instruction/status footer consumes arena space. */
+.live-command .command-feedback{display:none}
+@media(orientation:landscape){.live-command:not(.collapsed) .command-main{height:64px}.live-command .active-champion,.live-command .command-controls{max-height:64px}}
+@media(orientation:landscape) and (max-height:500px){.live-command:not(.collapsed) .command-main{height:56px}.live-command .active-champion,.live-command .command-controls{max-height:56px}}
+@media(orientation:landscape) and (max-height:300px){.live-command:not(.collapsed) .command-main{height:48px}.live-command .active-champion,.live-command .command-controls{max-height:48px}}

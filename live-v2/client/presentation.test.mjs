@@ -30,7 +30,7 @@ test('status display sums shields and reads positive confirmed values without in
 test('sword targets are marked and action is enabled only for own valid active slot',()=>{
  const state=fixture();state.slots.A1.championId='arfeli';state.slots.A1.skills=['sword','daggers','bow','shield'];state.combat=initializeCombat({units:[createUnit({...state.slots.A1,slot:1,position:{x:2,y:5}}),createUnit({...state.slots.B1,slot:1,position:{x:3,y:5}})]}).state;
  const args={state,actor:'shared',slotId:'A1',remaining:24,blocked:false,canMove:true,abilitySelection:{targetId:'B1'}};
- const before=structuredClone(state);let html=renderArena(args);assert.match(html,/data-action="sword"  title/);assert.match(html,/ability-target ability-selected ability-effect/);assert.match(html,/Corte con Espada: 10 daño · 2 PA/);assert.match(html,/0\/2/);assert.deepEqual(state,before);
+ const before=structuredClone(state);let html=renderArena(args);assert.match(html,/data-action="sword"  title/);assert.match(html,/ability-target ability-selected ability-effect/);assert.doesNotMatch(html,/class="command-feedback"/);assert.match(html,/0\/2/);assert.deepEqual(state,before);
  html=renderArena({...args,canMove:false});assert.match(html,/data-action="sword" aria-disabled="true"/);
  state.combat.units[0].skillUsesThisTurn.sword=2;html=renderArena(args);assert.match(html,/data-action="sword" aria-disabled="true"/);assert.match(html,/2\/2/);
 });
@@ -38,8 +38,8 @@ test('sword targets are marked and action is enabled only for own valid active s
 test('Dagas preview names wound and movement preview distinguishes normal wound damage without mutating',()=>{
  const state=fixture();state.slots.A1.championId='arfeli';state.slots.A1.skills=['sword','daggers','bow','shield'];state.combat=initializeCombat({units:[createUnit({...state.slots.A1,slot:1,position:{x:2,y:5}}),createUnit({...state.slots.B1,slot:1,position:{x:3,y:5}})]}).state;
  const args={state,actor:'shared',slotId:'A1',remaining:24,blocked:false,canMove:true,abilitySelection:{abilityId:'daggers',targetId:'B1'}};
- const before=structuredClone(state);let html=renderArena(args);assert.match(html,/Dagas Danzantes: 10 daño \+ Herida 2 · 3 PA/);assert.match(html,/data-action="daggers"  title/);assert.deepEqual(state,before);
- html=renderArena({...args,abilitySelection:null,preview:{path:[{x:2,y:5},{x:2,y:6}],cost:1,tackleDamage:2,woundDamage:2,remainingHp:0,diesDuringPath:true}});assert.match(html,/Herida: 2 daño · PV final: 0 · MUERTE DURANTE EL RECORRIDO/);
+ const before=structuredClone(state);let html=renderArena(args);assert.doesNotMatch(html,/class="command-feedback"/);assert.match(html,/data-action="daggers"  title/);assert.deepEqual(state,before);
+ html=renderArena({...args,abilitySelection:null,preview:{path:[{x:2,y:5},{x:2,y:6}],cost:1,tackleDamage:2,woundDamage:2,remainingHp:0,diesDuringPath:true}});assert.doesNotMatch(html,/class="command-feedback"/);
 });
 
 
@@ -157,8 +157,7 @@ test('AoE fijado usa magenta semántico sin reemplazar las casillas de alcance L
   assert.match(html,/aoe-preview/);
   assert.match(html,/aoe-preview-center/);
   assert.match(html,/aoe-preview-locked/);
-  assert.match(html,/Área afectada/);
-  assert.match(html,/Área fijada\. Arrastrá para cambiarla o tocá nuevamente la habilidad para lanzar\./);
+  assert.doesNotMatch(html,/class="command-feedback"/);
 });
 
 test('obstacles and champions interleave by camera depth in all four views',()=>{

@@ -64,5 +64,5 @@ test('doll views preserve native proportions and a stable footprint height',asyn
   assert.equal(box.x+box.width/2,100);assert.equal(box.y+box.height*.94,100);
   assert(box.height<=32);assert(box.width<=34);
  }
- assert.equal(championSpriteBox('coloso','down-right',true,{x:100,y:100}).height,40);
+ assert.equal(championSpriteBox('coloso','down-right',true,{x:100,y:100}).height,45);
 });

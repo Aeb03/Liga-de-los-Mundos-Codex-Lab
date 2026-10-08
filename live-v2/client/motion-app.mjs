@@ -6,8 +6,8 @@ import { ConfirmedAudioPlayback } from '../audio-cues.mjs?v=20261005-audio1';
 import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
-import { MotionPresenter, spriteSource } from './motion.mjs?v=20261008-compact3';
-import { renderArena } from './presentation.mjs?v=20261008-compact3';
+import { MotionPresenter, spriteSource } from './motion.mjs?v=20261008-maps1';
+import { renderArena } from './presentation.mjs?v=20261008-maps1';
 import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261007-flex1';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261005-vines1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261007-flex1';
@@ -85,7 +85,7 @@ function teams(){return `<div class="teams">${Object.values(game.state.slots).ma
   const u=game.state.combat?.units.find(u=>u.id===s.id),mine=s.controllerId===actor;
   return `<article class="unit-card ${mine?'':'enemy'} ${activeUnit()?.id===s.id?'active':''}"><div class="row">${s.championId?`<img src="../assets/champions/${s.championId}/${s.championId}-avatar.png" alt="">`:''}<strong>${escape(catalog[s.championId]?.name??'Sin selección')}</strong><span class="tag">${escape(s.id)} · ${s.controllerKind==='ai'?'IA':mine?'Tu control':ownSlots().some(own=>own.team===s.team)?'Compañero':'Rival'}</span></div><p>${u?`${u.hp} PV · ${u.pa} PA · ${u.pm} PM`:game.state.phase==='preparation'&&!s.controllerId?'Esperando otro celular':game.state.phase==='preparation'?(s.ready?'Listo':'Preparando'):(s.confirmed?'Posición confirmada':'Desplegando')}</p></article>`;
 }).join('')}</div>`;}
-function roomBar(){return `<div class="room-bar row spread"><span class="tag">${escape(game.state.id.slice(0,8))} · Sala ${game.state.mode??(Object.keys(game.state.slots).length===4?'2v2':'1v1')}</span>${game.state.phase==='preparation'?'<button data-action="copy" class="subtle">Copiar enlace</button>':''}<button data-action="leave" class="subtle">${game.state.phase==='finished'?'Salir':'Abandonar partida'}</button></div>`;}
+function roomBar(){return `<div class="room-bar row spread"><span class="tag">${escape(game.state.id.slice(0,8))} · Sala ${game.state.mode??(Object.keys(game.state.slots).length===4?'2v2':'1v1')} · ${escape(game.state.arena?.name??'Arena Central')}</span>${game.state.phase==='preparation'?'<button data-action="copy" class="subtle">Copiar enlace</button>':''}<button data-action="leave" class="subtle">${game.state.phase==='finished'?'Salir':'Abandonar partida'}</button></div>`;}
 function setupDraft(){
   const own=ownSlots();if(!own.some(s=>s.id===slotId))slotId=own[0]?.id;
   const s=ownSlot();if(!draft||draft.slot!==slotId)draft={slot:slotId,champion:s?.championId??'arfeli',skills:[...(s?.skills.length?s.skills:catalog[s?.championId??'arfeli'].skills.slice(0,4).map(a=>a.id))],dirty:false};
@@ -466,4 +466,3 @@ function confirmedSocial(){return social.user&&!social.user.is_anonymous&&social
 render(true);
 const invited=new URL(location.href).searchParams.get('match')??localStorage.getItem('live-v2-lab2-match');
 if(invited){try{await joinInvitation(location.search.includes('match=')?location.href:invited);}catch(error){notify(error.message);}}
-

@@ -1,3 +1,4 @@
+import { arenaFor, arenaObstacleCells, drawArena, arenaById } from '../arena-maps.mjs';
 import { planAI } from './ai.mjs';
 import { randomUUID } from 'node:crypto';
 import { confirmedFeedback } from '../feedback-cues.mjs';
@@ -33,14 +34,10 @@ export const EFFECTIVE_SKILLS = {
   korgan: ["trap_spikes", "trap_mine", "grenade", "shot", "hook", "hunterstep"],
   houngan: ["needle", "transfer", "ritual", "curse", "paintransfer", "dance"],
 };
-const DEPLOY = {
-  A: new Set(["0,3", "1,3", "0,4", "2,5", "1,6", "2,6"]),
-  B: new Set(["11,3", "10,3", "11,4", "9,5", "10,6", "9,6"]),
-};
 const err = (c, m) => {
   throw new ProtocolError(c, m);
 };
-export function createMatch({ id, creatorId, slots, createdAt }) {
+export function createMatch({ id, creatorId, slots, createdAt, mapId, random }) {
   if (!id || !creatorId || !Array.isArray(slots) || ![2,4].includes(slots.length))
     err("UNSUPPORTED_FORMAT", "Sólo se habilitan 1v1 y 2v2");
   const ids = new Set();
@@ -64,6 +61,7 @@ export function createMatch({ id, creatorId, slots, createdAt }) {
   return {
     id,
     creatorId,
+    arena: mapId ? arenaById(mapId) : drawArena(random),
     mode: slots.length===4?"2v2":"1v1",
     players: new Set(slots.map(s=>s.controllerId)).size>2?4:2,
     phase: "preparation",
@@ -246,7 +244,7 @@ export class AuthoritativeService {
           if (Object.values(m.slots).every((s) => s.ready))
             {m.phase = "deployment";
               for(const bot of Object.values(m.slots).filter(s=>s.controllerKind==='ai')){
-                const free=[...DEPLOY[bot.team]].find(cell=>!Object.values(m.slots).some(s=>s.position&&`${s.position.x},${s.position.y}`===cell));
+                const free=arenaFor(m).deployment[bot.team].find(cell=>!Object.values(m.slots).some(s=>s.position&&`${s.position.x},${s.position.y}`===cell));
                 const [x,y]=free.split(',').map(Number);bot.position={x,y};bot.confirmed=true;
               }
             }
@@ -261,7 +259,7 @@ export class AuthoritativeService {
             input.position.y < 0 ||
             input.position.x >= 12 ||
             input.position.y >= 12 ||
-            !DEPLOY[slot.team].has(`${input.position.x},${input.position.y}`)
+            !arenaFor(m).deployment[slot.team].includes(`${input.position.x},${input.position.y}`)
           )
             err("INVALID_POSITION", "Posición fuera de la zona efectiva");
           slot.position = { ...input.position };
@@ -302,7 +300,7 @@ export class AuthoritativeService {
             units,
             random: this.random,
             clock: started,
-            obstacles: [{x:5,y:4},{x:6,y:4},{x:5,y:7},{x:6,y:7}],
+            obstacles: arenaObstacleCells(arenaFor(m)),
           });
           m.combat = out.state;
           m.phase = "combat";
@@ -465,4 +463,3 @@ export class MemoryRepository {
     return structuredClone(known.result);
   }
 }
-

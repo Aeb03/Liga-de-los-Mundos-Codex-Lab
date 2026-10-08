@@ -38,7 +38,7 @@ test('Danza allied teammate follows doll under Hougan authority without spending
 });
 test('four controllers have single slots, cannot command teammate; abandon forfeits whole team',async()=>{
  const combat=fixture(),slots=combat.units.map(u=>({id:u.id,team:u.team,slot:u.slot,controllerId:u.controllerId}));
- const m=createMatch({id:'m',creatorId:'a',slots,createdAt:1000});assert.equal(m.players,4);
+ const m=createMatch({mapId:"central-classic",id:'m',creatorId:'a',slots,createdAt:1000});assert.equal(m.players,4);
  m.phase='combat';m.combat=combat;m.turnDeadline=31000;
  for(const u of combat.units){m.slots[u.id].championId=u.championId;m.slots[u.id].skills=u.id==='A1'?['needle','transfer','paintransfer','dance']:['sword','bow','shield','daggers'];}
  const svc=new AuthoritativeService(new MemoryRepository([m]),{clock:()=>1000});

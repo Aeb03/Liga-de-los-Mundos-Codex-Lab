@@ -32,7 +32,7 @@ test('2v2 enables friendly healing and independent PA/PM with a shared controlle
  assert.equal(out.state.units.find(u=>u.id==='A1').pa,3);
 });
 test('2v2 service requires four ready/deployed slots and authorizes only active champion',async()=>{
- let now=1000,version=0,id=0;const m=createMatch({id:'m',creatorId:'a',slots,createdAt:now}),repo=new MemoryRepository([m]),svc=new AuthoritativeService(repo,{clock:()=>now,random:()=>.25});
+ let now=1000,version=0,id=0;const m=createMatch({mapId:"central-classic",id:'m',creatorId:'a',slots,createdAt:now}),repo=new MemoryRepository([m]),svc=new AuthoritativeService(repo,{clock:()=>now,random:()=>.25});
  const send=async(actor,type,extra={})=>{const r=await svc.command(actor,{id:`c${++id}`,matchId:'m',type,expectedVersion:version,...extra});version=r.state.version;return r.state;};
  for(const s of slots){await send(s.controllerId,'select',{slotId:s.id,championId:s.championId,skills:EFFECTIVE_SKILLS[s.championId].slice(0,4)});await send(s.controllerId,'setReady',{slotId:s.id,ready:true});}
  assert.equal((await repo.get('m')).phase,'deployment');
@@ -51,4 +51,3 @@ test('room repository defaults old clients to 1v1 and routes 2v2 to isolated RPC
  await repo.createRoom('a',{id:'m'});await repo.createRoom('a',{id:'n',mode:'2v2'});
  assert.equal(calls[0].name,'live_v2_create_room');assert.equal(calls[1].name,'live_v2_create_team_room');assert.throws(()=>repo.createRoom('a',{id:'x',mode:'3v3'}),(e)=>e.code==='UNSUPPORTED_FORMAT');
 });
-

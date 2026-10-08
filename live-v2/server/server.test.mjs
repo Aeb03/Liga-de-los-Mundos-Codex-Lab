@@ -19,7 +19,7 @@ const cmd = (id, type, v, extra = {}) => ({
 });
 async function ready() {
   let now = 1000;
-  const match = createMatch({
+  const match = createMatch({mapId:"central-classic",
     id: "m",
     creatorId: "u1",
     slots,
@@ -207,7 +207,7 @@ test("coordinador descarta previews, bloquea pendiente y no retrocede versiones"
 test("un controlador puede poseer varios slots aunque esta etapa rechaza formato no 1v1", () => {
   assert.throws(
     () =>
-      createMatch({
+      createMatch({mapId:"central-classic",
         id: "x",
         creatorId: "u",
         createdAt: 0,
@@ -263,7 +263,7 @@ test("movimiento válido confirma exactamente el recorrido y puede recuperarse",
 });
 
 test("un controlador puede controlar ambos slots 1v1 sin autoridad por dispositivo", () => {
-  const match = createMatch({
+  const match = createMatch({mapId:"central-classic",
     id: "shared",
     creatorId: "u1",
     createdAt: 0,
@@ -540,4 +540,3 @@ test('feedback/log history is shared, bounded and retry does not duplicate it',a
  assert.equal(out.state.presentation.feedback.length,16);assert.equal(out.state.presentation.log.length,8);
  assert.deepEqual((await x.svc.snapshot('u2','m')).presentation.log,out.state.presentation.log);
 });
-

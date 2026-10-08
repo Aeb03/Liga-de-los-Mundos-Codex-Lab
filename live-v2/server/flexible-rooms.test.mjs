@@ -15,7 +15,7 @@ test('shared controllers stay within their team and AI groups must not impersona
 });
 function botMatch(champion='arfeli'){
   const slots=[{id:'A1',team:'A',slot:1,controllerId:'human'},{id:'B1',team:'B',slot:1,controllerId:'ai:B1',controllerKind:'ai'}];
-  const m=createMatch({id:'m',creatorId:'human',slots,createdAt:1000});
+  const m=createMatch({mapId:"central-classic",id:'m',creatorId:'human',slots,createdAt:1000});
   m.phase='combat';m.turnDeadline=41000;
   m.combat=initializeCombat({units:slots.map((s,i)=>createUnit({...s,championId:i?champion:'coloso',position:{x:i?6:5,y:5}})),random:()=>0.5,clock:1000}).state;
   while(m.combat.order[m.combat.turnIndex]!=='B1')m.combat=endTurn(m.combat,{unitId:m.combat.order[m.combat.turnIndex]}).state;

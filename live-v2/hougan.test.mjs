@@ -275,7 +275,7 @@ test('Ritual que consume Vínculo corta Transferencia de Dolor y Danza si estaba
 test('Servidor acepta Aguja y acción propia Muñeco bajo autoridad del slot activo',async()=>{
   let now=1000;
   const slots=[{id:'A1',team:'A',slot:1,controllerId:'u1'},{id:'B1',team:'B',slot:1,controllerId:'u2'}];
-  const repo=new MemoryRepository([createMatch({id:'m',creatorId:'u1',slots,createdAt:now})]);
+  const repo=new MemoryRepository([createMatch({mapId:"central-classic",id:'m',creatorId:'u1',slots,createdAt:now})]);
   const svc=new AuthoritativeService(repo,{clock:()=>now,random:()=>.25});
   const cmd=(id,type,v,extra={})=>({id,matchId:'m',type,expectedVersion:v,...extra});
   let v=0;

@@ -110,7 +110,7 @@ test('Preview de Onod es puro: cruz, daño, acumulación, curación, HUD y Brote
  const awake=abilityOverlay(s,'o','awakening');assert(awake.effect.some(p=>p.x===7&&p.y===5));
  s.units[0].hp=80;const preview=previewAbility(s,{unitId:'o',abilityId:'sap',targetId:'o'});assert.equal(preview.healing[0].amount,12);
  const slots={o:{...s.units[0],skills:['thorn','vines','sap','spores']},e:{...s.units[1],skills:['precise','vector','impulse','fixation']}};
- const html=renderArena({state:{phase:'combat',slots,combat:s},actor:'a',slotId:'o',canMove:true,blocked:false,remaining:24,abilitySelection:{abilityId:'vines',position:{x:6,y:5}}});assert(html.includes('brote-onod.png'));assert(html.includes('Brote 1: 12/12 PV'));assert(html.includes('Germinar'));assert(!html.includes('NaN'));assert(html.includes('centro 6 daño'));
+ const html=renderArena({state:{phase:'combat',slots,combat:s},actor:'a',slotId:'o',canMove:true,blocked:false,remaining:24,abilitySelection:{abilityId:'vines',position:{x:6,y:5}}});assert(html.includes('brote-onod.png'));assert(html.includes('Brote 1: 12/12 PV'));assert(html.includes('Germinar'));assert(!html.includes('NaN'));assert(html.includes('ability-selected ability-effect'));
 });
 
 test('Enredaderas persiste al inicio rival y vence al inicio de Onod, con snapshot',()=>{

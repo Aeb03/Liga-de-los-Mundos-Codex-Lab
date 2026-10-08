@@ -17,7 +17,7 @@ test('a dead champion no longer occupies its cell or blocks subsequent turns',()
  assert.doesNotThrow(()=>endTurn(s,{unitId:'A2'}));
 });
 test('same-team duplicate selection is rejected even through the authority',async()=>{
- const m=createMatch({id:'m',creatorId:'a',slots,createdAt:0}),repo=new MemoryRepository([m]),svc=new AuthoritativeService(repo);
+ const m=createMatch({mapId:"central-classic",id:'m',creatorId:'a',slots,createdAt:0}),repo=new MemoryRepository([m]),svc=new AuthoritativeService(repo);
  const select=(id,v,slotId)=>({id,matchId:'m',type:'select',expectedVersion:v,slotId,championId:'arfeli',skills:EFFECTIVE_SKILLS.arfeli.slice(0,4)});
  await svc.command('a',select('one',0,'A1'));
  await assert.rejects(()=>svc.command('ally',select('two',1,'A2')),e=>e.code==='DUPLICATE_CHAMPION');

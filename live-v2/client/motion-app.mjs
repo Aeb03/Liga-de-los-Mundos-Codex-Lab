@@ -1,3 +1,4 @@
+import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261008-guide1';
 import { SocialPanel } from './social.mjs?v=20261006-social1';
 import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261007-flex1';
 import { createVfxPlayer } from './vfx.mjs?v=20261007-flex1';
@@ -19,6 +20,21 @@ import { championDefinitions, calculatePath, previewPath, abilityTargets, pillar
 const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const guideRoot=document.querySelector('#champions-guide');
+const championGuide=mountChampionGuide(guideRoot);
+let guideOpen=false;
+function showGuide(championId=null,skillId=null){
+  if(game.state?.phase==='combat'||game.state?.phase==='deployment')return;
+  guideOpen=true;championGuide.open(championId,skillId);toggleGuide();guideRoot.querySelector('h2')?.focus({preventScroll:true});guideRoot.scrollIntoView({block:'start'});
+}
+function toggleGuide(){
+  app.hidden=guideOpen;guideRoot.hidden=!guideOpen;document.body.classList.toggle('browsing-champions',guideOpen);
+  const play=document.querySelector('#nav-play'),champions=document.querySelector('#nav-champions');
+  play.toggleAttribute('aria-current',!guideOpen);if(!guideOpen)play.setAttribute('aria-current','page');
+  champions.toggleAttribute('aria-current',guideOpen);if(guideOpen)champions.setAttribute('aria-current','page');
+}
+document.querySelector('#nav-play').addEventListener('click',()=>{guideOpen=false;toggleGuide();});
+document.querySelector('#nav-champions').addEventListener('click',()=>showGuide());
 const errors={CONNECTION_TIMEOUT:'La conexión tardó demasiado. Reintentá; no confirmamos ninguna acción localmente.',UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'Ese puesto está ocupado. Elegí otro puesto.',SLOT_UNAVAILABLE:'Ese puesto no está disponible para tu sesión.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'No tenés suficientes PA.',ABILITY_LIMIT:'Alcanzaste el límite de usos este turno.',BLOCKED_LOS:'La línea de visión está bloqueada.',OUT_OF_RANGE:'El objetivo está fuera del alcance.',ABILITY_NOT_SELECTED:'La habilidad no está en tus cuatro elegidas.',ONOD_ACTION_UNAVAILABLE:'Germinar o Marchitar no está disponible en esa casilla o este turno.',KORGAN_ACTION_UNAVAILABLE:'Desarmar Trampa no está disponible.',HOUGAN_ACTION_UNAVAILABLE:'Muñeco Vudú no está disponible.',DOLL_PHASE_ACTIVE:'Primero resolvé el movimiento del Muñeco Vudú.',DOLL_PHASE_INACTIVE:'La fase del Muñeco ya terminó.',INVALID_DISTANCE:'Elegí atraer 1 o 2 casillas.',MARK_UNAVAILABLE:'La Marca ya se usó, está bloqueada o el objetivo no es válido.',INVALID_TARGET:'Ese objetivo no es válido para la acción elegida.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
 errors.INVALID_LAYOUT='Revisá los controladores: un jugador sólo puede controlar campeones del mismo equipo.';
 errors.DUPLICATE_CHAMPION='Tu compañero ya eligió ese campeón. Elegí otro.';
@@ -96,7 +112,7 @@ function preparation(){
   setupDraft();const s=ownSlot(),locked=Boolean(s?.ready);
   return `<div class="grid"><section class="panel"><h2>Elegí tu campeón${ownSlots().length>1?` · ${slotId}`:''}</h2>${slotChooser()}<div class="selection">${Object.entries(catalog).map(([id,c])=>{
     const d=championDefinitions()[id];return `<button class="champion ${draft.champion===id?'chosen':''}" data-champion="${id}" ${locked||blocked()||Object.values(game.state.slots).some(s=>s.id!==ownSlot().id&&s.team===ownSlot().team&&s.championId===id)?'disabled':''}><img src="../assets/champions/${id}/${id}-avatar.png" alt=""><span>${c.name}<small>${d.hp} PV · ${d.pm} PM · Ini ${d.initiative}</small></span></button>`;
-  }).join('')}</div><p>Elegí cuatro de las seis habilidades.</p>${draft.champion==='houngan'?`<div class="row"><button data-action="houganSupport" ${locked||blocked()?'disabled':''}>Soporte · Vínculo aliado</button><button data-action="houganOffense" ${locked||blocked()?'disabled':''}>Ofensivo · Vínculo enemigo</button></div><p class="phase-text">Soporte: Aguja cura al compañero; Muñeco aliado convierte la mitad del daño recibido en curación. Transferencia de Dolor protege a Hougan y Danza Vudú reposiciona al Vinculado.</p>`:''}<div class="skills">${catalog[draft.champion].skills.map(a=>`<label><input type="checkbox" data-skill="${a.id}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}>${escape(a.name)}</label>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando todos los campeones estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala">${invitePanel()}</aside></div>`;
+  }).join('')}</div><button type="button" class="guide-prep-link" data-guide-open="${draft.champion}">Ver ficha de ${catalog[draft.champion].name}</button><p>Elegí cuatro de las seis habilidades.</p>${draft.champion==='houngan'?`<div class="row"><button data-action="houganSupport" ${locked||blocked()?'disabled':''}>Soporte · Vínculo aliado</button><button data-action="houganOffense" ${locked||blocked()?'disabled':''}>Ofensivo · Vínculo enemigo</button></div><p class="phase-text">Soporte: Aguja cura al compañero; Muñeco aliado convierte la mitad del daño recibido en curación. Transferencia de Dolor protege a Hougan y Danza Vudú reposiciona al Vinculado.</p>`:''}<div class="skills">${guideSkills(draft.champion).map(a=>`<div class="prep-skill"><input id="prep-${slotId}-${a.id}" type="checkbox" data-skill="${a.id}" aria-label="Seleccionar ${escape(a.name)}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}><label for="prep-${slotId}-${a.id}"><strong>${a.icon} ${escape(a.name)}</strong><small>${escape(a.range)}</small></label><span class="guide-cost">${a.cost}</span><button type="button" data-guide-open="${draft.champion}" data-guide-detail="${a.id}">Ver detalle</button></div>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando todos los campeones estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala">${invitePanel()}</aside></div>`;
 }
 const key=p=>`${p.x},${p.y}`;
 function blocked(){return joining||game.busy||!game.online||Boolean(game.sync.pendingCommand());}
@@ -204,6 +220,9 @@ function announceTurn(){
 }
 function render(force=false){
   announceTurn();
+  const inCombat=['combat','deployment'].includes(game.state?.phase);
+  document.querySelector('.game-navigation').hidden=inCombat;
+  if(inCombat&&guideOpen){guideOpen=false;toggleGuide();}
   social?.paint();
   const turnKey=`${game.state?.id}:${game.state?.turnSerial}:${game.state?.combat?.dollPhase?.dollId??''}`;
   if(movementTurn!==turnKey||!canMove()){movementTurn=turnKey;movementArmed=false;}
@@ -394,7 +413,8 @@ app.addEventListener('change',event=>{
   if(event.target.dataset.skill){const id=event.target.dataset.skill;draft.skills=event.target.checked?[...draft.skills,id]:draft.skills.filter(s=>s!==id);draft.dirty=true;render(true);}
 });
 app.addEventListener('click',async event=>{
-  const target=event.target.closest('[data-action],[data-hud-collapse],[data-hud-orient],[data-champion],[data-inspect-id],[data-x]');if(!target||target.disabled)return;
+  const target=event.target.closest('[data-guide-open],[data-action],[data-hud-collapse],[data-hud-orient],[data-champion],[data-inspect-id],[data-x]');if(!target||target.disabled)return;
+  if(target.dataset.guideOpen){showGuide(target.dataset.guideOpen,target.dataset.guideDetail??null);return;}
   if(target.dataset.hudCollapse){const key=target.dataset.hudCollapse;hudSettings=saveHudSetting(localStorage,key,{collapsed:!hudSettings[key]?.collapsed});render(true);return;}
   if(target.dataset.hudOrient){const key=target.dataset.hudOrient,current=hudSettings[key]?.orientation??'vertical';hudSettings=saveHudSetting(localStorage,key,{orientation:current==='vertical'?'horizontal':'vertical'});render(true);return;}
   if(target.getAttribute?.('aria-disabled')==='true')return;

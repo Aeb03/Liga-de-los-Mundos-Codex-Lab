@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Liga de los Mundos — LIVE v2 Lab</title>
 <link rel="stylesheet" href="client/ui.css?v=20261007-flex1">
+<link rel="stylesheet" href="client/champion-guide.css?v=20261008-guide1">
 <link rel="stylesheet" href="client/presentation.css?v=20261008-maps2">
 <link rel="stylesheet" href="client/audio-options.css?v=20261005-audio1">
 <link rel="stylesheet" href="client/vfx.css?v=20261007-flex1">
@@ -21,6 +22,8 @@
 <header><div><span class="eyebrow">LIGA DE LOS MUNDOS · LAB</span><h1>LIVE v2 <small>1v1 / 2v2</small></h1></div><div class="connection" id="connection">Preparado</div></header>
 <div id="rotate">Girará mejor en horizontal ↻</div>
 <div id="social"></div>
+<nav class="game-navigation" aria-label="Secciones del juego"><button type="button" id="nav-play" aria-current="page">Jugar</button><button type="button" id="nav-champions">Campeones</button></nav>
+<section id="champions-guide" hidden></section>
 <main id="app"><section class="panel"><p>Cargando…</p></section></main>
 <div class="toast" id="notice" role="status" aria-live="polite"></div>
 <aside class="app-display-tools" aria-label="Instalación y pantalla"><button id="install-live" type="button">Instalar juego</button><button id="fullscreen-live" type="button">Pantalla completa</button><p id="install-help" role="status" hidden></p></aside>
@@ -31,7 +34,7 @@
 <script src="client/music-engine.js?v=20261005-audio1"></script>
 <script src="client/audio-options.js?v=20261008-combatux1"></script>
 <script type="module">
-import('./client/motion-app.mjs?v=20261008-maps2').catch(() => {
+import('./client/motion-app.mjs?v=20261008-guide1').catch(() => {
   document.querySelector('#app').textContent = 'No se pudo cargar LIVE v2. Revisá la conexión y recargá la página.';
 });
 </script>

@@ -1,5 +1,6 @@
+import {mountLobby} from './lobby.mjs?v=20261008-lobby1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261008-guide1';
-import { SocialPanel } from './social.mjs?v=20261006-social1';
+import { SocialPanel } from './social.mjs?v=20261008-lobby1';
 import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261007-flex1';
 import { createVfxPlayer } from './vfx.mjs?v=20261007-flex1';
 import { renderResult } from './feedback-ui.mjs?v=20261007-flex1';
@@ -22,18 +23,22 @@ const app=document.querySelector('#app'),notice=document.querySelector('#notice'
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const guideRoot=document.querySelector('#champions-guide');
 const championGuide=mountChampionGuide(guideRoot);
-let guideOpen=false;
+let guideOpen=false,homeOpen=true;
+const lobbyRoot=document.querySelector('#lobby');
+const lobby=mountLobby(lobbyRoot,{storage:localStorage,onPlay:()=>{homeOpen=false;guideOpen=false;toggleGuide();render(true);},onGuide:()=>showGuide(),onSocial:()=>{social.open=true;social.paint();social.run(()=>social.refresh());},onSettings:()=>window.LigaAudioOptions?.open()});
+document.querySelector('#nav-home').addEventListener('click',()=>{homeOpen=true;guideOpen=false;toggleGuide();render(true);});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&social?.open){social.open=false;social.paint();}});
 function showGuide(championId=null,skillId=null){
   if(game.state?.phase==='combat'||game.state?.phase==='deployment')return;
-  guideOpen=true;championGuide.open(championId,skillId);toggleGuide();guideRoot.querySelector('h2')?.focus({preventScroll:true});guideRoot.scrollIntoView({block:'start'});
+  homeOpen=false;guideOpen=true;championGuide.open(championId,skillId);toggleGuide();guideRoot.querySelector('h2')?.focus({preventScroll:true});guideRoot.scrollIntoView({block:'start'});
 }
 function toggleGuide(){
-  app.hidden=guideOpen;guideRoot.hidden=!guideOpen;document.body.classList.toggle('browsing-champions',guideOpen);
+  app.hidden=guideOpen||homeOpen;lobbyRoot.hidden=!homeOpen;document.body.classList.toggle('in-lobby',homeOpen);guideRoot.hidden=!guideOpen;document.body.classList.toggle('browsing-champions',guideOpen);
   const play=document.querySelector('#nav-play'),champions=document.querySelector('#nav-champions');
   play.toggleAttribute('aria-current',!guideOpen);if(!guideOpen)play.setAttribute('aria-current','page');
   champions.toggleAttribute('aria-current',guideOpen);if(guideOpen)champions.setAttribute('aria-current','page');
 }
-document.querySelector('#nav-play').addEventListener('click',()=>{guideOpen=false;toggleGuide();});
+document.querySelector('#nav-play').addEventListener('click',()=>{homeOpen=false;guideOpen=false;toggleGuide();render(true);});
 document.querySelector('#nav-champions').addEventListener('click',()=>showGuide());
 const errors={CONNECTION_TIMEOUT:'La conexión tardó demasiado. Reintentá; no confirmamos ninguna acción localmente.',UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'Ese puesto está ocupado. Elegí otro puesto.',SLOT_UNAVAILABLE:'Ese puesto no está disponible para tu sesión.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'No tenés suficientes PA.',ABILITY_LIMIT:'Alcanzaste el límite de usos este turno.',BLOCKED_LOS:'La línea de visión está bloqueada.',OUT_OF_RANGE:'El objetivo está fuera del alcance.',ABILITY_NOT_SELECTED:'La habilidad no está en tus cuatro elegidas.',ONOD_ACTION_UNAVAILABLE:'Germinar o Marchitar no está disponible en esa casilla o este turno.',KORGAN_ACTION_UNAVAILABLE:'Desarmar Trampa no está disponible.',HOUGAN_ACTION_UNAVAILABLE:'Muñeco Vudú no está disponible.',DOLL_PHASE_ACTIVE:'Primero resolvé el movimiento del Muñeco Vudú.',DOLL_PHASE_INACTIVE:'La fase del Muñeco ya terminó.',INVALID_DISTANCE:'Elegí atraer 1 o 2 casillas.',MARK_UNAVAILABLE:'La Marca ya se usó, está bloqueada o el objetivo no es válido.',INVALID_TARGET:'Ese objetivo no es válido para la acción elegida.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
 errors.INVALID_LAYOUT='Revisá los controladores: un jugador sólo puede controlar campeones del mismo equipo.';
@@ -83,7 +88,7 @@ function roomId(value){
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('Pegá el enlace o el identificador completo de la sala.');return id.toLowerCase();
 }
 async function enter(id,create=false,mode='1v1',players=2,inviteSlot='B1',layout=null){
-  if(joining)return;joining=true;render(true);
+  if(joining)return;homeOpen=false;guideOpen=false;toggleGuide();joining=true;render(true);
   try{
     await ensureAuth();let state;
     if(create)state=(await api('create',{room:{id,mode,players,...(layout?{layout}:{})}})).data;
@@ -221,7 +226,10 @@ function announceTurn(){
 function render(force=false){
   announceTurn();
   const inCombat=['combat','deployment'].includes(game.state?.phase);
-  document.querySelector('.game-navigation').hidden=inCombat;
+  document.querySelector('.game-navigation').hidden=inCombat||homeOpen;
+  if(inCombat)homeOpen=false;
+  toggleGuide();
+  lobby.update({profile:social?.data?.profile,invitations:social?.data?.invitations?.length??0,active:Boolean(game.state)});
   if(inCombat&&guideOpen){guideOpen=false;toggleGuide();}
   social?.paint();
   const turnKey=`${game.state?.id}:${game.state?.turnSerial}:${game.state?.combat?.dollPhase?.dollId??''}`;
@@ -477,7 +485,7 @@ app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))ret
 window.addEventListener('offline',()=>game.disconnect());window.addEventListener('online',()=>game.refresh());
 document.addEventListener('visibilitychange',()=>{if(document.hidden){feedbackPlayback.suspend();vfx.clear();audioPlayback.suspend();game.preview=null;game.sync.preview=null;}else game.refresh();});
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);
-social=new SocialPanel({client,host:document.querySelector('#social'),notify,onJoin:id=>enter(id),room:()=>game.state});social.bind();
+social=new SocialPanel({client,host:document.querySelector('#social'),notify,onJoin:id=>{social.open=false;social.paint();return enter(id);},room:()=>game.state,onChange:()=>{document.body.classList.toggle('social-open',social.open);lobby.update({profile:social.data?.profile,invitations:social.data?.invitations?.length??0,active:Boolean(game.state)});}});social.bind();
 client.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){social.recovery=true;social.open=true;social.paint();}});
 await ensureAuth();await social.run(()=>social.refresh());
 if(location.hash.includes('access_token'))history.replaceState(null,'',location.pathname+location.search);

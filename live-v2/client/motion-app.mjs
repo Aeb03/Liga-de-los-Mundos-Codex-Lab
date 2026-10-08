@@ -1,6 +1,6 @@
 import {mountLobby} from './lobby.mjs?v=20261008-alpha1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261008-alpha1';
-import { SocialPanel } from './social.mjs?v=20261008-profile1';
+import { SocialPanel } from './social.mjs?v=20261008-friends1';
 import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261007-flex1';
 import { createVfxPlayer } from './vfx.mjs?v=20261007-flex1';
 import { renderResult } from './feedback-ui.mjs?v=20261007-flex1';
@@ -486,7 +486,7 @@ app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))ret
 window.addEventListener('offline',()=>game.disconnect());window.addEventListener('online',()=>game.refresh());
 document.addEventListener('visibilitychange',()=>{if(document.hidden){feedbackPlayback.suspend();vfx.clear();audioPlayback.suspend();game.preview=null;game.sync.preview=null;}else game.refresh();});
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);
-social=new SocialPanel({client,host:document.querySelector('#social'),notify,onJoin:id=>{social.open=false;social.paint();return enter(id);},room:()=>game.state,onChange:()=>{document.body.classList.toggle('social-open',social.open);lobby.update({profile:social.data?.profile,invitations:social.data?.invitations?.length??0,active:Boolean(game.state)});}});social.bind();
+social=new SocialPanel({client,host:document.querySelector('#social'),notify,onPrepare:()=>{homeOpen=false;guideOpen=false;toggleGuide();render(true);},onJoin:id=>{social.open=false;social.paint();return enter(id);},room:()=>game.state,onChange:()=>{document.body.classList.toggle('social-open',social.open);lobby.update({profile:social.data?.profile,invitations:social.data?.invitations?.length??0,active:Boolean(game.state)});}});social.bind();
 client.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){social.recovery=true;social.open=true;social.paint();}});
 await ensureAuth();await social.run(()=>social.refresh());
 if(location.hash.includes('access_token'))history.replaceState(null,'',location.pathname+location.search);

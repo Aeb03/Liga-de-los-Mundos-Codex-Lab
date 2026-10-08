@@ -33,6 +33,7 @@ function showGuide(championId=null,skillId=null){
   homeOpen=false;guideOpen=true;championGuide.open(championId,skillId);toggleGuide();guideRoot.querySelector('h2')?.focus({preventScroll:true});guideRoot.scrollIntoView({block:'start'});
 }
 function toggleGuide(){
+  document.querySelector('.game-navigation').hidden=homeOpen||['combat','deployment'].includes(game.state?.phase);
   app.hidden=guideOpen||homeOpen;lobbyRoot.hidden=!homeOpen;document.body.classList.toggle('in-lobby',homeOpen);guideRoot.hidden=!guideOpen;document.body.classList.toggle('browsing-champions',guideOpen);
   const play=document.querySelector('#nav-play'),champions=document.querySelector('#nav-champions');
   play.toggleAttribute('aria-current',!guideOpen);if(!guideOpen)play.setAttribute('aria-current','page');

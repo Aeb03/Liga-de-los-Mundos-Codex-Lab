@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="client/vfx.css?v=20261007-flex1">
 <link rel="stylesheet" href="client/feedback-ui.css?v=20261007-flex1">
 <link rel="stylesheet" href="client/profile.css?v=20261008-friends1">
+<link rel="stylesheet" href="client/play-screen.css?v=20261008-play1">
 <style>
 .app-display-tools{padding:12px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center}.app-display-tools button{min-height:44px}.app-display-tools p{flex-basis:100%;text-align:center;margin:0} [hidden]{display:none!important}
 </style>
@@ -37,7 +38,7 @@
 <script src="client/music-engine.js?v=20261005-audio1"></script>
 <script src="client/audio-options.js?v=20261008-combatux1"></script>
 <script type="module">
-import('./client/motion-app.mjs?v=20261008-guideheader1').catch(() => {
+import('./client/motion-app.mjs?v=20261008-play1').catch(() => {
   document.querySelector('#app').textContent = 'No se pudo cargar LIVE v2. Revisá la conexión y recargá la página.';
 });
 </script>

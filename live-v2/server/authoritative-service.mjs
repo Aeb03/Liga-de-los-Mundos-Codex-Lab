@@ -87,6 +87,23 @@ export function createMatch({ id, creatorId, slots, createdAt, mapId, random }) 
     diagnostics: [],
   };
 }
+function deployPrepared(m) {
+  m.phase='deployment';m.countdownDeadline=null;
+  for(const bot of Object.values(m.slots).filter(s=>s.controllerKind==='ai')){
+    const free=arenaFor(m).deployment[bot.team].find(cell=>!Object.values(m.slots).some(s=>s.position&&`${s.position.x},${s.position.y}`===cell));
+    const [x,y]=free.split(',').map(Number);bot.position={x,y};bot.confirmed=true;
+  }
+}
+function fillPreparation(m) {
+  for(const slot of Object.values(m.slots)){
+    const used=new Set(Object.values(m.slots).filter(s=>s.id!==slot.id&&s.team===slot.team).map(s=>s.championId));
+    if(!EFFECTIVE_SKILLS[slot.championId]||used.has(slot.championId))slot.championId=Object.keys(EFFECTIVE_SKILLS).find(id=>!used.has(id));
+    const valid=EFFECTIVE_SKILLS[slot.championId];
+    slot.skills=[...new Set((slot.skills??[]).filter(id=>valid.includes(id)))];
+    for(const id of valid)if(slot.skills.length<4&&!slot.skills.includes(id))slot.skills.push(id);
+    slot.ready=true;
+  }
+}
 function publicView(m, viewer) {
   const ownSlots = Object.values(m.slots).filter((s) => s.controllerId === viewer);
   const own = new Set(ownSlots.map((s) => s.id));
@@ -145,7 +162,15 @@ export class AuthoritativeService {
         const slot = input.slotId ? m.slots[input.slotId] : null;
         if (slot && slot.controllerId !== identity)
           err("FORBIDDEN", "El slot pertenece a otro controlador");
-        if (input.type === "aiStep") {
+        if (input.type === "preparationTick") {
+          if(!Object.values(m.slots).some(s=>s.controllerId===identity))err('FORBIDDEN','No pertenece a la partida');
+          if(m.phase!=='preparation'||!m.preparationFlow)err('WRONG_PHASE','Preparación no disponible');
+          if(!Object.values(m.slots).every(s=>s.controllerId))err('NOT_CONFIRMED','Faltan jugadores');
+          if(!m.preparationDeadline)m.preparationDeadline=started+90000;
+          if(!m.countdownDeadline&&started>=m.preparationDeadline)fillPreparation(m);
+          if(Object.values(m.slots).every(s=>s.ready)&&!m.countdownDeadline)m.countdownDeadline=started+5000;
+          if(m.countdownDeadline&&started>=m.countdownDeadline)deployPrepared(m);
+        } else if (input.type === "aiStep") {
           if(!Object.values(m.slots).some(s=>s.controllerId===identity))err('FORBIDDEN','No pertenece a la partida');
           if(m.phase!=='combat'||input.expectedTurn!==m.turnSerial)err('TURN_CONFLICT','Turno cambiado');
           if(started>=m.turnDeadline)err('TURN_EXPIRED','El turno venció');
@@ -220,6 +245,8 @@ export class AuthoritativeService {
         } else if (input.type === "select") {
           if (m.phase !== "preparation" || !slot)
             err("WRONG_PHASE", "Selección no disponible");
+          if(m.preparationFlow&&m.preparationDeadline&&started>=m.preparationDeadline)err('SELECTION_EXPIRED','La selección terminó');
+          m.countdownDeadline=null;
           const valid = EFFECTIVE_SKILLS[input.championId];
           if (
             !valid ||
@@ -241,13 +268,10 @@ export class AuthoritativeService {
             err("WRONG_PHASE", "Listo no disponible");
           if (typeof input.ready !== "boolean") err("INVALID_COMMAND", "ready debe ser booleano");
           slot.ready = input.ready;
-          if (Object.values(m.slots).every((s) => s.ready))
-            {m.phase = "deployment";
-              for(const bot of Object.values(m.slots).filter(s=>s.controllerKind==='ai')){
-                const free=arenaFor(m).deployment[bot.team].find(cell=>!Object.values(m.slots).some(s=>s.position&&`${s.position.x},${s.position.y}`===cell));
-                const [x,y]=free.split(',').map(Number);bot.position={x,y};bot.confirmed=true;
-              }
-            }
+          if(m.preparationFlow){
+            if(!input.ready&&m.preparationDeadline&&started>=m.preparationDeadline)err('SELECTION_EXPIRED','La selección terminó');
+            m.countdownDeadline=Object.values(m.slots).every(s=>s.ready)?started+5000:null;
+          } else if(Object.values(m.slots).every(s=>s.ready))deployPrepared(m);
         } else if (input.type === "setPosition") {
           if (m.phase !== "deployment" || !slot)
             err("WRONG_PHASE", "Despliegue no disponible");
@@ -389,7 +413,12 @@ export class AuthoritativeService {
   }
   async advanceAI(identity,id) {
     await this.snapshot(identity,id); // Membership before accessing private state.
-    const m=await this.repo.get(id);
+    let m=await this.repo.get(id);
+    if(m.phase==='preparation'&&m.preparationFlow&&Object.values(m.slots).every(s=>s.controllerId)&&(!m.preparationDeadline||!m.countdownDeadline&&this.clock()>=m.preparationDeadline||m.countdownDeadline&&this.clock()>=m.countdownDeadline)){
+      try{await this.command(identity,{id:randomUUID(),matchId:id,type:'preparationTick',expectedVersion:m.version});}
+      catch(error){if(!['VERSION_CONFLICT','WRONG_PHASE'].includes(error.code))throw error;}
+      m=await this.repo.get(id);
+    }
     if(m.phase==='combat'&&m.slots[m.combat.order[m.combat.turnIndex]]?.controllerKind==='ai'&&this.clock()<m.turnDeadline){
       try{await this.command(identity,{id:randomUUID(),matchId:id,type:'aiStep',expectedVersion:m.version,expectedTurn:m.turnSerial});}
       catch(error){if(!['VERSION_CONFLICT','TURN_CONFLICT','TURN_EXPIRED'].includes(error.code))throw error;}

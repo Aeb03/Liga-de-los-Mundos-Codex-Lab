@@ -1,4 +1,5 @@
-import {mountLobby} from './lobby.mjs?v=20261008-alpha1';
+import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261008-play1';
+import {mountLobby} from './lobby.mjs?v=20261008-play1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261008-guideheader1';
 import { SocialPanel } from './social.mjs?v=20261008-friends1';
 import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261007-flex1';
@@ -34,7 +35,7 @@ function showGuide(championId=null,skillId=null){
 }
 function toggleGuide(){
   document.querySelector('.game-navigation').hidden=homeOpen||guideOpen||['combat','deployment'].includes(game.state?.phase);
-  app.hidden=guideOpen||homeOpen;lobbyRoot.hidden=!homeOpen;document.body.classList.toggle('in-lobby',homeOpen);guideRoot.hidden=!guideOpen;document.body.classList.toggle('browsing-champions',guideOpen);
+  app.hidden=guideOpen||homeOpen;lobbyRoot.hidden=!homeOpen;document.body.classList.toggle('in-lobby',homeOpen);guideRoot.hidden=!guideOpen;document.body.classList.toggle('browsing-champions',guideOpen);document.body.classList.toggle('in-play',!homeOpen&&!guideOpen&&(!game.state||game.state.phase==='preparation'));
   const play=document.querySelector('#nav-play'),champions=document.querySelector('#nav-champions');
   play.toggleAttribute('aria-current',!guideOpen);if(!guideOpen)play.setAttribute('aria-current','page');
   champions.toggleAttribute('aria-current',guideOpen);if(guideOpen)champions.setAttribute('aria-current','page');
@@ -50,7 +51,9 @@ let deadlineExpired=false,abilitySelection=null,inspectedId=null,lastInspectionF
 let skillHoldCleanup=()=>{},aoeCleanup=()=>{};
 let hudSettings=loadHudSettings(localStorage),camera={x:0,y:0,rotation:0,zoom:1},cameraMatchId=null;
 let pendingInvite=null;
+let playView='menu';
 let creationMode='1v1';
+let duelOpponent='human',duelBot='arfeli';
 const creationLayout={A1:{controller:'A1'},A2:{controller:'A1',championId:'coloso'},B1:{controller:'B1',championId:'arfeli'},B2:{controller:'B1',championId:'coloso'}};
 function creationControls(){
   if(creationMode!=='2v2-flex')return '';
@@ -82,7 +85,7 @@ const ownSlots=()=>Object.values(game.state?.slots??{}).filter(s=>s.controllerId
 const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
 const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.order[game.state.combat.turnIndex]);
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
-function remaining(){const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
+function remaining(){const prep=document.querySelector('#preparation-timer');if(prep&&game.state?.phase==='preparation'){const seconds=preparationSeconds(game.state,game.now());prep.textContent=seconds==null?'—':game.state.countdownDeadline?String(seconds):`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;prep.closest('.preparation-clock').classList.toggle('urgent',seconds!=null&&seconds<=15);}const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
 function link(inviteSlot=null){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261007-flex1');url.searchParams.set('match',game.state.id);if(game.state.players===4){url.searchParams.set('players','4');if(inviteSlot)url.searchParams.set('slot',inviteSlot);}return url.href;}
 function roomId(value){
   let id=value.trim();try{const url=new URL(id);id=url.searchParams.get('match')??'';}catch{}
@@ -116,9 +119,10 @@ function setupDraft(){
 function slotChooser(){return ownSlots().length>1&&game.state.phase!=='combat'&&game.state.phase!=='finished'?`<label class="team-slot-chooser">Campeón que preparás <select id="slot">${ownSlots().map(s=>`<option value="${s.id}" ${s.id===slotId?'selected':''}>${s.id} · ${catalog[s.championId]?.name??'Sin selección'}${s.ready?' · Listo':''}${s.confirmed?' · Confirmado':''}</option>`).join('')}</select></label>`:'';}
 function preparation(){
   setupDraft();const s=ownSlot(),locked=Boolean(s?.ready);
-  return `<div class="grid"><section class="panel"><h2>Elegí tu campeón${ownSlots().length>1?` · ${slotId}`:''}</h2>${slotChooser()}<div class="selection">${Object.entries(catalog).map(([id,c])=>{
+  if(ownSlots().every(slot=>slot.ready))return renderTeamLobby(game.state,actor,{now:game.now(),disabled:blocked()||game.state.preparationDeadline!=null&&game.now()>=game.state.preparationDeadline,names:{...(social?.data?.profile?{[actor]:social.data.profile.name}:{}),...Object.fromEntries((social?.data?.friends??[]).map(f=>[f.id,f.name]))}});
+  return `${renderPreparationClock(game.state,game.now())}<div class="preparation-actions"><button data-action="openFriends">Invitar amigos</button></div><div class="grid"><section class="panel"><h2>Elegí tu campeón${ownSlots().length>1?` · ${slotId}`:''}</h2>${slotChooser()}<div class="selection">${Object.entries(catalog).map(([id,c])=>{
     const d=championDefinitions()[id];return `<button class="champion ${draft.champion===id?'chosen':''}" data-champion="${id}" ${locked||blocked()||Object.values(game.state.slots).some(s=>s.id!==ownSlot().id&&s.team===ownSlot().team&&s.championId===id)?'disabled':''}><img src="../assets/champions/${id}/${id}-avatar.png" alt=""><span>${c.name}<small>${d.hp} PV · ${d.pm} PM · Ini ${d.initiative}</small></span></button>`;
-  }).join('')}</div><button type="button" class="guide-prep-link" data-guide-open="${draft.champion}">Ver ficha de ${catalog[draft.champion].name}</button><p>Elegí cuatro de las seis habilidades.</p>${draft.champion==='houngan'?`<div class="row"><button data-action="houganSupport" ${locked||blocked()?'disabled':''}>Soporte · Vínculo aliado</button><button data-action="houganOffense" ${locked||blocked()?'disabled':''}>Ofensivo · Vínculo enemigo</button></div><p class="phase-text">Soporte: Aguja cura al compañero; Muñeco aliado convierte la mitad del daño recibido en curación. Transferencia de Dolor protege a Hougan y Danza Vudú reposiciona al Vinculado.</p>`:''}<div class="skills">${guideSkills(draft.champion).map(a=>`<div class="prep-skill"><input id="prep-${slotId}-${a.id}" type="checkbox" data-skill="${a.id}" aria-label="Seleccionar ${escape(a.name)}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}><label for="prep-${slotId}-${a.id}"><strong>${a.icon} ${escape(a.name)}</strong><small>${escape(a.range)}</small></label><span class="guide-cost">${a.cost}</span><button type="button" data-guide-open="${draft.champion}" data-guide-detail="${a.id}">Ver detalle</button></div>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando todos los campeones estén listos pasarán al despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala">${invitePanel()}</aside></div>`;
+  }).join('')}</div><button type="button" class="guide-prep-link" data-guide-open="${draft.champion}">Ver ficha de ${catalog[draft.champion].name}</button><p>Elegí cuatro de las seis habilidades.</p>${draft.champion==='houngan'?`<div class="row"><button data-action="houganSupport" ${locked||blocked()?'disabled':''}>Soporte · Vínculo aliado</button><button data-action="houganOffense" ${locked||blocked()?'disabled':''}>Ofensivo · Vínculo enemigo</button></div><p class="phase-text">Soporte: Aguja cura al compañero; Muñeco aliado convierte la mitad del daño recibido en curación. Transferencia de Dolor protege a Hougan y Danza Vudú reposiciona al Vinculado.</p>`:''}<div class="skills">${guideSkills(draft.champion).map(a=>`<div class="prep-skill"><input id="prep-${slotId}-${a.id}" type="checkbox" data-skill="${a.id}" aria-label="Seleccionar ${escape(a.name)}" ${draft.skills.includes(a.id)?'checked':''} ${locked||blocked()?'disabled':''}><label for="prep-${slotId}-${a.id}"><strong>${a.icon} ${escape(a.name)}</strong><small>${escape(a.range)}</small></label><span class="guide-cost">${a.cost}</span><button type="button" data-guide-open="${draft.champion}" data-guide-detail="${a.id}">Ver detalle</button></div>`).join('')}</div><div class="row"><button class="primary" data-action="ready" ${blocked()||draft.skills.length!==4?'disabled':''}>${locked?'Quitar listo':'Guardar y marcar listo'}</button><span class="phase-text">${draft.skills.length}/4 seleccionadas</span></div></section><aside class="panel"><h2>Preparación</h2>${teams()}<p>Cuando todos estén listos habrá una cuenta regresiva de 5 segundos antes del despliegue.</p><input class="link-field" value="${escape(link())}" readonly aria-label="Enlace de sala">${invitePanel()}</aside></div>`;
 }
 const key=p=>`${p.x},${p.y}`;
 function blocked(){return joining||game.busy||!game.online||Boolean(game.sync.pendingCommand());}
@@ -256,7 +260,9 @@ function render(force=false){
   const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,movementArmed,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings,resultPending]);
   if(!force&&signature===lastRendered){remaining();return;}lastRendered=signature;
   if(pendingInvite){app.innerHTML=`<section class="panel welcome"><h2>Elegí tu puesto en el 2v2</h2><p>Cada invitación asigna los campeones configurados para ese jugador. A1 pertenece al creador.</p>${['A2','B1','B2'].map(id=>`<button data-action="joinSlot" data-slot="${id}" ${joining?'disabled':''}>${id} · Equipo ${id[0]==='A'?'azul':'rojo'}</button>`).join('')}<p>Si el puesto está ocupado, elegí otro.</p></section>`;return;}
-  if(!game.state){app.innerHTML=`<section class="panel welcome"><span class="tag">LIVE v2 · 1v1 / 2v2</span><h2>Creá tu partida</h2><p>Elegí el formato y quién controla cada campeón.</p><label>Formato <select id="room-mode"><option value="1v1" ${creationMode==='1v1'?'selected':''}>1v1 · un campeón por jugador</option><option value="2v2-flex" ${creationMode==='2v2-flex'?'selected':''}>2v2 · jugadores e IA</option></select></label>${creationControls()}<button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><form class="join-form" id="join"><input type="text" id="room" placeholder="Pegá el enlace o identificador de sala" aria-label="Enlace de sala"><button ${joining?'disabled':''}>Unirme</button></form><p class="phase-text">Se conserva tu sesión en este navegador para reconectar.</p></section>`;return;}
+  if(!game.state){
+    app.innerHTML=playView==='menu'?renderPlayMenu():playView!=='custom'?renderComingMode(playView):playHeader('CREAR PARTIDA')+`<section class="custom-room"><h3>Prepará tu sala</h3><p>Elegí el formato y quién controla cada campeón.</p><label>Formato<select id="room-mode"><option value="1v1" ${creationMode==='1v1'?'selected':''}>1v1 · un campeón por equipo</option><option value="2v2-flex" ${creationMode==='2v2-flex'?'selected':''}>2v2 · dos campeones por equipo</option></select></label>${creationMode==='1v1'?`<label>Rival<select id="duel-opponent"><option value="human" ${duelOpponent==='human'?'selected':''}>Otro jugador</option><option value="ai" ${duelOpponent==='ai'?'selected':''}>IA</option></select></label>${duelOpponent==='ai'?`<label>Campeón de la IA<select id="duel-bot">${Object.entries(catalog).map(([id,c])=>`<option value="${id}" ${duelBot===id?'selected':''}>${c.name}</option>`).join('')}</select></label>`:''}`:creationControls()}<button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><p class="custom-invites">Invitá a tus amigos desde la sala. También podés aceptar sus invitaciones desde el lobby.</p></section>`;return;
+  }
   skillHoldCleanup();skillHoldCleanup=()=>{};aoeCleanup();aoeCleanup=()=>{};
   app.innerHTML=roomBar()+(game.state.phase==='preparation'?preparation():showResult?renderResult(game.state,actor,{logCollapsed:hudSettings.log.collapsed}):arena());
   motion.paint(app);
@@ -414,6 +420,8 @@ async function tapCell(x,y,confirm=false){
 }
 app.addEventListener('submit',event=>{if(event.target.id==='join'){event.preventDefault();try{joinInvitation(document.querySelector('#room').value);}catch(error){notify(error.message);}}});
 app.addEventListener('change',event=>{
+  if(event.target.id==='duel-opponent'){duelOpponent=event.target.value;render(true);}
+  if(event.target.id==='duel-bot'){duelBot=event.target.value;render(true);}
   if(event.target.id==='room-mode'){creationMode=event.target.value;render(true);}
   if(event.target.dataset.controllerSlot){const id=event.target.dataset.controllerSlot;creationLayout[id].controller=event.target.value;if(creationLayout.B1.controller==='ai'&&creationLayout.B2.controller==='B1')creationLayout.B2.controller='ai';render(true);}
   if(event.target.dataset.botChampion){creationLayout[event.target.dataset.botChampion].championId=event.target.value;render(true);}
@@ -451,7 +459,12 @@ app.addEventListener('click',async event=>{
       camera={x:0,y:0,rotation:normalizeRotation(camera.rotation+step),zoom:camera.zoom??1};render(true);
       requestAnimationFrame(()=>centerCameraOn(app.querySelector('.live-battle'),camera,focus));break;
     }
-    case 'create':{const flexible=creationMode==='2v2-flex';await enter(newId(),true,flexible?'2v2':'1v1',flexible?4:2,'B1',flexible?structuredClone(creationLayout):null);break;}
+    case 'playMode':playView=target.dataset.mode;render(true);break;
+    case 'playBack':if(playView==='menu'){homeOpen=true;toggleGuide();}else playView='menu';render(true);break;
+    case 'playClose':homeOpen=true;playView='menu';toggleGuide();render(true);break;
+    case 'openFriends':social.show('friends');break;
+    case 'editPreparation':if(!blocked()){await send('setReady',{slotId:ownSlot().id,ready:false});draft=null;render(true);}break;
+    case 'create':{const flexible=creationMode==='2v2-flex';const layout=flexible?structuredClone(creationLayout):{A1:{controller:'A1'},B1:{controller:duelOpponent==='ai'?'ai':'B1',championId:duelBot}};await enter(newId(),true,flexible?'2v2':'1v1',flexible?4:2,'B1',layout);break;}
     case 'joinSlot':if(pendingInvite)await enter(pendingInvite.id,false,'2v2',4,target.dataset.slot);break;
     case 'copyInvite':try{await navigator.clipboard.writeText(link(target.dataset.slot));notify('Invitación copiada.');}catch{notify('Copiá el enlace individual de ese puesto.');}break;
     case 'houganSupport':case 'houganOffense':if(draft?.champion==='houngan'&&!ownSlot()?.ready&&!blocked()){draft.skills=target.dataset.action==='houganSupport'?['needle','transfer','paintransfer','dance']:['needle','transfer','ritual','curse'];draft.dirty=true;render(true);}break;
@@ -486,7 +499,7 @@ app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))ret
 window.addEventListener('offline',()=>game.disconnect());window.addEventListener('online',()=>game.refresh());
 document.addEventListener('visibilitychange',()=>{if(document.hidden){feedbackPlayback.suspend();vfx.clear();audioPlayback.suspend();game.preview=null;game.sync.preview=null;}else game.refresh();});
 setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);
-social=new SocialPanel({client,host:document.querySelector('#social'),notify,onPrepare:()=>{homeOpen=false;guideOpen=false;toggleGuide();render(true);},onJoin:id=>{social.open=false;social.paint();return enter(id);},room:()=>game.state,onChange:()=>{document.body.classList.toggle('social-open',social.open);lobby.update({profile:social.data?.profile,invitations:social.data?.invitations?.length??0,active:Boolean(game.state)});}});social.bind();
+social=new SocialPanel({client,host:document.querySelector('#social'),notify,onPrepare:()=>{playView='custom';homeOpen=false;guideOpen=false;toggleGuide();render(true);},onJoin:id=>{social.open=false;social.paint();return enter(id);},room:()=>game.state,onChange:()=>{document.body.classList.toggle('social-open',social.open);lobby.update({profile:social.data?.profile,invitations:social.data?.invitations?.length??0,active:Boolean(game.state)});}});social.bind();
 client.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){social.recovery=true;social.open=true;social.paint();}});
 await ensureAuth();await social.run(()=>social.refresh());
 if(location.hash.includes('access_token'))history.replaceState(null,'',location.pathname+location.search);

@@ -13,7 +13,7 @@ export class SupabaseRepository {
   createRoom(actorId, room) {
     const mode=room?.mode??'1v1',players=room?.players??2;
     if(!['1v1','2v2'].includes(mode)||![2,4].includes(players)||(players===4&&mode!=='2v2'))throw new ProtocolError('UNSUPPORTED_FORMAT','Formato inválido');
-    if(room.layout&&mode!=='2v2')throw new ProtocolError('INVALID_LAYOUT','La configuración por puestos requiere 2v2');
+    if(room.layout&&Object.keys(room.layout).length!==(mode==='1v1'?2:4))throw new ProtocolError('INVALID_LAYOUT','La configuración no coincide con el formato');
     if(room.layout)return this.rpc('live_v2_create_flexible_room',{p_actor:actorId,p_match:room.id,p_layout:normalizeLayout(room.layout)});
     return this.rpc(players===4?'live_v2_create_four_player_room':mode==='2v2'?'live_v2_create_team_room':'live_v2_create_room', {
       p_actor: actorId,

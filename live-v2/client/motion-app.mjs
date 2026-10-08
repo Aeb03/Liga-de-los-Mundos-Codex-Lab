@@ -1,5 +1,5 @@
 import {mountLobby} from './lobby.mjs?v=20261008-alpha1';
-import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261008-alpha1';
+import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261008-guideheader1';
 import { SocialPanel } from './social.mjs?v=20261008-friends1';
 import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261007-flex1';
 import { createVfxPlayer } from './vfx.mjs?v=20261007-flex1';
@@ -22,7 +22,7 @@ const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const guideRoot=document.querySelector('#champions-guide');
-const championGuide=mountChampionGuide(guideRoot);
+const championGuide=mountChampionGuide(guideRoot,{onClose:()=>{homeOpen=true;guideOpen=false;toggleGuide();render(true);}});
 let guideOpen=false,homeOpen=true;
 const lobbyRoot=document.querySelector('#lobby');
 const lobby=mountLobby(lobbyRoot,{storage:localStorage,onPlay:()=>{homeOpen=false;guideOpen=false;toggleGuide();render(true);},onGuide:()=>showGuide(),onSocial:view=>social.show(view),onSettings:()=>window.LigaAudioOptions?.open()});
@@ -30,10 +30,10 @@ document.querySelector('#nav-home').addEventListener('click',()=>{homeOpen=true;
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&social?.open){social.open=false;social.paint();}});
 function showGuide(championId=null,skillId=null){
   if(game.state?.phase==='combat'||game.state?.phase==='deployment')return;
-  homeOpen=false;guideOpen=true;championGuide.open(championId,skillId);toggleGuide();guideRoot.querySelector('h2')?.focus({preventScroll:true});guideRoot.scrollIntoView({block:'start'});
+  homeOpen=false;guideOpen=true;championGuide.open(championId,skillId);toggleGuide();guideRoot.querySelector('.champion-guide h2')?.focus({preventScroll:true});guideRoot.scrollIntoView({block:'start'});
 }
 function toggleGuide(){
-  document.querySelector('.game-navigation').hidden=homeOpen||['combat','deployment'].includes(game.state?.phase);
+  document.querySelector('.game-navigation').hidden=homeOpen||guideOpen||['combat','deployment'].includes(game.state?.phase);
   app.hidden=guideOpen||homeOpen;lobbyRoot.hidden=!homeOpen;document.body.classList.toggle('in-lobby',homeOpen);guideRoot.hidden=!guideOpen;document.body.classList.toggle('browsing-champions',guideOpen);
   const play=document.querySelector('#nav-play'),champions=document.querySelector('#nav-champions');
   play.toggleAttribute('aria-current',!guideOpen);if(!guideOpen)play.setAttribute('aria-current','page');

@@ -11,12 +11,22 @@ export const ARENA_MAPS=[
   barrier(3,1,0,1),barrier(3,5,0,1),barrier(3,9,0,1),pillar(6,3),cube(5,5)
  ]),
  build('central-02','Arena Central · 2',[[1,0],[1,1],[2,1],[1,3],[2,3],[1,4],[2,6],[1,7],[2,7],[1,9],[1,10],[2,10]],[
-  pillar(4,0),cube(3,4),pillar(8,4),barrier(5,1,0,1),barrier(5,4,1,0)
+  cube(3,4),pillar(8,4),barrier(5,1,1,0),barrier(5,4,1,0)
  ]),
  build('central-03','Arena Central · 3',[[1,0],[1,1],[3,2],[3,3],[1,5],[2,5],[1,6],[2,6],[3,8],[3,9],[1,10],[1,11]],[
   cube(2,1),pillar(5,1),cube(9,1),pillar(1,4),pillar(10,4),barrier(5,3,1,0),barrier(3,5,0,1)
+ ]),
+ build('central-04','Arena Central · 4',[[0,0],[0,1],[0,4],[1,4],[0,5],[1,5],[0,6],[1,6],[0,7],[1,7],[0,10],[0,11]],[
+  barrier(0,2,1,0),barrier(10,2,1,0),barrier(7,3,0,1),barrier(2,5,0,1),pillar(5,1)
+ ]),
+ build('central-05','Arena Central · 5',[[9,0],[10,0],[9,4],[10,4],[7,5],[6,6],[7,6],[1,7],[2,7],[1,11],[2,11]],[
+  barrier(5,0,1,0),barrier(1,2,1,0),barrier(9,2,1,0),barrier(3,3,0,1),barrier(8,3,0,1),cube(3,2),cube(8,2),pillar(6,5)
+ ]),
+ build('central-06','Arena Central · 6',[2,3,5,6,8,9].flatMap(y=>[[0,y],[1,y]]),[
+  cube(3,1),cube(8,1),barrier(5,4,1,0)
  ])
 ];
+ARENA_MAPS.find(m=>m.id==='central-02').revision=2;
 export const LEGACY_ARENA={id:'central-classic',name:'Arena Central',revision:0,deployment:{A:['0,3','1,3','0,4','2,5','1,6','2,6'],B:['11,3','10,3','11,4','9,5','10,6','9,6']},pieces:[[5,4],[6,4],[5,7],[6,7]].map(([x,y],i)=>({id:`classic-${i}`,type:'cube',cells:[{x,y}]}))};
 export const arenaFor=state=>state?.arena??LEGACY_ARENA;
 export const arenaObstacleCells=arena=>arena.pieces.flatMap(p=>p.cells.map(c=>({...c})));

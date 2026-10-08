@@ -1,0 +1,218 @@
+[
+  {
+    "file": "assets/champions/arfeli/arfeli-combat-down-right.png",
+    "removed": 6587,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/arfeli/arfeli-combat-down-left.png",
+    "removed": 6850,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/arfeli/arfeli-combat-up-right.png",
+    "removed": 8715,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/arfeli/arfeli-combat-up-left.png",
+    "removed": 8973,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/coloso/coloso-combat-down-right.png",
+    "removed": 5677,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/coloso/coloso-combat-down-left.png",
+    "removed": 5547,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/coloso/coloso-combat-up-right.png",
+    "removed": 6339,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/coloso/coloso-combat-up-left.png",
+    "removed": 6244,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/piplus/piplus-combat-down-right.png",
+    "removed": 25375,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/piplus/piplus-combat-down-left.png",
+    "removed": 24080,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/piplus/piplus-combat-up-right.png",
+    "removed": 32272,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/piplus/piplus-combat-up-left.png",
+    "removed": 30633,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/onod/onod-combat-down-right.png",
+    "removed": 1427,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/onod/onod-combat-down-left.png",
+    "removed": 4373,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/onod/onod-combat-up-right.png",
+    "removed": 2783,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/onod/onod-combat-up-left.png",
+    "removed": 2680,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/korgan/korgan-combat-down-right.png",
+    "removed": 17408,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/korgan/korgan-combat-down-left.png",
+    "removed": 10496,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/korgan/korgan-combat-up-right.png",
+    "removed": 9347,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/korgan/korgan-combat-up-left.png",
+    "removed": 8709,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/houngan/houngan-combat-down-right.png",
+    "removed": 4233,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/houngan/houngan-combat-down-left.png",
+    "removed": 4698,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/houngan/houngan-combat-up-right.png",
+    "removed": 5647,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  },
+  {
+    "file": "assets/champions/houngan/houngan-combat-up-left.png",
+    "removed": 5489,
+    "rgbChanges": 0,
+    "width": 768,
+    "height": 768,
+    "pedestalUnchanged": true,
+    "verifiedDecodedPixels": true
+  }
+]

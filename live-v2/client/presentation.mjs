@@ -1,7 +1,7 @@
 import { arenaFor, arenaObstacleCells } from '../arena-maps.mjs?v=20261008-maps2';
 import { renderCombatLog } from './feedback-ui.mjs?v=20261006-four1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261006-four1';
-import { spriteSource, championSpriteBox, dollSpriteBox, compareDepth } from './motion.mjs?v=20261008-compact3';
+import { spriteSource, championSpriteBox, dollSpriteBox, compareDepth } from './motion.mjs?v=20261008-alpha1';
 import { normalizeHudSettings, hudClass, hudControls, rotateCell, rotateFacing, cameraParallax } from './hud-camera.mjs?v=20261006-four1';
 import { catalog } from './catalog.mjs?v=20261005-houganadv1';
 import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable } from '../combat-core.mjs?v=20261006-four1';

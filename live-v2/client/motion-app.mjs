@@ -1,5 +1,5 @@
-import {mountLobby} from './lobby.mjs?v=20261008-lobby1';
-import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261008-guide1';
+import {mountLobby} from './lobby.mjs?v=20261008-alpha1';
+import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261008-alpha1';
 import { SocialPanel } from './social.mjs?v=20261008-lobby1';
 import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261007-flex1';
 import { createVfxPlayer } from './vfx.mjs?v=20261007-flex1';
@@ -8,8 +8,8 @@ import { ConfirmedAudioPlayback } from '../audio-cues.mjs?v=20261005-audio1';
 import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
-import { MotionPresenter, spriteSource } from './motion.mjs?v=20261008-maps2';
-import { renderArena } from './presentation.mjs?v=20261008-maps2';
+import { MotionPresenter, spriteSource } from './motion.mjs?v=20261008-alpha1';
+import { renderArena } from './presentation.mjs?v=20261008-alpha1';
 import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261007-flex1';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261005-vines1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261007-flex1';

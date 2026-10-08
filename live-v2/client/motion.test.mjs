@@ -38,7 +38,7 @@ test('Muñeco Vudú anima el recorrido confirmado del servidor y no teletranspor
 test('four views use effective offline asset mapping including Coloso upper-view exception',()=>{
  assert.equal(stepDirection({x:0,y:0},{x:1,y:0}),'down-right');assert.equal(stepDirection({x:1,y:0},{x:0,y:0}),'up-left');
  assert.equal(stepDirection({x:0,y:0},{x:0,y:1}),'down-left');assert.equal(stepDirection({x:0,y:1},{x:0,y:0}),'up-right');
- assert.match(spriteSource('arfeli','down-right'),/combat-down-left.png$/);assert.match(spriteSource('coloso','up-right'),/combat-up-right.png$/);
+ assert.match(spriteSource('arfeli','down-right'),/combat-down-left\.png\?v=20261008-alpha1$/);assert.match(spriteSource('coloso','up-right'),/combat-up-right\.png\?v=20261008-alpha1$/);
 });
 
 test('animación proyecta cada paso según la rotación de cámara',()=>{

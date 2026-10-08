@@ -6,8 +6,8 @@ import { ConfirmedAudioPlayback } from '../audio-cues.mjs?v=20261005-audio1';
 import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
-import { MotionPresenter, spriteSource } from './motion.mjs?v=20261007-flex1';
-import { renderArena } from './presentation.mjs?v=20261007-dollmove1';
+import { MotionPresenter, spriteSource } from './motion.mjs?v=20261008-combatux1';
+import { renderArena } from './presentation.mjs?v=20261008-combatux1';
 import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261007-flex1';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261005-vines1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261007-flex1';
@@ -22,7 +22,7 @@ const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 const errors={CONNECTION_TIMEOUT:'La conexión tardó demasiado. Reintentá; no confirmamos ninguna acción localmente.',UNAUTHENTICATED:'No se pudo validar la sesión. Reintentá.',FORBIDDEN:'Esta acción no corresponde a tu controlador.',SLOT_TAKEN:'Ese puesto está ocupado. Elegí otro puesto.',SLOT_UNAVAILABLE:'Ese puesto no está disponible para tu sesión.',JOIN_CLOSED:'El combate ya empezó.',MATCH_NOT_FOUND:'No encontramos esa sala.',VERSION_CONFLICT:'La partida cambió. Actualizamos el estado.',TURN_EXPIRED:'El turno terminó.',INSUFFICIENT_PA:'No tenés suficientes PA.',ABILITY_LIMIT:'Alcanzaste el límite de usos este turno.',BLOCKED_LOS:'La línea de visión está bloqueada.',OUT_OF_RANGE:'El objetivo está fuera del alcance.',ABILITY_NOT_SELECTED:'La habilidad no está en tus cuatro elegidas.',ONOD_ACTION_UNAVAILABLE:'Germinar o Marchitar no está disponible en esa casilla o este turno.',KORGAN_ACTION_UNAVAILABLE:'Desarmar Trampa no está disponible.',HOUGAN_ACTION_UNAVAILABLE:'Muñeco Vudú no está disponible.',DOLL_PHASE_ACTIVE:'Primero resolvé el movimiento del Muñeco Vudú.',DOLL_PHASE_INACTIVE:'La fase del Muñeco ya terminó.',INVALID_DISTANCE:'Elegí atraer 1 o 2 casillas.',MARK_UNAVAILABLE:'La Marca ya se usó, está bloqueada o el objetivo no es válido.',INVALID_TARGET:'Ese objetivo no es válido para la acción elegida.',INVALID_PATH:'Ese recorrido no es válido.',LETHAL_TACKLE:'Ese recorrido sería mortal por placaje.',INVALID_POSITION:'Elegí una casilla marcada de tu zona.',CONNECTION_PENDING:'Sin respuesta. La acción quedó pendiente; la recuperaremos al reconectar.',COMMAND_PENDING:'Esperá la confirmación de la acción anterior.'};
 errors.INVALID_LAYOUT='Revisá los controladores: un jugador sólo puede controlar campeones del mismo equipo.';
 errors.DUPLICATE_CHAMPION='Tu compañero ya eligió ese campeón. Elegí otro.';
-let notifyTimer;function notify(message){notice.textContent=errors[message]??message;notice.style.display='block';clearTimeout(notifyTimer);notifyTimer=setTimeout(()=>notice.style.display='none',6000);}
+let notifyTimer;function notify(message){notice.textContent=errors[message]??message;notice.style.display='block';clearTimeout(notifyTimer);notifyTimer=setTimeout(()=>notice.style.display='none',3000);}
 let movementArmed=false,movementTurn=null;
 let deadlineExpired=false,abilitySelection=null,inspectedId=null,lastInspectionFocus='';
 let skillHoldCleanup=()=>{},aoeCleanup=()=>{};
@@ -191,7 +191,19 @@ function arena(){
   setupDraft();syncInspection();
   return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudSettings,camera,abilitySelection,inspectedId,movementArmed});
 }
+let announcedTurn=null,turnBannerTimer;
+function announceTurn(){
+  const unit=activeUnit(),key=game.state?.phase==='combat'?`${game.state.id}:${game.state.turnSerial}`:null;
+  if(key===announcedTurn)return;
+  announcedTurn=key;
+  document.querySelector('#turn-announcement')?.remove();clearTimeout(turnBannerTimer);
+  if(!key||unit?.controllerId!==actor||game.state.combat?.dollPhase)return;
+  const banner=document.createElement('div');banner.id='turn-announcement';banner.setAttribute('role','status');
+  banner.textContent=`ES TU TURNO · ${catalog[unit.championId]?.name??unit.id}`;
+  document.body.append(banner);turnBannerTimer=setTimeout(()=>banner.remove(),1100);
+}
 function render(force=false){
+  announceTurn();
   social?.paint();
   const turnKey=`${game.state?.id}:${game.state?.turnSerial}:${game.state?.combat?.dollPhase?.dollId??''}`;
   if(movementTurn!==turnKey||!canMove()){movementTurn=turnKey;movementArmed=false;}

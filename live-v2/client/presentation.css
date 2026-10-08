@@ -296,3 +296,16 @@ body.in-arena>header,body.in-arena .room-bar{display:none}
 @keyframes selected-cell-pulse{from{stroke-width:5;fill:#fff0a5ee}to{stroke-width:3.5;fill:#e9c14dcc}}
 .live-board .tile.destination,.live-board .tile.ability-selected{stroke:#fff5be;stroke-width:3.5;filter:drop-shadow(0 0 3px #ffdc63);animation:selected-cell-pulse .25s ease-out}
 @media(prefers-reduced-motion:reduce){.live-board .tile.destination,.live-board .tile.ability-selected{animation:none}}
+
+/* Feedback occupies its own row; it cannot cover draggable combat controls. */
+body.in-arena #notice{position:static;flex:none;order:-1;transform:none;margin:0;width:100%;max-width:none;padding:4px 10px;font-size:12px;pointer-events:none;max-height:44px;overflow:auto}
+#turn-announcement{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);z-index:80;pointer-events:none;background:#071a2aee;border:2px solid #d4b75c;border-radius:8px;padding:10px 18px;color:#fff0bd;font-size:clamp(16px,3vw,26px);font-weight:bold;text-align:center;max-width:70vw}
+.live-command .command-feedback{height:26px;overflow:auto;align-items:flex-start}
+.live-command .board-note{min-width:0;flex:1}
+.live-command .command-controls{max-height:100px;overflow:auto;min-width:0}
+.live-command .active-champion{min-width:0;max-height:100px;overflow:auto}
+.live-command .combat-skill{min-width:0}
+@media(orientation:landscape) and (max-height:500px){.live-command .command-controls,.live-command .active-champion{max-height:68px}.live-command .command-feedback{height:20px}}
+@media(orientation:landscape){.live-command:not(.collapsed) .command-main{height:100px;min-height:0}.live-command .combat-skills{min-height:0;overflow:hidden}.live-command .combat-skill{min-height:0}}
+@media(orientation:landscape) and (max-height:500px){.live-command:not(.collapsed) .command-main{height:68px}}
+@media(orientation:landscape) and (max-height:300px){.live-command:not(.collapsed) .command-main{height:54px}.live-command .command-controls,.live-command .active-champion{max-height:54px}}

@@ -55,3 +55,14 @@ test('moving entities cross static obstacles at their displayed depth',async()=>
  const root={querySelectorAll:()=>[layer]};sortDepthLayer(root);assert.deepEqual(layer.children,[unit,obstacle]);
  unit.dataset.depthOffsetY='0';sortDepthLayer(root);assert.deepEqual(layer.children,[obstacle,unit]);
 });
+
+
+test('doll views preserve native proportions and a stable footprint height',async()=>{
+ const {dollSpriteBox,championSpriteBox}=await import('./motion.mjs');
+ for(const variant of ['muneco-houngan-01','muneco-houngan-02'])for(const direction of ['down-right','down-left','up-right','up-left']){
+  const box=dollSpriteBox(variant,direction,{x:100,y:100});
+  assert.equal(box.x+box.width/2,100);assert.equal(box.y+box.height*.94,100);
+  assert(box.height<=32);assert(box.width<=34);
+ }
+ assert.equal(championSpriteBox('coloso','down-right',true,{x:100,y:100}).height,40);
+});

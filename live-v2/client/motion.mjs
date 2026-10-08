@@ -12,10 +12,22 @@ export function spriteSource(championId,direction='down-right',monolith=false) {
 // Peana footprint anchors measured from the lower opaque band of each PNG.
 const championAnchors={"arfeli":{"down-right":[0.43945,0.92083],"down-left":[0.54102,0.92083],"up-right":[0.44531,0.92083],"up-left":[0.51107,0.92083]},"piplus":{"down-left":[0.5,0.92091],"down-right":[0.5,0.92091],"up-right":[0.48047,0.92083],"up-left":[0.54102,0.92083]},"houngan":{"up-right":[0.49219,0.92083],"down-left":[0.51302,0.92083],"down-right":[0.48047,0.92083],"up-left":[0.5026,0.92083]},"onod":{"up-right":[0.50651,0.92083],"down-right":[0.48047,0.92083],"up-left":[0.48958,0.92083],"down-left":[0.51562,0.92083]},"korgan":{"up-right":[0.46224,0.92083],"down-left":[0.50977,0.92083],"up-left":[0.54427,0.92083],"down-right":[0.47852,0.92083]},"coloso":{"down-right":[0.47917,0.92083],"down-left":[0.52018,0.92083],"up-right":[0.47852,0.92083],"up-left":[0.52148,0.92083]}};
 export function championSpriteBox(championId,direction,monolith,point){
-  if(championId==='coloso'&&monolith)return {x:point.x-22,y:point.y-53,width:44,height:58};
+  if(championId==='coloso'&&monolith)return {x:point.x-17,y:point.y-38,width:34,height:40};
   const source=spriteSource(championId,direction),view=source.split('-combat-')[1]?.replace('.png','');
   const [ax,ay]=championAnchors[championId]?.[view]??[.5,.92];
   return {x:point.x-44*ax,y:point.y-44*ay,width:44,height:44};
+}
+// Native PNG proportions; the lower footprint stays anchored during rotation and motion.
+const dollDimensions={'muneco-houngan-01':{'down-right':[566,702],'down-left':[566,702],'up-right':[579,681],'up-left':[572,680]},'muneco-houngan-02':{'down-right':[719,702],'down-left':[712,702],'up-right':[510,682],'up-left':[506,681]}};
+export function dollSpriteBox(variant,direction,point){
+  const [w,h]=dollDimensions[variant]?.[direction]??[566,702],height=variant==='muneco-houngan-01'?30:32,width=height*w/h;
+  return {x:point.x-width/2,y:point.y-height*.94,width,height};
+}
+function paintDollImage(group,image,variant,direction){
+  const c=rotateCell(Number(group.dataset.x),Number(group.dataset.y),Number(group.dataset.cameraRotation)||0);
+  const box=dollSpriteBox(variant,direction,{x:260+(c.x-c.y)*20,y:30+(c.x+c.y)*10});
+  image.setAttribute('href',`../assets/tactical/objects/${variant}/${direction}.png`);
+  for(const [key,value] of Object.entries(box))image.setAttribute(key,String(value));
 }
 function paintChampionImage(group,image,direction){
   const champion=group.dataset.champion,monolith=group.dataset.monolith==='true';
@@ -96,11 +108,11 @@ export class MotionPresenter {
       }
       for(const group of root.querySelectorAll('[data-motion-object]')){
         const id=group.dataset.motionObject,sample=this.timeline.sample(id,this.clock()),image=group.querySelector('image'),variant=group.dataset.dollVariant??'muneco-houngan-01';
-        if(!sample){group.dataset.depthOffsetX='0';group.dataset.depthOffsetY='0';group.removeAttribute('transform');image.setAttribute('href',`../assets/tactical/objects/${variant}/${group.dataset.facing??'down-right'}.png`);continue;}
+        if(!sample){group.dataset.depthOffsetX='0';group.dataset.depthOffsetY='0';group.removeAttribute('transform');paintDollImage(group,image,variant,group.dataset.facing??'down-right');continue;}
         const offset=projectedOffset(sample,{x:Number(group.dataset.x),y:Number(group.dataset.y)},Number(group.dataset.cameraRotation)||0);
         group.dataset.depthOffsetX=String(offset.x);group.dataset.depthOffsetY=String(offset.y);
         group.setAttribute('transform',`translate(${offset.x} ${offset.y})`);
-        image.setAttribute('href',`../assets/tactical/objects/${variant}/${rotateFacing(sample.direction,Number(group.dataset.cameraRotation)||0)}.png`);
+        paintDollImage(group,image,variant,rotateFacing(sample.direction,Number(group.dataset.cameraRotation)||0));
       }
       sortDepthLayer(root);
       if(this.timeline.tracks.size)this.frameId=this.frame(tick);
@@ -108,3 +120,4 @@ export class MotionPresenter {
     tick();
   }
 }
+

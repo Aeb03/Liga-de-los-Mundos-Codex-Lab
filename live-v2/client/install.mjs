@@ -6,7 +6,7 @@ const installed = () => ['standalone', 'fullscreen'].some(mode => matchMedia(`(d
 const message = text => { help.textContent = text; help.hidden = false; };
 const refresh = () => {
   install.hidden = Boolean(installed());
-  full.hidden = !document.fullscreenEnabled;
+  full.hidden = !document.fullscreenEnabled || Boolean(installed());
   full.textContent = document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa';
 };
 window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); prompt = event; refresh(); });

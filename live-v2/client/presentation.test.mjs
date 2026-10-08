@@ -197,3 +197,15 @@ test('doll movement range appears only when armed and respects remaining PM',()=
  state.combat.dollPhase.pm=0;
  assert.doesNotMatch(renderArena({...args,movementArmed:true}),/tile\s+reachable/);
 });
+
+test('queue avatars select champions and mark only legal ability targets without charging PA',()=>{
+ const state=fixture();state.combat.units[1].x=4;state.combat.units[1].y=5;
+ const before=structuredClone(state);
+ const html=renderArena({state,actor:'shared',slotId:'A1',remaining:24,canMove:true,blocked:false,abilitySelection:{abilityId:'precise',unitId:'A1',targetId:'B1'}});
+ const queue=html.match(/<ol class="turn-order"[\s\S]*?<\/ol>/)[0];
+ assert.match(queue,/data-inspect-id="A1"/);assert.match(queue,/data-inspect-id="B1"/);
+ assert.match(queue,/targetable/);assert.match(queue,/target-selected/);assert.match(queue,/aria-pressed="true"/);assert.deepEqual(state,before);
+ state.combat.board.obstacles=['3,5'];
+ const blocked=renderArena({state,actor:'shared',slotId:'A1',remaining:24,canMove:true,blocked:false,abilitySelection:{abilityId:'precise',unitId:'A1'}}).match(/<ol class="turn-order"[\s\S]*?<\/ol>/)[0];
+ assert.doesNotMatch(blocked,/targetable/);
+});

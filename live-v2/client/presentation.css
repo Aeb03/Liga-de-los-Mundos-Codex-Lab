@@ -317,3 +317,6 @@ body.in-arena #notice{position:static;flex:none;order:-1;transform:none;margin:0
 @media(orientation:landscape){.live-command:not(.collapsed) .command-main{height:64px}.live-command .active-champion,.live-command .command-controls{max-height:64px}}
 @media(orientation:landscape) and (max-height:500px){.live-command:not(.collapsed) .command-main{height:56px}.live-command .active-champion,.live-command .command-controls{max-height:56px}}
 @media(orientation:landscape) and (max-height:300px){.live-command:not(.collapsed) .command-main{height:48px}.live-command .active-champion,.live-command .command-controls{max-height:48px}}
+
+/* Queue avatars share board target selection without changing HUD dimensions. */
+.turn-order li{padding:0}.turn-avatar-select{display:flex;align-items:center;gap:3px;width:100%;min-height:32px;margin:0;padding:3px;border:0;border-radius:4px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}.turn-avatar-select:focus-visible{outline:2px solid #8beaff;outline-offset:-2px}.turn-order li.targetable{border-color:#74d5ff}.turn-order li.target-selected{background:#175473;border-color:#c4f3ff;box-shadow:inset 0 0 0 1px #c4f3ff}

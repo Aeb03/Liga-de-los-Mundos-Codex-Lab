@@ -1,6 +1,6 @@
 import {mountLobby} from './lobby.mjs?v=20261008-alpha1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261008-alpha1';
-import { SocialPanel } from './social.mjs?v=20261008-lobby1';
+import { SocialPanel } from './social.mjs?v=20261008-profile1';
 import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261007-flex1';
 import { createVfxPlayer } from './vfx.mjs?v=20261007-flex1';
 import { renderResult } from './feedback-ui.mjs?v=20261007-flex1';
@@ -25,7 +25,7 @@ const guideRoot=document.querySelector('#champions-guide');
 const championGuide=mountChampionGuide(guideRoot);
 let guideOpen=false,homeOpen=true;
 const lobbyRoot=document.querySelector('#lobby');
-const lobby=mountLobby(lobbyRoot,{storage:localStorage,onPlay:()=>{homeOpen=false;guideOpen=false;toggleGuide();render(true);},onGuide:()=>showGuide(),onSocial:()=>{social.open=true;social.paint();social.run(()=>social.refresh());},onSettings:()=>window.LigaAudioOptions?.open()});
+const lobby=mountLobby(lobbyRoot,{storage:localStorage,onPlay:()=>{homeOpen=false;guideOpen=false;toggleGuide();render(true);},onGuide:()=>showGuide(),onSocial:view=>social.show(view),onSettings:()=>window.LigaAudioOptions?.open()});
 document.querySelector('#nav-home').addEventListener('click',()=>{homeOpen=true;guideOpen=false;toggleGuide();render(true);});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&social?.open){social.open=false;social.paint();}});
 function showGuide(championId=null,skillId=null){

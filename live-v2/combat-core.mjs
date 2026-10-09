@@ -121,7 +121,7 @@ function validateSupportedState(state) {
     const expectedChampion=doll?'houngan':sprout?'onod':'coloso';
     const expectedMax=doll?(object.linkMode==='ally'?20:object.linkMode==='enemy'?16:-1):sprout?12:15;
     if (!owner || owner.championId!==expectedChampion || object.team!==owner.team || object.id!==`${object.type}${object.number}` || ids.has(object.id)) fail('INVALID_OBJECT','Identidad o propietario del objeto inválido');
-    if (!inside(object) || !nonNegativeInteger(object.hp) || object.maxHp!==expectedMax || object.hp>expectedMax || object.alive!==(object.hp>0) || !Number.isInteger(object.number) || object.number<1 || object.blocksLOS!==(doll||sprout?false:true)) fail('INVALID_OBJECT','Objeto inválido');
+    if (!inside(object) || !nonNegativeInteger(object.hp) || object.maxHp!==expectedMax || object.hp>expectedMax || object.alive!==(object.hp>0) || !Number.isInteger(object.number) || object.number<1 || (doll?typeof object.blocksLOS!=='boolean':object.blocksLOS!==!sprout)) fail('INVALID_OBJECT','Objeto inválido');
     if(doll){
       const linked=state.units.find(u=>u.id===object.linkedTargetId&&u.id!==owner.id);
       if(!linked||!['ally','enemy'].includes(object.linkMode)||(object.linkMode==='ally')!==(linked.team===owner.team)||object.movePm!==3)fail('INVALID_OBJECT','Muñeco Vudú inválido');
@@ -371,16 +371,11 @@ function expireSourceShields(state, sourceId, events) {
 function beginTurn(state) {
   const next = clone(state), events = [], unit = activeUnit(next);
   expireSourceShields(next, unit.id, events);
-  for (const target of next.units) {
-    if (target.status.vinesSourceId === unit.id) {
-      delete target.status.vinesSourceId;
-      events.push({type:'status.expired',targetId:target.id,status:'vines',sourceId:unit.id});
-    }
-  }
   const paPenalty = Math.max(0, unit.status.paPenaltyNext || 0), pmPenalty = Math.max(0, unit.status.pmPenaltyNext || 0, unit.status.vinesSourceId ? 1 : 0);
   unit.pa = Math.max(0, unit.maxPa - paPenalty); unit.status.paPenaltyNext = 0;
+  delete unit.status.vinesSourceId; // Consume legacy Enredaderas snapshots on this affected turn.
   unit.pm = unit.monolith ? 0 : Math.max(0, unit.maxPm - pmPenalty); unit.status.pmPenaltyNext = 0;
-  if (unit.monolith) unit.monolithStoredPm = unit.maxPm;
+  if (unit.monolith) unit.monolithStoredPm = Math.max(0, unit.maxPm - pmPenalty);
   Object.assign(unit, { exitedMonolithThisTurn: false, monolithPillarGainUsed: false, stoneArmorTargetsUsed: [], skillUsesThisTurn: {}, symbiosisUsed: false, sproutRemovedThisTurn: false, trapRemovedThisTurn: false });
   if (unit.championId === 'arfeli') Object.assign(unit, { arfeliMasteryChain: [], arfeliMasteryLastBonus: 0 });
   if (unit.championId === 'coloso') Object.assign(unit, { colosoTurnSerial: unit.colosoTurnSerial + 1, colosoCreateWindow: true, colosoPillarCreatedThisTurn: false, colosoRecycleUsed: false });
@@ -578,7 +573,7 @@ export function clearAbilityLOS(state,a,b){
     const x=Math.floor(px),y=Math.floor(py);
     if((x!==a.x||y!==a.y)&&(x!==b.x||y!==b.y))cells.add(`${x},${y}`);
   }
-  const blockers=new Set([...state.board.obstacles,...entities(state).filter(u=>u.alive&&u.id!==a.id&&u.id!==b.id&&u.blocksLOS!==false).map(key)]);
+  const blockers=new Set([...state.board.obstacles,...entities(state).filter(u=>u.alive&&u.id!==a.id&&u.id!==b.id&&(u.type==='doll'||u.blocksLOS!==false)).map(key)]);
   return [...cells].every(cell=>!blockers.has(cell));
 }
 export function abilityRangeContains(unit, abilityId, target) {
@@ -700,7 +695,7 @@ export function useAbility(state, { unitId, abilityId, targetId, direction, seco
         if(!actor.alive){finishIfNeeded(next,events);return {state:next,events};}
       }
       damage(victim,ability.damage+bonus,`ability.${abilityId}`);
-      if(ability.jump&&victim.alive&&victim.kind==='champion'&&!victim.monolith){victim.status.pmPenaltyNext=Math.max(victim.status.pmPenaltyNext,1);events.push({type:'status.applied',targetId:victim.id,status:'pmPenaltyNext',value:victim.status.pmPenaltyNext});}
+
       if (ability.forced && victim.alive && victim.kind==='champion') {
         const from = {x:victim.x,y:victim.y};
         const [dx,dy] = forcedDirection(actor,victim,ability.forced==='push');
@@ -868,7 +863,7 @@ function resolvePiplusSkill(state,u,target,id,events,damage){
   const fixed=marked&&u.piplusFixationTargetId===target.id&&PIPLUS_OFFENSIVE.has(id);
   if(id==='precise')damage(target,marked?10:8,'ability.precise');
   if(id==='vector'){damage(target,6,'ability.vector');pushOrPull(state,target,u,marked?2:1,true,0,events,damage,'vector');}
-  if(id==='interference'){u.piplusInterferenceTargets.push(target.id);target.status.pmPenaltyNext=Math.max(target.status.pmPenaltyNext,1);events.push({type:'status.applied',targetId:target.id,status:'pmPenaltyNext',value:target.status.pmPenaltyNext});}
+  if(id==='interference'){u.piplusInterferenceTargets.push(target.id);target.status.pmPenaltyNext+=1;events.push({type:'status.applied',targetId:target.id,status:'pmPenaltyNext',value:target.status.pmPenaltyNext});}
   if(id==='rupture'){damage(target,14,'ability.rupture');if(target.status.markedBy===u.id)target.status.markedBy=null;u.markedTargetId=null;u.piplusMarkBlockedThisTurn=true;u.piplusFixationTargetId=null;events.push({type:'piplus.mark.cleared',unitId:u.id,targetId:target.id});}
   if(id==='fixation'){u.piplusFixationTargetId=target.id;events.push({type:'piplus.fixed',unitId:u.id,targetId:target.id});}
   if(fixed&&id!=='rupture'){u.piplusFixationTargetId=null;events.push({type:'piplus.fixation.consumed',unitId:u.id,targetId:target.id});}
@@ -908,7 +903,7 @@ function triggerKorganTraps(state,target,events,source='movement'){
     const amount=trap.trapType==='spikes'?10:8,result=damageWithDollEffect(state,target,amount,false,events,`trap.${trap.trapType}`);
     if(result.killed)break;
     if(target.kind==='champion'&&trap.trapType==='spikes'){const before=target.status.wound;target.status.wound=Math.min(3,before+1);events.push({type:'status.applied',targetId:target.id,status:'wound',amount:target.status.wound-before,value:target.status.wound});}
-    else if(target.kind==='champion'&&trap.trapType==='mine'){const before=target.pa;target.pa=Math.max(0,target.pa-1);events.push({type:'resource.lost',targetId:target.id,resource:'pa',amount:before-target.pa,value:target.pa,source:'trap.mine'});}
+    else if(target.kind==='champion'&&trap.trapType==='mine'){target.status.paPenaltyNext+=1;events.push({type:'status.applied',targetId:target.id,status:'paPenaltyNext',amount:1,value:target.status.paPenaltyNext,source:'trap.mine'});}
   }
   return count;
 }
@@ -1067,7 +1062,7 @@ export function houganAction(state,{unitId,action,position}){
   let number=next.nextDollId??Math.max(0,...next.objects.filter(o=>o.type==='doll').map(o=>o.number))+1;
   while(entities(next).some(e=>e.id===`doll${number}`))number++;next.nextDollId=number+1;u.pa-=2;
   const mode=target.team===u.team?'ally':'enemy',maxHp=mode==='ally'?20:16;
-  const object={id:`doll${number}`,number,type:'doll',kind:'object',ownerId:u.id,team:u.team,x:position.x,y:position.y,hp:maxHp,maxHp,alive:true,shield:[],blocksLOS:false,linkedTargetId:target.id,linkMode:mode,movePm:3};
+  const object={id:`doll${number}`,number,type:'doll',kind:'object',ownerId:u.id,team:u.team,x:position.x,y:position.y,hp:maxHp,maxHp,alive:true,shield:[],blocksLOS:true,linkedTargetId:target.id,linkMode:mode,movePm:3};
   next.objects.push(object);events.push({type:'object.created',object:clone(object),unitId,cost:2});
   pruneHouganStates(next,u,events,'doll_replaced');
   return {state:next,events};
@@ -1164,7 +1159,7 @@ function useOnodAbility(state,unit,id,targetId,position){
     const t=entities(next).find(t=>t.alive&&t.team!==u.team&&key(t)===key(cell));if(!t)continue;
     damage(t,id==='vines'?(cell.zone==='center'?6:4):id==='awakening'?8*cell.hits:8,`ability.${id}`);
     if(id==='spores')poison(t);
-    if(id==='vines'&&t.alive&&t.kind==='champion'){if(!t.status.vinesSourceId)t.pm=Math.max(0,t.pm-1);t.status.vinesSourceId=u.id;events.push({type:'status.applied',targetId:t.id,status:'vines',value:1,sourceId:u.id});}
+    if(id==='vines'&&t.alive&&t.kind==='champion'){t.status.pmPenaltyNext+=1;events.push({type:'status.applied',targetId:t.id,status:'pmPenaltyNext',amount:1,value:t.status.pmPenaltyNext,sourceId:u.id});}
   }
   if(id==='reabsorption'){const eligible=absorbableSprouts(next,u);for(const s of eligible)consumePillar(s,events,id);u.pa+=eligible.length;u.onodGerminateBlockedThisTurn=true;u.onodReabsorptionUsedThisTurn=true;events.push({type:'resource.gained',unitId:u.id,resource:'pa',amount:eligible.length});}
   finishIfNeeded(next,events);return {state:next,events};

@@ -49,10 +49,10 @@ test('paridad visual: estados compactos van sobre PV y Escudo queda en línea se
  const hougan={id:'H',alive:true,championId:'houngan',linkedTargetId:'A1'};
  const marker={id:'M',alive:true,championId:'piplus',markedTargetId:'A1'};
  assert.equal(shieldTotal(u),7);
- assert.deepEqual(compactStatusIcons(u,{units:[marker,hougan]}),['🩸2','☠️3','🔨-1PA','🌿-2PM','🎯','🪡','🗿']);
+ assert.deepEqual(compactStatusIcons(u,{units:[marker,hougan]}),['🩸2','☠️3','⚡−1PA','🌿−2PM','🎯','🪡','🗿']);
  assert.deepEqual(statusChipLabels(u,{units:[marker,hougan]}),['🩸 Herida 2','☠️ Veneno 3','🔥 Quemadura 4','🔨 PA -1 próximo','🌿 PM -2 próximo','🎯 Marcado','🪡 Vinculado','🗿 Monolito']);
  const html=renderArena({state,actor:'shared',slotId:'A1',remaining:20,blocked:false,canMove:true,inspectedId:'A1'});
- assert.match(html,/class="piece-status"[^>]*>🩸2 ☠️3 🔨-1PA 🌿-2PM 🗿</);
+ assert.match(html,/class="piece-status"[^>]*>🩸2 ☠️3 ⚡−1PA 🌿−2PM 🗿</);
  assert.match(html,/class="piece-shield"[^>]*>🛡️7</);
  assert.match(html,/🩸 Herida 2/);assert.match(html,/🔥 Quemadura 4/);
 });

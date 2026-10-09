@@ -1,10 +1,10 @@
 import { arenaFor, arenaObstacleCells } from '../arena-maps.mjs?v=20261008-maps2';
 import { renderCombatLog } from './feedback-ui.mjs?v=20261006-four1';
-import { abilityOverlay } from './ability-overlay.mjs?v=20261009-deploy1';
+import { abilityOverlay } from './ability-overlay.mjs?v=20261009-control1';
 import { spriteSource, championSpriteBox, dollSpriteBox, compareDepth } from './motion.mjs?v=20261008-alpha1';
 import { normalizeHudSettings, hudClass, hudControls, rotateCell, rotateFacing, cameraParallax } from './hud-camera.mjs?v=20261006-four1';
 import { catalog } from './catalog.mjs?v=20261005-houganadv1';
-import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable } from '../combat-core.mjs?v=20261009-deploy1';
+import { movementAvailable, abilityDefinitions, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable } from '../combat-core.mjs?v=20261009-control1';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=p=>`${p.x},${p.y}`;
 export const boardPoint=(x,y,rotation=0)=>{const v=rotateCell(x,y,rotation);return {x:260+(v.x-v.y)*20,y:30+(v.x+v.y)*10};};
@@ -30,9 +30,9 @@ export function compactStatusIcons(unit,combat){
   const out=[];
   if(unit?.status?.wound)out.push(`🩸${unit.status.wound}`);
   if(unit?.status?.poison)out.push(`☠️${unit.status.poison}`);
-  if(unit?.status?.paPenaltyNext)out.push(`🔨-${unit.status.paPenaltyNext}PA`);
-  if(unit?.status?.pmPenaltyNext)out.push(`🌿-${unit.status.pmPenaltyNext}PM`);
-  if(unit?.status?.vinesSourceId)out.push('🌿 Enredaderas: −1 PM hasta el próximo turno de Onod');
+  if(unit?.status?.paPenaltyNext)out.push(`⚡−${unit.status.paPenaltyNext}PA`);
+  if(unit?.status?.pmPenaltyNext)out.push(`🌿−${unit.status.pmPenaltyNext}PM`);
+  if(unit?.status?.vinesSourceId)out.push('🌿 −1 PM próximo turno');
   if(reverseMarked(unit,combat))out.push('🎯');
   if(reverseLinked(unit,combat))out.push('🪡');
   if(unit?.monolith)out.push('🗿');
@@ -45,7 +45,7 @@ export function statusChipLabels(unit,combat){
   if(unit?.status?.burn)out.push(`🔥 Quemadura ${unit.status.burn}`);
   if(unit?.status?.paPenaltyNext)out.push(`🔨 PA -${unit.status.paPenaltyNext} próximo`);
   if(unit?.status?.pmPenaltyNext)out.push(`🌿 PM -${unit.status.pmPenaltyNext} próximo`);
-  if(unit?.status?.vinesSourceId)out.push('🌿 Enredaderas: −1 PM hasta el próximo turno de Onod');
+  if(unit?.status?.vinesSourceId)out.push('🌿 −1 PM próximo turno');
   if(reverseMarked(unit,combat))out.push('🎯 Marcado');
   if(reverseLinked(unit,combat))out.push('🪡 Vinculado');
   if(unit?.monolith)out.push('🗿 Monolito');
@@ -67,8 +67,8 @@ function objectDescription(object){
   if(object?.type==='pillar')return 'Bloquea movimiento y línea de visión.';
   if(object?.type==='sprout')return 'Brote de Onod. 12 PV, ocupa casilla y no bloquea línea de visión.';
   if(object?.type==='doll')return object.linkMode==='ally'
-    ?'Muñeco Vudú aliado. Cura al Vinculado por la mitad de los PV reales que pierde y puede moverse 3 PM tras Hougan.'
-    :'Muñeco Vudú enemigo. Daña al Vinculado por la mitad de los PV reales que pierde y puede moverse 3 PM tras Hougan.';
+    ?'Muñeco Vudú aliado. Cura al Vinculado por la mitad de los PV reales que pierde y puede moverse 3 PM tras Hougan. Bloquea movimiento y línea de visión.'
+    :'Muñeco Vudú enemigo. Daña al Vinculado por la mitad de los PV reales que pierde y puede moverse 3 PM tras Hougan. Bloquea movimiento y línea de visión.';
   return 'Objeto de combate.';
 }
 export function dollVariant(object){return object?.linkMode==='enemy'?'muneco-houngan-02':'muneco-houngan-01';}
@@ -143,7 +143,7 @@ export function renderArena({state,actor,slotId,preview,blocked,canMove,remainin
   const effect=['trap_spikes','trap_mine','grenade','hook','hunterstep','korganDisarm','houganDoll'].includes(selectedAbilityId)?'':selectedAbilityId==='needle'?(selectedTarget?.team===active?.team?'cura 6 PV + Vínculo':'6 daño + Vínculo'):selectedAbilityId==='transfer'?'cura hasta 8 PV; el Muñeco pierde lo realmente curado':selectedAbilityId==='ritual'?`${state.combat?.objects.some(o=>o.alive&&o.type==='doll'&&o.ownerId===active?.id&&o.linkedTargetId===selectedTarget?.id&&active?.linkedTargetId===selectedTarget?.id&&Math.abs(o.x-selectedTarget.x)+Math.abs(o.y-selectedTarget.y)===1)?20:14} daño + consume Vínculo`:selectedAbilityId==='curse'?'8 daño + Veneno 1 · sin LOS':selectedAbilityId==='paintransfer'?'daño recibido 50/50 con el Muñeco correspondiente':selectedAbilityId==='dance'?'el Vinculado copia cada paso del Muñeco en su próxima fase':selectedAbilityId==='sap'?`${state.combat?.objects.some(s=>s.alive&&s.type==='sprout'&&s.ownerId===active.id&&selectedTarget&&Math.abs(s.x-selectedTarget.x)+Math.abs(s.y-selectedTarget.y)===1)?12:8} curación máxima`:selectedAbilityId==='thorn'?'6 daño + Veneno 1':selectedAbilityId==='interference'?'−1 PM próximo turno':selectedAbilityId==='fixation'?'Ignora LOS en la próxima ofensiva contra el marcado':['fusion','recycle','absorb','collapse','magnetism','piplusMark','impulse','germinate','wither','vines','spores','awakening','reabsorption'].includes(selectedAbilityId)?'':selectedAbilityId==='stonearmor'?'10 escudo':selectedAbilityId==='shield'?`${15+masteryBonus} escudo`:`${piplusDamage+masteryBonus} daño${selectedDefinition?.wound?` + Herida ${selectedDefinition.wound}`:""}`;
   const legend=overlay.range.length||aoeState?`<span class="range-legend" aria-label="Referencias de alcance">${overlay.range.length?'<span class="range-key">Alcance</span><span class="blocked-key">LOS bloqueada</span><span class="target-key">Objetivo</span>':''}${aoeState?'<span class="aoe-key">Área afectada</span>':'<span class="effect-key">Efecto</span>'}</span> `:'';
   const forcedNote=overlay.forced?`${overlay.forced.moves.length?' · '+(selectedAbilityId==='hammer'?'Salto a casilla libre':selectedAbilityId==='impulse'?'Desplazamiento a destino'+(overlay.forced.moves.some(m=>m.unitId!==active.id)?' · Empuje previo de 1 casilla':''):(selectedAbilityId==='spear'?'Atracción':'Empuje')+' '+(selectedAbilityId==='vector'&&active.markedTargetId===selectedTarget?.id?2:1)+' casilla(s)'):overlay.forced.blocked.length?' · Desplazamiento bloqueado':''}${overlay.forced.damage.filter(e=>e.source.startsWith('collision.')).map(e=>` · Colisión ${e.targetId}: ${e.amount} daño`).join('')}${overlay.forced.damage.filter(e=>['wound.forced','wound.jump','wound.impulse'].includes(e.source)).map(e=>` · Herida: ${e.amount} daño`).join('')}${overlay.forced.deaths.length?' · Muerte: '+overlay.forced.deaths.join(', '):''}`:'';
-  const onodNote=abilitySelection&&['germinate','vines','wither','spores','awakening','reabsorption'].includes(selectedAbilityId)?({germinate:abilitySelection.position?'Germinar: Brote de 12 PV · 1 PA. Tocá nuevamente el botón de habilidad para confirmar.':'Germinar: elegí una casilla libre a alcance 3 con LOS.',vines:abilitySelection.position?'Enredaderas: centro 6 daño, cardinales 4 · −1 PM hasta el próximo turno de Onod · 3 PA. Tocá nuevamente el centro para confirmar.':'Enredaderas: elegí el centro de la cruz a alcance 3 con LOS.',wither:abilitySelection.targetId?'Marchitar: retirar Brote sin beneficio · 0 PA. Tocá nuevamente el Brote para confirmar.':'Marchitar: elegí un Brote propio.',spores:abilitySelection.targetId?'Esporas: 8 daño + Veneno 1 en las ocho casillas marcadas · 4 PA. Tocá nuevamente el Brote para confirmar.':'Esporas: elegí cualquier Brote propio.',awakening:abilitySelection.targetId?'Despertar: 8 daño por Brote adyacente · 4 PA. Tocá nuevamente a Onod para confirmar.':'Despertar: área de todos los Brotes marcada. Tocá a Onod para seleccionar.',reabsorption:abilitySelection.targetId?'Reabsorción: retirar todos los Brotes de turnos anteriores y ganar 1 PA por cada uno. Tocá nuevamente a Onod para confirmar.':'Reabsorción: tocá a Onod para seleccionar los Brotes de turnos anteriores.'})[selectedAbilityId]:null;
+  const onodNote=abilitySelection&&['germinate','vines','wither','spores','awakening','reabsorption'].includes(selectedAbilityId)?({germinate:abilitySelection.position?'Germinar: Brote de 12 PV · 1 PA. Tocá nuevamente el botón de habilidad para confirmar.':'Germinar: elegí una casilla libre a alcance 3 con LOS.',vines:abilitySelection.position?'Enredaderas: centro 6 daño, cardinales 4 · −1 PM acumulable próximo turno · 3 PA. Tocá nuevamente el centro para confirmar.':'Enredaderas: elegí el centro de la cruz a alcance 3 con LOS.',wither:abilitySelection.targetId?'Marchitar: retirar Brote sin beneficio · 0 PA. Tocá nuevamente el Brote para confirmar.':'Marchitar: elegí un Brote propio.',spores:abilitySelection.targetId?'Esporas: 8 daño + Veneno 1 en las ocho casillas marcadas · 4 PA. Tocá nuevamente el Brote para confirmar.':'Esporas: elegí cualquier Brote propio.',awakening:abilitySelection.targetId?'Despertar: 8 daño por Brote adyacente · 4 PA. Tocá nuevamente a Onod para confirmar.':'Despertar: área de todos los Brotes marcada. Tocá a Onod para seleccionar.',reabsorption:abilitySelection.targetId?'Reabsorción: retirar todos los Brotes de turnos anteriores y ganar 1 PA por cada uno. Tocá nuevamente a Onod para confirmar.':'Reabsorción: tocá a Onod para seleccionar los Brotes de turnos anteriores.'})[selectedAbilityId]:null;
   const korganNote=abilitySelection&&viewed?.id===active?.id&&active?.controllerId===actor&&active?.championId==='korgan'?(
     selectedAbilityId==='trap_spikes'?(abilitySelection.position?'Trampa de Pinchos: 10 daño + Herida 1 · 2 PA. Tocá nuevamente el botón de habilidad para colocarla.':'Trampa de Pinchos: elegí una casilla libre a alcance 3 con LOS.'):
     selectedAbilityId==='trap_mine'?(abilitySelection.position?'Mina Eléctrica: 8 daño + −1 PA inmediato por cada mina pisada · 3 PA. Tocá nuevamente el botón de habilidad para colocarla.':'Mina Eléctrica: elegí una casilla libre a alcance 3 con LOS.'):

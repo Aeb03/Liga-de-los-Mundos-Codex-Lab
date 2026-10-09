@@ -37,22 +37,22 @@ test('Trampas: colocación LOS/rango, límites por turno, máximo tres y persist
  assert.equal(s.nextTrapId,4);assert.deepEqual(restoreState(serializeState(s)),s);
 });
 
-test('Pinchos y Mina se activan al entrar: daño, Herida y -1 PA inmediato',()=>{
+test('Pinchos y Mina se activan al entrar: daño, Herida y -1 PA acumulado próximo turno',()=>{
  let s=make();
  s=cast(s,'trap_spikes',{position:{x:6,y:5}}).state;
  s=cast(s,'trap_mine',{position:{x:7,y:5}}).state;
  s=endTurn(s,{unitId:'k'}).state;
  const r=resolvePath(s,'e',[{x:8,y:5},{x:7,y:5},{x:6,y:5}]);
  const e=r.state.units[1];
- assert.equal(e.hp,71);assert.equal(e.status.wound,1);assert.equal(e.pa,5);assert.equal(e.status.paPenaltyNext,0);
+ assert.equal(e.hp,71);assert.equal(e.status.wound,1);assert.equal(e.pa,6);assert.equal(e.status.paPenaltyNext,1);
  assert.deepEqual(r.state.traps.map(t=>t.active),[false,false]);
  assert.equal(r.events.filter(e=>e.type==='trap.triggered').length,2);
- assert.deepEqual(r.events.filter(e=>e.type==='resource.lost'&&e.resource==='pa').map(e=>e.value),[5]);
+ assert.deepEqual(r.events.filter(e=>e.type==='status.applied'&&e.status==='paPenaltyNext').map(e=>e.value),[1]);
  const begun=endTurn(r.state,{unitId:'e'}).state;
  assert.equal(begun.units[0].pa,6);
 });
 
-test('dos Minas Eléctricas restan 1 PA cada una en el mismo recorrido: 6 → 5 → 4',()=>{
+test('dos Minas Eléctricas restan 1 PA cada una en el mismo recorrido: próximo turno 6 → 4',()=>{
  let s=make();
  s.traps=[
   {id:'trap1',number:1,kind:'trap',trapType:'mine',ownerId:'k',team:'A',x:7,y:5,active:true,hidden:true,createdByKorganTurn:0},
@@ -62,10 +62,10 @@ test('dos Minas Eléctricas restan 1 PA cada una en el mismo recorrido: 6 → 5 
  s=endTurn(s,{unitId:'k'}).state;
  assert.equal(s.units[1].pa,6);
  const r=resolvePath(s,'e',[{x:8,y:5},{x:7,y:5},{x:6,y:5}]);
- assert.equal(r.state.units[1].pa,4);
+ assert.equal(r.state.units[1].pa,6);
  assert.equal(r.state.units[1].hp,74);
- assert.equal(r.state.units[1].status.paPenaltyNext,0);
- assert.deepEqual(r.events.filter(e=>e.type==='resource.lost'&&e.resource==='pa').map(e=>e.value),[5,4]);
+ assert.equal(r.state.units[1].status.paPenaltyNext,2);
+ assert.deepEqual(r.events.filter(e=>e.type==='status.applied'&&e.status==='paPenaltyNext').map(e=>e.value),[1,2]);
  assert.deepEqual(r.state.traps.map(t=>t.active),[false,false]);
 });
 

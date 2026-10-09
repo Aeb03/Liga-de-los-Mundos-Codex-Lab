@@ -1,4 +1,4 @@
-import {abilityDefinitions,abilityRangeContains,abilityLOSBlocked,clearAbilityLOS,abilityTargets} from '../combat-core.mjs?v=20261009-deploy1';
+import {abilityDefinitions,abilityRangeContains,abilityLOSBlocked,clearAbilityLOS,abilityTargets} from '../combat-core.mjs?v=20261009-control1';
 export const briefErrors={INSUFFICIENT_PA:'PA insuficientes',BLOCKED_LOS:'Sin línea de visión',OUT_OF_RANGE:'Fuera de alcance',ABILITY_LIMIT:'Límite de usos alcanzado',INVALID_TARGET:'Objetivo no válido',INVALID_POSITION:'Casilla no válida',DEPLOYMENT_EXPIRED:'Terminó el despliegue',PILLAR_UNAVAILABLE:'No podés crear otro Pilar',SELECTION_EXPIRED:'Terminó la selección'};
 export function actionBlockReason(combat,unit,id,cell=null){
  if(!combat||!unit)return 'Acción no disponible';

@@ -10,11 +10,11 @@ test('Pilar creation is a 1 PA action at any time, LOS 3/5, one per turn, max tw
  s=endTurn(endTurn(s,{unitId:'b'}).state,{unitId:'a'}).state;s=createPillar(s,{unitId:'b',position:{x:5,y:6}}).state;assert.equal(s.objects[1].id,'pillar2');s=endTurn(endTurn(s,{unitId:'b'}).state,{unitId:'a'}).state;assert.deepEqual(pillarAvailable(s,'b'),[]);
  s=endTurn(make(),{unitId:'a'}).state;s.units[1].colosoCreateWindow=false;assert(pillarAvailable(s,'b').length>0);assert.throws(()=>createPillar(s,{unitId:'a',position:{x:4,y:5}}));
 });
-test('Pilar blocks movement, LOS and landing; hammer jumps over it without PM or tackle, then penalizes next turn',()=>{
+test('Pilar blocks movement, LOS and landing; hammer jumps over it without PM or tackle, without reducing enemy PM',()=>{
  const s=arfeli(pillar(make()));assert(!clearAbilityLOS(s,s.units[0],s.units[1]));assert.throws(()=>calculatePath(s,'a',{x:4,y:5}));assert.deepEqual(abilityTargets(s,'a','hammer'),['b','pillar1']);assert.deepEqual(hammerLanding(s,s.units[0],s.units[1]),{x:5,y:5});
  const before=serializeState(s),preview=abilityOverlay(s,'a','hammer','b');assert.equal(serializeState(s),before);assert.deepEqual(preview.forced.moves[0].path,[{x:3,y:5},{x:5,y:5}]);assert.equal(preview.forced.moves[0].kind,'jump');
- const out=hammer(s);assert.equal(out.state.units[0].x,5);assert.equal(out.state.units[0].pa,2);assert.equal(out.state.units[0].pm,3);assert.equal(out.state.units[1].hp,102);assert.equal(out.state.objects[0].hp,15);assert.equal(out.state.units[1].status.pmPenaltyNext,1);assert(!out.events.some(e=>e.source==='tackle'));
- const begun=endTurn(out.state,{unitId:'a'}).state;assert.equal(begun.units[1].pm,2);assert.equal(begun.units[1].status.pmPenaltyNext,0);
+ const out=hammer(s);assert.equal(out.state.units[0].x,5);assert.equal(out.state.units[0].pa,2);assert.equal(out.state.units[0].pm,3);assert.equal(out.state.units[1].hp,102);assert.equal(out.state.objects[0].hp,15);assert.equal(out.state.units[1].status.pmPenaltyNext,0);assert(!out.events.some(e=>e.source==='tackle'));
+ const begun=endTurn(out.state,{unitId:'a'}).state;assert.equal(begun.units[1].pm,3);assert.equal(begun.units[1].status.pmPenaltyNext,0);
 });
 test('hammer can damage and destroy enemy Pilar; destruction unblocks the tile and never awards a win',()=>{
  let s=arfeli(pillar(make()));let o=hammer(s,'pillar1');assert.equal(o.state.objects[0].hp,2);assert.equal(o.state.units[0].x,3);assert.equal(o.state.phase,'active');assert.equal(o.state.units[1].status.pmPenaltyNext,0);

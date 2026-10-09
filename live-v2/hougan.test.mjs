@@ -46,7 +46,7 @@ test('Aguja enemiga causa 6 daño y establece Vínculo sólo si el objetivo sobr
   assert.equal(lethal.state.units.find(u=>u.id==='h').linkedTargetId,null);
 });
 
-test('Muñeco enemigo requiere Vínculo, cuesta 2 PA, tiene 16 PV / 3 PM y no bloquea LOS',()=>{
+test('Muñeco enemigo requiere Vínculo, cuesta 2 PA, tiene 16 PV / 3 PM y bloquea LOS',()=>{
   let s=make({enemyPos:{x:8,y:5}});
   assert.deepEqual(houganDollDestinations(s,'h'),[]);
   s=useAbility(s,{unitId:'h',abilityId:'needle',targetId:'e'}).state;
@@ -55,7 +55,7 @@ test('Muñeco enemigo requiere Vínculo, cuesta 2 PA, tiene 16 PV / 3 PM y no bl
   const h=s.units.find(u=>u.id==='h'),d=s.objects.find(o=>o.type==='doll');
   assert.equal(h.pa,2);
   assert.deepEqual({hp:d.hp,maxHp:d.maxHp,movePm:d.movePm,blocksLOS:d.blocksLOS,linkedTargetId:d.linkedTargetId,linkMode:d.linkMode},
-    {hp:16,maxHp:16,movePm:3,blocksLOS:false,linkedTargetId:'e',linkMode:'enemy'});
+    {hp:16,maxHp:16,movePm:3,blocksLOS:true,linkedTargetId:'e',linkMode:'enemy'});
   assert.deepEqual(restoreState(serializeState(s)),s);
 });
 
@@ -128,9 +128,9 @@ test('Maldición ignora LOS, hace 8 daño + Veneno 1 y sólo puede usarse una ve
 });
 
 test('Ritual del Dolor hace 20 con Muñeco correspondiente cardinal, consume Vínculo y deja el Muñeco inactivo',()=>{
-  let s=make({enemyPos:{x:8,y:5}});
+  let s=make({enemyPos:{x:8,y:5},houganPos:{x:5,y:4}});
   s=useAbility(s,{unitId:'h',abilityId:'needle',targetId:'e'}).state;
-  s=houganAction(s,{unitId:'h',action:'doll',position:{x:7,y:5}}).state;
+  s=houganAction(s,{unitId:'h',action:'doll',position:{x:8,y:4}}).state;
   s=endTurn(s,{unitId:'h'}).state;
   assert(s.dollPhase);
   s=endHouganDollPhase(s,{unitId:'h'}).state;
@@ -265,6 +265,7 @@ test('Ritual que consume Vínculo corta Transferencia de Dolor y Danza si estaba
   const h=s.units.find(u=>u.id==='h'),d=s.objects.find(o=>o.type==='doll'&&o.alive);
   h.houganPainTransfer={dollId:d.id,targetId:'e'};
   h.houganDance={dollId:d.id,targetId:'e'};
+  d.y=4;
   const r=useAbility(s,{unitId:'h',abilityId:'ritual',targetId:'e'});
   const after=r.state.units.find(u=>u.id==='h');
   assert.equal(after.linkedTargetId,null);

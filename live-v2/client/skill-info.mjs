@@ -4,14 +4,14 @@ export const HOLD_MS=1500;
 export const MOVE_TOLERANCE=14;
 
 // Textos extraídos de los reworks offline efectivos congelados en 0b498395.
-// Única corrección posterior ya aprobada por Adrián: Mina Eléctrica resta 1 PA inmediatamente al activarse.
+// Reglas actuales: las penalizaciones se acumulan para el próximo turno del afectado.
 export const OFFLINE_SKILL_TEXT=Object.freeze({
   sword:'10 de daño. Alcance 1. Máximo 2 usos por turno. Maestría con Armas puede aumentar el daño.',
   daggers:'10 de daño + Herida 2. Alcance 1. Máximo 1 uso por turno. Maestría con Armas puede aumentar el daño.',
   bow:'8 de daño. Alcance 4. Requiere línea de visión. Maestría con Armas puede aumentar el daño.',
   spear:'10 de daño y atrae al objetivo 1 casilla hacia Arfeli. Alcance 2. Requiere línea de visión. Maestría con Armas puede aumentar el daño.',
   shield:'Arfeli obtiene 15 de Escudo. Máximo 1 uso por turno. Maestría con Armas suma su bonificación al Escudo. El Escudo dura hasta el inicio del próximo turno de Arfeli o hasta romperse.',
-  hammer:'Elegí una entidad enemiga a alcance 3. Arfeli salta a una casilla cardinal libre adyacente al objetivo, ignorando obstáculos y línea de visión, e inflige 13 de daño. Si el objetivo es un combatiente, pierde 1 PM en su próximo turno. Las entidades inmóviles reciben el daño pero no sufren la pérdida de PM. Maestría con Armas puede aumentar el daño.',
+  hammer:'Elegí una entidad enemiga a alcance 3. Arfeli salta a una casilla cardinal libre adyacente al objetivo, ignorando obstáculos y línea de visión, e inflige 13 de daño. Maestría con Armas puede aumentar el daño.',
   rock:'8 de daño. Alcance 4; en Monolito, alcance 5. Requiere línea de visión.',
   stonearmor:'Otorga 10 de Escudo a Coloso, un aliado o un Pilar propio a alcance 3. Máximo 2 usos por turno y cada objetivo sólo puede recibirla 1 vez por turno. El Escudo expira al inicio del próximo turno de Coloso o al romperse.',
   absorb:'Consume un Pilar propio a alcance 3 y cura hasta 15 PV reales a Coloso. No puede consumir un Pilar creado durante el mismo turno. Requiere línea de visión.',
@@ -21,17 +21,17 @@ export const OFFLINE_SKILL_TEXT=Object.freeze({
   precise:'8 de daño; 10 si el objetivo está Marcado. Alcance 4. Requiere línea de visión salvo que Fijación de Objetivo esté activa sobre ese Marcado.',
   vector:'6 de daño + empuje 1. Si el objetivo está Marcado, empuja 2. Alcance 3. Requiere línea de visión salvo que Fijación de Objetivo esté activa.',
   impulse:'Piplus se desplaza 1 o 2 casillas en línea sin gastar PM. Puede atravesar obstáculos, pero debe terminar en una casilla válida y libre. Máximo 1 uso por turno. Si empieza adyacente a un enemigo y se desplaza directamente alejándose de él, primero empuja a ese enemigo 1 casilla en dirección opuesta y luego se mueve.',
-  interference:'Sólo contra el enemigo Marcado. Le aplica -1 PM en su próximo turno. Cada rival puede recibir Interferencia como máximo 1 vez por turno de Piplus. Requiere línea de visión salvo que Fijación de Objetivo esté activa.',
+  interference:'Sólo contra el enemigo Marcado. Le aplica −1 PM acumulable al inicio de su próximo turno, durante ese turno. Cada rival puede recibir Interferencia como máximo 1 vez por turno de Piplus. Requiere línea de visión salvo que Fijación de Objetivo esté activa.',
   rupture:'Sólo contra el enemigo Marcado. Inflige 14 de daño y consume la Marca. Después de usarla, Marcar Objetivo queda bloqueado durante el resto del turno. Requiere línea de visión salvo que Fijación de Objetivo esté activa.',
   fixation:'Sólo contra el enemigo Marcado. La próxima habilidad ofensiva usada contra ese objetivo durante este turno ignora la línea de visión y luego consume la Fijación. La Marca permanece. Si no se usa, Fijación expira al terminar el turno.',
   thorn:'6 de daño + Veneno 1. Alcance 4. Requiere línea de visión. Máximo 2 usos por turno.',
-  vines:'Elegí una casilla a alcance 3. Área en cruz de 5 casillas: centro 6 de daño y las 4 cardinales 4 de daño. Los combatientes enemigos alcanzados pierden 1 PM hasta el inicio del próximo turno de Onod. Requiere línea de visión hacia la casilla central.',
+  vines:'Elegí una casilla a alcance 3. Área en cruz de 5 casillas: centro 6 de daño y las 4 cardinales 4 de daño. Los combatientes enemigos alcanzados acumulan −1 PM por aplicación al inicio de su próximo turno, durante ese turno. Requiere línea de visión hacia la casilla central.',
   sap:'Cura 8 PV a Onod o a un aliado a alcance 3. Cura 12 si el objetivo está ortogonalmente adyacente a un Brote propio. Máximo 2 usos por turno. Requiere línea de visión.',
   spores:'Elegí cualquier Brote propio activo, sin límite de distancia desde Onod. El Brote no se consume. Los 8 espacios que lo rodean se previsualizan; cada enemigo dentro recibe 8 de daño y Veneno 1.',
   awakening:'Activa simultáneamente TODOS los Brotes propios sin consumirlos. Cada Brote inflige 8 de daño a enemigos ortogonalmente adyacentes. El daño se acumula: un enemigo alcanzado por 2 Brotes recibe 16; por 3, recibe 24.',
   reabsorption:'Absorbe obligatoriamente TODOS los Brotes propios creados en turnos anteriores. Los Brotes creados este turno no pueden absorberse. Cada Brote absorbido desaparece y otorga +1 PA. Después de usar Reabsorción, Germinar queda bloqueado durante el resto del turno.',
   trap_spikes:'Coloca una trampa invisible a alcance 3. Máximo 2 colocaciones por turno y máximo 3 trampas activas. Al activarse: 10 de daño + Herida 1. Se consume.',
-  trap_mine:'Coloca una mina invisible a alcance 3. Máximo 1 colocación por turno y máximo 3 trampas activas. Al activarse: 8 de daño y el combatiente pierde 1 PA inmediatamente. Se consume.',
+  trap_mine:'Coloca una mina invisible a alcance 3. Máximo 1 colocación por turno y máximo 3 trampas activas. Al activarse: 8 de daño y el combatiente acumula −1 PA por mina al inicio de su próximo turno, durante ese turno. Se consume.',
   grenade:'Elegí una casilla, incluso vacía, a alcance 3 con línea de visión. Área en cruz: centro 10 de daño sin empuje; las 4 cardinales reciben 6 de daño y, si son combatientes, empuje 1 hacia afuera. El área se previsualiza antes de lanzar.',
   shot:'10 de daño. Alcance 5, sólo en la misma fila o columna que Korgan. Requiere línea de visión.',
   hook:'6 de daño a un combatiente enemigo a alcance 3 con línea de visión. Korgan elige atraerlo 1 o 2 casillas, paso a paso. Herida y trampas se activan normalmente durante la atracción.',

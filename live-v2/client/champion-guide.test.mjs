@@ -25,7 +25,7 @@ test('examples show actual conditional damage, healing, area effects and displac
  assert.equal(enemy(abilityExample('houngan','ritual')).hp,80);
  assert.equal(actor(abilityExample('onod','sap')).hp,82);
  assert.equal(enemy(abilityExample('onod','awakening')).hp,84);
- assert.equal(enemy(abilityExample('onod','vines')).status.vinesSourceId,'A1');
+ assert.equal(enemy(abilityExample('onod','vines')).status.pmPenaltyNext,1);
  assert.equal(enemy(abilityExample('piplus','vector')).x,8);
  assert.equal(actor(abilityExample('houngan','paintransfer')).hp,85);
  assert.equal(enemy(abilityExample('houngan','dance')).y,6);

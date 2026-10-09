@@ -33,10 +33,10 @@ test('Espina 6 daño y Veneno 1: escudo, límite, objetos enemigos, muertos y re
  s=make();s.units[1].hp=5;const r=cast(s,'thorn');assert.equal(r.state.phase,'ended');assert.equal(r.state.units[1].status.poison,0);
  s=make();s.board.obstacles=['6,5'];atomic(s,()=>cast(s,'thorn'),'INVALID_TARGET');
 });
-test('Enredaderas: centro vacío o propio, cruz 6/4, penalización máxima, bordes y no fuego amigo',()=>{
- let s=make('piplus',{x:7,y:5}),r=cast(s,'vines',null,{x:7,y:5});assert.equal(r.state.units[1].hp,84);assert.equal(r.state.units[1].status.vinesSourceId,'o');
+test('Enredaderas: centro vacío o propio, cruz 6/4, penalización acumulable, bordes y no fuego amigo',()=>{
+ let s=make('piplus',{x:7,y:5}),r=cast(s,'vines',null,{x:7,y:5});assert.equal(r.state.units[1].hp,84);assert.equal(r.state.units[1].status.pmPenaltyNext,1);
  r=cast(s,'vines',null,{x:6,y:5});assert.equal(r.state.units[1].hp,86);assert.equal(r.state.units[0].hp,95);
- s.units[1].status.pmPenaltyNext=3;r=cast(s,'vines',null,{x:6,y:5});assert.equal(r.state.units[1].status.pmPenaltyNext,3);
+ s.units[1].status.pmPenaltyNext=3;r=cast(s,'vines',null,{x:6,y:5});assert.equal(r.state.units[1].status.pmPenaltyNext,4);
  assert.equal(onodEffectCells(s,{unitId:'o',abilityId:'vines',position:{x:0,y:0}}).length,3);
  s.board.obstacles=['6,5'];atomic(s,()=>cast(s,'vines',null,{x:7,y:5}),'INVALID_TARGET');
  assert(vinesDestinations(s,'o').some(p=>p.x===5&&p.y===5));
@@ -113,19 +113,17 @@ test('Preview de Onod es puro: cruz, daño, acumulación, curación, HUD y Brote
  const html=renderArena({state:{phase:'combat',slots,combat:s},actor:'a',slotId:'o',canMove:true,blocked:false,remaining:24,abilitySelection:{abilityId:'vines',position:{x:6,y:5}}});assert(html.includes('brote-onod.png'));assert(html.includes('Brote 1: 12/12 PV'));assert(html.includes('Germinar'));assert(!html.includes('NaN'));assert(html.includes('ability-selected ability-effect'));
 });
 
-test('Enredaderas persiste al inicio rival y vence al inicio de Onod, con snapshot',()=>{
+test('Enredaderas se guarda, afecta un turno rival y se consume con snapshot',()=>{
  let s=cast(make('piplus',{x:7,y:5}),'vines',null,{x:7,y:5}).state;
- assert.equal(s.units[1].pm,2);
+ assert.equal(s.units[1].pm,3);assert.equal(s.units[1].status.pmPenaltyNext,1);
+ assert(renderArena({state:{phase:'combat',slots:{},combat:s},actor:'a',slotId:'o',canMove:true,blocked:false,remaining:24}).includes('🌿−1PM'));
  s=endTurn(restoreState(serializeState(s)),{unitId:'o'}).state;
- assert.equal(s.units[1].pm,2);assert.equal(s.units[1].status.vinesSourceId,'o');
- assert(renderArena({state:{phase:'combat',slots:{},combat:s},actor:'b',slotId:'e',canMove:true,blocked:false,remaining:24}).includes('hasta el próximo turno de Onod'));
- s=endTurn(s,{unitId:'e'}).state;assert.equal(s.units[1].status.vinesSourceId,undefined);
- s=endTurn(s,{unitId:'o'}).state;assert.equal(s.units[1].pm,3);
+ assert.equal(s.units[1].pm,2);assert.equal(s.units[1].status.pmPenaltyNext,0);
+ s=endTurn(s,{unitId:'e'}).state;s=endTurn(s,{unitId:'o'}).state;assert.equal(s.units[1].pm,3);
 });
-
-test('Enredaderas repetida no acumula reducción de PM y convive con penalización mayor',()=>{
+test('Enredaderas repetida acumula y suma penalizaciones previas sin reducir PM actuales',()=>{
  let s=make('piplus',{x:7,y:5});s.units[1].status.pmPenaltyNext=3;
  s=cast(s,'vines',null,{x:7,y:5}).state;s=cast(s,'vines',null,{x:7,y:5}).state;
- assert.equal(s.units[1].pm,2);s=endTurn(s,{unitId:'o'}).state;
- assert.equal(s.units[1].pm,0);assert.equal(s.units[1].status.vinesSourceId,'o');
+ assert.equal(s.units[1].pm,3);assert.equal(s.units[1].status.pmPenaltyNext,5);
+ s=endTurn(s,{unitId:'o'}).state;assert.equal(s.units[1].pm,0);assert.equal(s.units[1].status.pmPenaltyNext,0);
 });

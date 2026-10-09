@@ -1,5 +1,5 @@
 // Deterministic teaching scenes, resolved by the same core as live combat.
-import {createUnit,initializeCombat,useAbility,applyDamage,endTurn,moveHouganDoll} from '../combat-core.mjs';
+import {createUnit,initializeCombat,useAbility,applyDamage,endTurn,moveHouganDoll} from '../combat-core.mjs?v=20261009-control1';
 import {catalog} from './catalog.mjs';
 export function abilityExample(championId,abilityId){
  if(!catalog[championId]?.skills.some(s=>s.id===abilityId))throw new RangeError('Unknown example');
@@ -18,7 +18,7 @@ export function abilityExample(championId,abilityId){
  let command={unitId:a.id,abilityId,targetId:b.id};
  const addObject=(type,x,y,number=1)=>{
   const maxHp=type==='pillar'?15:type==='sprout'?12:16;
-  const o={id:`${type}${number}`,number,type,kind:'object',ownerId:a.id,team:'A',x,y,hp:maxHp,maxHp,alive:true,shield:[],blocksLOS:type==='pillar',...(type==='pillar'?{createdByColosoTurn:0}:type==='sprout'?{createdByOnodTurn:0}:{linkedTargetId:b.id,linkMode:'enemy',movePm:3})};before.objects.push(o);before[`next${type[0].toUpperCase()+type.slice(1)}Id`]=number+1;return o;
+  const o={id:`${type}${number}`,number,type,kind:'object',ownerId:a.id,team:'A',x,y,hp:maxHp,maxHp,alive:true,shield:[],blocksLOS:type!=='sprout',...(type==='pillar'?{createdByColosoTurn:0}:type==='sprout'?{createdByOnodTurn:0}:{linkedTargetId:b.id,linkMode:'enemy',movePm:3})};before.objects.push(o);before[`next${type[0].toUpperCase()+type.slice(1)}Id`]=number+1;return o;
  };
  if(championId==='coloso'){
   const p=addObject('pillar',5,abilityId==='collapse'?5:4);
@@ -46,7 +46,7 @@ export function abilityExample(championId,abilityId){
   if(abilityId==='hook')command.distance=2;
  }
  if(championId==='houngan'&&['transfer','ritual','paintransfer','dance'].includes(abilityId)){
-  a.linkedTargetId=b.id;const p=addObject('doll',5,5);
+  a.linkedTargetId=b.id;const p=addObject('doll',abilityId==='ritual'?6:5,abilityId==='ritual'?4:5);
   if(abilityId==='transfer'){a.hp=70;command.targetId=p.id;}
   if(['paintransfer','dance'].includes(abilityId))command.targetId=a.id;
  }

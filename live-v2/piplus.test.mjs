@@ -67,3 +67,5 @@ test('overlays previews no mutan, Fijación muestra LOS ignorada, Impulso ruta y
 test('dash aceptado anima endpoints sobre obstáculo sin falso BFS, sin arco de salto y sin mutación',()=>{
  const s=make(undefined,{x:8,y:5},[{x:6,y:5}]),o=cast(s,'impulse',{position:{x:7,y:5}});const prev={id:'m',version:1,combat:s},next={id:'m',version:2,combat:o.state,presentation:{moves:o.events.filter(e=>e.type==='unit.moved').map(e=>({...e,version:2})),fromVersion:0}},before=structuredClone(next);assert.equal(confirmedRoutes(prev,next)[0].dash,true);const t=new MotionTimeline();t.receive(prev,0);t.receive(next,0);const sample=t.sample('p',120);assert.equal(sample.x,6);assert.equal(sample.lift,undefined);assert.deepEqual(next,before);
 });
+
+test('Interferencia suma penalizaciones previas sin descontar PM actuales',()=>{let s=mark(make());s.units[1].pm=0;s.units[1].status.pmPenaltyNext=2;const out=cast(s,'interference');assert.equal(out.state.units[1].pm,0);assert.equal(out.state.units[1].status.pmPenaltyNext,3);const next=endTurn(out.state,{unitId:'p'}).state;assert.equal(next.units[1].pm,0);assert.equal(next.units[1].status.pmPenaltyNext,0);});

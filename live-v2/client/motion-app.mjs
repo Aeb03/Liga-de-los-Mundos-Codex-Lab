@@ -1,5 +1,5 @@
 import {actionBlockReason,briefErrors} from './action-feedback.mjs?v=20261009-sapmine1';
-import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261009-responsive1';
+import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261009-themed1';
 import {mountLobby} from './lobby.mjs?v=20261008-play1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261009-responsive1';
 import { SocialPanel } from './social.mjs?v=20261008-friends1';

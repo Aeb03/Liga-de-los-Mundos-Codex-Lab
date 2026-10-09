@@ -1,4 +1,4 @@
-import {mountEntry,accountAllowed} from './entry.mjs?v=20261009-profilefit1';
+import {mountEntry,accountAllowed} from './entry.mjs?v=20261009-startupfix1';
 import {tutorialHint} from './demo.mjs?v=20261009-entry1';
 import {actionBlockReason,briefErrors} from './action-feedback.mjs?v=20261009-sapmine1';
 import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261009-themed1';
@@ -539,6 +539,7 @@ if(location.hash.includes('access_token'))history.replaceState(null,'',location.
 setInterval(()=>{if(confirmedSocial())social.refresh().catch(()=>{});},10000);
 function confirmedSocial(){return accessMode==='account'&&social.user&&!social.user.is_anonymous&&social.user.email_confirmed_at;}
 render(true);
+document.querySelector('#entry').hidden=true;document.body.classList.remove('at-entry');
 const invited=new URL(location.href).searchParams.get('match')??localStorage.getItem('live-v2-lab2-match');
 if(invited&&accessMode==='account'){try{await joinInvitation(location.search.includes('match=')?location.href:invited);}catch(error){notify(error.message);}}
 

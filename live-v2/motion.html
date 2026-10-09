@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body.at-entry{background:#071925;margin:0}body.at-entry>header,body.at-entry>.game-navigation,body.at-entry>#app,body.at-entry>#lobby,body.at-entry>#champions-guide,body.at-entry>#rotate,body.at-entry>footer,body.at-entry>.app-display-tools{display:none!important}</style>
 <meta name="theme-color" content="#142934">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="../icon-192.png">
@@ -41,7 +42,7 @@
 <script src="client/music-engine.js?v=20261005-audio1"></script>
 <script src="client/audio-options.js?v=20261008-combatux1"></script>
 <script type="module">
-import('./client/motion-app.mjs?v=20261009-profilefit1').catch(() => {
+import('./client/motion-app.mjs?v=20261009-startupfix1').catch(() => {
   document.querySelector('#app').textContent = 'No se pudo cargar LIVE v2. Revisá la conexión y recargá la página.';
 });
 </script>

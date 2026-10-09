@@ -149,8 +149,7 @@ export const catalog = {
         "id": "sap",
         "name": "Savia Vital",
         "icon": "💚",
-        "cost": 3,
-        "maxUsesPerTurn": 2
+        "cost": 3
       },
       {
         "id": "spores",

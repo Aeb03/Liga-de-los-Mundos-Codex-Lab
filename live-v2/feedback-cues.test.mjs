@@ -33,7 +33,7 @@ test('ground AoE and collapse show complete core area even when empty; consumed 
 test('statuses, heal, relation, transform and poison-cancelled ability use confirmed semantic output',()=>{
  const before=make('onod');before.units[0].hp=80;
  let out=useAbility(before,{unitId:'A1',abilityId:'sap',targetId:'A1'}),f=confirmedFeedback(out.events,before,out.state);
- assert(f.effects.some(e=>e.type==='float'&&e.variant==='heal'&&e.text==='+8'));
+ assert(f.effects.some(e=>e.type==='float'&&e.variant==='heal'&&e.text==='+10'));
  before.units[0].hp=1;before.units[0].status.poison=1;
  out=useAbility(before,{unitId:'A1',abilityId:'thorn',targetId:'B1'});f=confirmedFeedback(out.events,before,out.state);
  assert(!f.effects.some(e=>['activation','projectile'].includes(e.type)));assert(f.effects.some(e=>e.type==='statusActivation'));

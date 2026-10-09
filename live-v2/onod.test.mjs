@@ -41,11 +41,11 @@ test('Enredaderas: centro vacío o propio, cruz 6/4, penalización acumulable, b
  s.board.obstacles=['6,5'];atomic(s,()=>cast(s,'vines',null,{x:7,y:5}),'INVALID_TARGET');
  assert(vinesDestinations(s,'o').some(p=>p.x===5&&p.y===5));
 });
-test('Savia 8/12: Simbiosis cura 4 a todos los Brotes ortogonales sólo con curación real',()=>{
- let s=make();s.units[0].hp=70;s=cast(s,'sap','o').state;assert.equal(s.units[0].hp,78);
+test('Savia 10 + 2 por Brote: Simbiosis cura 4 a todos los Brotes ortogonales sólo con curación real',()=>{
+ let s=make();s.units[0].hp=70;s=cast(s,'sap','o').state;assert.equal(s.units[0].hp,80);
  s=germ(s,6,5);s=germ(s,5,4);s=cycle(s);s.objects[0].hp=5;s.objects[1].hp=11;s.units[0].hp=80;
- let r=cast(s,'sap','o');assert.equal(r.state.units[0].hp,92);assert.deepEqual(r.state.objects.map(o=>o.hp),[9,12]);
- s=r.state;s=cast(s,'sap','o').state;assert.equal(s.units[0].hp,95);assert.equal(s.objects[0].hp,12);s.units[0].pa=3;atomic(s,()=>cast(s,'sap','o'),'ABILITY_LIMIT');
+ let r=cast(s,'sap','o');assert.equal(r.state.units[0].hp,94);assert.deepEqual(r.state.objects.map(o=>o.hp),[9,12]);
+ s=r.state;atomic(s,()=>cast(s,'sap','o'),'INVALID_TARGET');s.units[0].hp=95;
  s=cycle(s);s.objects[0].hp=2;r=cast(s,'sap','o');assert.equal(r.state.objects[0].hp,2);assert(!r.events.some(e=>e.source==='symbiosis.heal'));
  atomic(s,()=>cast(s,'sap','sprout1'),'INVALID_TARGET');atomic(s,()=>cast(s,'sap','e'),'INVALID_TARGET');
 });
@@ -126,4 +126,18 @@ test('Enredaderas repetida acumula y suma penalizaciones previas sin reducir PM 
  s=cast(s,'vines',null,{x:7,y:5}).state;s=cast(s,'vines',null,{x:7,y:5}).state;
  assert.equal(s.units[1].pm,3);assert.equal(s.units[1].status.pmPenaltyNext,5);
  s=endTurn(s,{unitId:'o'}).state;assert.equal(s.units[1].pm,0);assert.equal(s.units[1].status.pmPenaltyNext,0);
+});
+
+test('Savia escala 10/12/14/16 sólo por Brotes propios ortogonales y respeta vida máxima',()=>{
+ for(let count=0;count<=3;count++){
+ let s=make();s.units[0].hp=50;const cells=[[6,5],[5,4],[4,5]];
+ for(let i=0;i<count;i++){if(i===2)s=cycle(s);s=germ(s,...cells[i]);}s=cycle(s);
+ const before=serializeState(s),p=previewAbility(s,{unitId:'o',abilityId:'sap',targetId:'o'});assert.equal(serializeState(s),before);
+ const out=cast(s,'sap','o');assert.equal(out.state.units[0].hp,60+2*count);assert.equal(out.state.units[0].pa,3);assert.deepEqual(out.state.units[0].onodSapTargetsUsed,['o']);
+ }
+});
+test('Savia sólo una vez por campeón, permite otro aliado y reinicia al próximo turno de Onod',()=>{
+ const units=[createUnit({championId:'onod',id:'o',team:'A',slot:1,controllerId:'a',position:{x:5,y:5}}),createUnit({championId:'arfeli',id:'a',team:'A',slot:2,controllerId:'a',position:{x:6,y:5}}),createUnit({championId:'coloso',id:'e',team:'B',slot:1,controllerId:'b',position:{x:9,y:9}}),createUnit({championId:'korgan',id:'k',team:'B',slot:2,controllerId:'b',position:{x:10,y:10}})];units[0].initiative=99;units[0].hp=50;units[1].hp=50;
+ let s=initializeCombat({units,random:()=>0}).state;s=cast(s,'sap','o').state;assert(!abilityTargets(s,'o','sap').includes('o'));assert(abilityTargets(s,'o','sap').includes('a'));atomic(s,()=>cast(s,'sap','o'),'INVALID_TARGET');s=cast(s,'sap','a').state;assert.equal(s.units[0].hp,60);assert.equal(s.units[1].hp,60);assert.equal(s.units[0].pa,0);
+ s=restoreState(serializeState(s));assert.deepEqual(s.units[0].onodSapTargetsUsed,['o','a']);do{s=endTurn(s,{unitId:s.order[s.turnIndex]}).state;}while(s.order[s.turnIndex]!=='o');assert.deepEqual(s.units[0].onodSapTargetsUsed,[]);assert(abilityTargets(s,'o','sap').includes('o'));
 });

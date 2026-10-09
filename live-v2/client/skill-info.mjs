@@ -1,4 +1,4 @@
-import { catalog } from './catalog.mjs?v=20261005-skills2';
+import { catalog } from './catalog.mjs?v=20261009-sapmine1';
 
 export const HOLD_MS=1500;
 export const MOVE_TOLERANCE=14;
@@ -26,12 +26,12 @@ export const OFFLINE_SKILL_TEXT=Object.freeze({
   fixation:'Sólo contra el enemigo Marcado. La próxima habilidad ofensiva usada contra ese objetivo durante este turno ignora la línea de visión y luego consume la Fijación. La Marca permanece. Si no se usa, Fijación expira al terminar el turno.',
   thorn:'6 de daño + Veneno 1. Alcance 4. Requiere línea de visión. Máximo 2 usos por turno.',
   vines:'Elegí una casilla a alcance 3. Área en cruz de 5 casillas: centro 6 de daño y las 4 cardinales 4 de daño. Los combatientes enemigos alcanzados acumulan −1 PM por aplicación al inicio de su próximo turno, durante ese turno. Requiere línea de visión hacia la casilla central.',
-  sap:'Cura 8 PV a Onod o a un aliado a alcance 3. Cura 12 si el objetivo está ortogonalmente adyacente a un Brote propio. Máximo 2 usos por turno. Requiere línea de visión.',
+  sap:'Cura 10 PV a Onod o a un aliado a alcance 3, más 2 PV por cada Brote propio ortogonalmente adyacente al objetivo. Cada campeón sólo puede recibir Savia una vez por turno de Onod. Requiere línea de visión.',
   spores:'Elegí cualquier Brote propio activo, sin límite de distancia desde Onod. El Brote no se consume. Los 8 espacios que lo rodean se previsualizan; cada enemigo dentro recibe 8 de daño y Veneno 1.',
   awakening:'Activa simultáneamente TODOS los Brotes propios sin consumirlos. Cada Brote inflige 8 de daño a enemigos ortogonalmente adyacentes. El daño se acumula: un enemigo alcanzado por 2 Brotes recibe 16; por 3, recibe 24.',
   reabsorption:'Absorbe obligatoriamente TODOS los Brotes propios creados en turnos anteriores. Los Brotes creados este turno no pueden absorberse. Cada Brote absorbido desaparece y otorga +1 PA. Después de usar Reabsorción, Germinar queda bloqueado durante el resto del turno.',
   trap_spikes:'Coloca una trampa invisible a alcance 3. Máximo 2 colocaciones por turno y máximo 3 trampas activas. Al activarse: 10 de daño + Herida 1. Se consume.',
-  trap_mine:'Coloca una mina invisible a alcance 3. Máximo 1 colocación por turno y máximo 3 trampas activas. Al activarse: 8 de daño y el combatiente acumula −1 PA por mina al inicio de su próximo turno, durante ese turno. Se consume.',
+  trap_mine:'Coloca una mina invisible a alcance 3. Máximo 1 colocación por turno y máximo 3 trampas activas. Al activarse: Si el combatiente tiene PA: 8 de daño y pierde 1 PA inmediatamente. Si tiene 0 PA: 12 de daño total. No penaliza el próximo turno. Se consume.',
   grenade:'Elegí una casilla, incluso vacía, a alcance 3 con línea de visión. Área en cruz: centro 10 de daño sin empuje; las 4 cardinales reciben 6 de daño y, si son combatientes, empuje 1 hacia afuera. El área se previsualiza antes de lanzar.',
   shot:'10 de daño. Alcance 5, sólo en la misma fila o columna que Korgan. Requiere línea de visión.',
   hook:'6 de daño a un combatiente enemigo a alcance 3 con línea de visión. Korgan elige atraerlo 1 o 2 casillas, paso a paso. Herida y trampas se activan normalmente durante la atracción.',

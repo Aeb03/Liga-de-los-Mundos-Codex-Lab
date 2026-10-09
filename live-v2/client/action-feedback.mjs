@@ -1,4 +1,4 @@
-import {abilityDefinitions,abilityRangeContains,abilityLOSBlocked,clearAbilityLOS,abilityTargets} from '../combat-core.mjs?v=20261009-control1';
+import {abilityDefinitions,abilityRangeContains,abilityLOSBlocked,clearAbilityLOS,abilityTargets} from '../combat-core.mjs?v=20261009-sapmine1';
 export const briefErrors={INSUFFICIENT_PA:'PA insuficientes',BLOCKED_LOS:'Sin línea de visión',OUT_OF_RANGE:'Fuera de alcance',ABILITY_LIMIT:'Límite de usos alcanzado',INVALID_TARGET:'Objetivo no válido',INVALID_POSITION:'Casilla no válida',DEPLOYMENT_EXPIRED:'Terminó el despliegue',PILLAR_UNAVAILABLE:'No podés crear otro Pilar',SELECTION_EXPIRED:'Terminó la selección'};
 export function actionBlockReason(combat,unit,id,cell=null){
  if(!combat||!unit)return 'Acción no disponible';
@@ -12,6 +12,7 @@ export function actionBlockReason(combat,unit,id,cell=null){
  if(!cell)return null;
  const target=[...combat.units,...combat.objects].find(t=>t.alive&&t.x===cell.x&&t.y===cell.y);
  if(['collapse','absorb'].includes(id)&&target?.type==='pillar'&&target.ownerId===unit.id&&target.createdByColosoTurn===unit.colosoTurnSerial)return 'Pilar invocado este turno';
+ if(id==='sap'&&(unit.onodSapTargetsUsed??[]).includes(target?.id))return 'Ese campeón ya recibió Savia este turno';
  if(id==='absorb'&&unit.hp===unit.maxHp)return 'Vida completa';
  const radius=id==='createPillar'?(unit.monolith?5:3):id==='germinate'?3:null;
  if(radius!=null&&Math.abs(unit.x-cell.x)+Math.abs(unit.y-cell.y)>radius)return 'Fuera de alcance';

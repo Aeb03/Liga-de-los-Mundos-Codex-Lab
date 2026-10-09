@@ -1,5 +1,5 @@
 // Pure presentation queries: never authorize or resolve an action.
-import { BOARD_SIZE, abilityDefinitions, abilityTargets, clearAbilityLOS, abilityRangeContains, previewAbility, collapseCells, magnetismTargets, impulseDestinations, piplusMarkTargets, abilityLOSBlocked, germinateDestinations, onodActionTargets, vinesDestinations, onodEffectCells, korganTrapDestinations, korganGrenadeDestinations, korganGrenadeCells, hunterStepDestinations, korganDisarmTargets } from '../combat-core.mjs?v=20261009-control1';
+import { BOARD_SIZE, abilityDefinitions, abilityTargets, clearAbilityLOS, abilityRangeContains, previewAbility, collapseCells, magnetismTargets, impulseDestinations, piplusMarkTargets, abilityLOSBlocked, germinateDestinations, onodActionTargets, vinesDestinations, onodEffectCells, korganTrapDestinations, korganGrenadeDestinations, korganGrenadeCells, hunterStepDestinations, korganDisarmTargets } from '../combat-core.mjs?v=20261009-sapmine1';
 
 export function abilityOverlay(combat, unitId, abilityId, targetId = null, context = {}) {
   const unit = combat?.units.find(candidate => candidate.id === unitId);

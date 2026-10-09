@@ -1,6 +1,6 @@
 // Deterministic teaching scenes, resolved by the same core as live combat.
-import {createUnit,initializeCombat,useAbility,applyDamage,endTurn,moveHouganDoll} from '../combat-core.mjs?v=20261009-control1';
-import {catalog} from './catalog.mjs';
+import {createUnit,initializeCombat,useAbility,applyDamage,endTurn,moveHouganDoll} from '../combat-core.mjs?v=20261009-sapmine1';
+import {catalog} from './catalog.mjs?v=20261009-sapmine1';
 export function abilityExample(championId,abilityId){
  if(!catalog[championId]?.skills.some(s=>s.id===abilityId))throw new RangeError('Unknown example');
  const unit=(id,championId,team,x,y)=>createUnit({id,championId,team,slot:1,controllerId:team==='A'?'demo':'rival',position:{x,y}});

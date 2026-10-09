@@ -20,7 +20,7 @@ export function championSpriteBox(championId,direction,monolith,point){
 // Native proportions and ground anchors: peana centres for summons, footprint centres for traps.
 const tacticalObjectSprites={
  sprout:{width:1333,height:1476,drawHeight:32,anchor:[.5,.90]},
- pillar:{width:920,height:1435,drawHeight:38,anchor:[.5,.93]},
+ pillar:{width:920,height:1435,drawHeight:42,anchor:[.5,.93]},
  spikes:{width:1365,height:1135,drawWidth:30,anchor:[.5,.70]},
  mine:{width:1489,height:1223,drawWidth:30,anchor:[.5,.70]}
 };

@@ -27,7 +27,7 @@ test('KO of one champion preserves combat, skips its turn and only whole-team KO
 test('2v2 enables friendly healing and independent PA/PM with a shared controller',()=>{
  let s=core();s.order=['A1','A2','B1','B2'];s.turnIndex=0;s.units.find(u=>u.id==='A2').hp=80;
  const before=structuredClone(s),out=useAbility(s,{unitId:'A1',abilityId:'sap',targetId:'A2'});
- assert.equal(out.state.units.find(u=>u.id==='A2').hp,88);
+ assert.equal(out.state.units.find(u=>u.id==='A2').hp,90);
  assert.equal(out.state.units.find(u=>u.id==='A2').pa,before.units.find(u=>u.id==='A2').pa);
  assert.equal(out.state.units.find(u=>u.id==='A1').pa,3);
 });

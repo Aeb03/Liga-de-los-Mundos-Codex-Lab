@@ -14,8 +14,8 @@ test('fichas usan textos extraídos del offline efectivo',()=>{
   assert.equal(offlineSkillInfo('houngan','dance').range,'Personal · afecta la próxima fase del Muñeco');
 });
 
-test('Mina Eléctrica conserva la corrección aprobada posterior al offline: PA próximo turno',()=>{
+test('Mina Eléctrica conserva la corrección aprobada posterior al offline: PA inmediato o 12 daño sin PA',()=>{
   const info=offlineSkillInfo('korgan','trap_mine');
-  assert.match(info.text,/acumula −1 PA por mina/);
-  assert.match(info.text,/próximo turno/);
+  assert.match(info.text,/pierde 1 PA inmediatamente/);
+  assert.match(info.text,/12 de daño total/);assert.match(info.text,/No penaliza el próximo turno/);
 });

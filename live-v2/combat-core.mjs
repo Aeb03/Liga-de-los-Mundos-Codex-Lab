@@ -46,7 +46,7 @@ export function createUnit({ championId, id, team, slot, controllerId, position 
     pa: definition.pa, maxPa: definition.pa, pm: definition.pm, maxPm: definition.pm,
     initiative: definition.initiative, alive: true, shield: [],
     status: { wound: 0, poison: 0, burn: 0, paPenaltyNext: 0, pmPenaltyNext: 0 },
-    skillUsesThisTurn: {}, stoneArmorTargetsUsed: [], symbiosisUsed: false,
+    skillUsesThisTurn: {}, onodSapTargetsUsed: [], stoneArmorTargetsUsed: [], symbiosisUsed: false,
     sproutRemovedThisTurn: false, trapRemovedThisTurn: false,
     monolith: false, monolithStoredPm: 0, exitedMonolithThisTurn: false, monolithPillarGainUsed: false,
     arfeliMasteryChain: [], arfeliMasteryLastBonus: 0,
@@ -102,6 +102,7 @@ function validateSupportedState(state) {
     const requiredCounters = ['monolithStoredPm', 'arfeliMasteryLastBonus', 'colosoTurnSerial', 'onodTurnSerial', 'onodGerminateUses', 'korganTurnSerial'];
     if (requiredCounters.some(field => !nonNegativeInteger(unit[field]))) fail('INVALID_CHAMPION_STATE', 'Falta un contador requerido del campeón');
     if (!Array.isArray(unit.arfeliMasteryChain) || !Array.isArray(unit.stoneArmorTargetsUsed) || !Array.isArray(unit.piplusInterferenceTargets) || !unit.skillUsesThisTurn || typeof unit.skillUsesThisTurn !== 'object' || Array.isArray(unit.skillUsesThisTurn)) fail('INVALID_CHAMPION_STATE', 'Colecciones de turno del campeón inválidas');
+    if(unit.onodSapTargetsUsed!=null&&(!Array.isArray(unit.onodSapTargetsUsed)||unit.onodSapTargetsUsed.some(id=>typeof id!=='string')||new Set(unit.onodSapTargetsUsed).size!==unit.onodSapTargetsUsed.length))fail('INVALID_CHAMPION_STATE','Objetivos de Savia inválidos');
     if (Object.values(unit.skillUsesThisTurn).some(value => !nonNegativeInteger(value))) fail('INVALID_CHAMPION_STATE', 'Contador de habilidad inválido');
     if (unit.piplusFixationTargetId !== null && typeof unit.piplusFixationTargetId !== 'string') fail('INVALID_CHAMPION_STATE', 'Objetivo de fijación inválido');
     ids.add(unit.id); if(unit.alive)positions.add(key(unit)); teams.add(unit.team); teamSlots.add(teamSlot);
@@ -376,7 +377,7 @@ function beginTurn(state) {
   delete unit.status.vinesSourceId; // Consume legacy Enredaderas snapshots on this affected turn.
   unit.pm = unit.monolith ? 0 : Math.max(0, unit.maxPm - pmPenalty); unit.status.pmPenaltyNext = 0;
   if (unit.monolith) unit.monolithStoredPm = Math.max(0, unit.maxPm - pmPenalty);
-  Object.assign(unit, { exitedMonolithThisTurn: false, monolithPillarGainUsed: false, stoneArmorTargetsUsed: [], skillUsesThisTurn: {}, symbiosisUsed: false, sproutRemovedThisTurn: false, trapRemovedThisTurn: false });
+  Object.assign(unit, { exitedMonolithThisTurn: false, monolithPillarGainUsed: false, stoneArmorTargetsUsed: [], onodSapTargetsUsed: [], skillUsesThisTurn: {}, symbiosisUsed: false, sproutRemovedThisTurn: false, trapRemovedThisTurn: false });
   if (unit.championId === 'arfeli') Object.assign(unit, { arfeliMasteryChain: [], arfeliMasteryLastBonus: 0 });
   if (unit.championId === 'coloso') Object.assign(unit, { colosoTurnSerial: unit.colosoTurnSerial + 1, colosoCreateWindow: true, colosoPillarCreatedThisTurn: false, colosoRecycleUsed: false });
   if (unit.championId === 'piplus') Object.assign(unit, { piplusMarkUsedThisTurn: false, piplusMarkBlockedThisTurn: false, piplusFixationTargetId: null, piplusInterferenceTargets: [] });
@@ -538,7 +539,7 @@ const ABILITIES = Object.freeze({
   hunterstep:{championId:'korgan',cost:1,range:2,maxUses:1,dash:true,ground:true},
   thorn:{championId:'onod',cost:2,range:4,damage:6,los:true,maxUses:2},
   vines:{championId:'onod',cost:3,range:3,los:true,ground:true},
-  sap:{championId:'onod',cost:3,range:3,los:true,maxUses:2},
+  sap:{championId:'onod',cost:3,range:3,los:true},
   spores:{championId:'onod',cost:4,range:99},
   awakening:{championId:'onod',cost:4,range:0},
   reabsorption:{championId:'onod',cost:0,range:0,maxUses:1},
@@ -615,7 +616,7 @@ export function abilityTargets(state,unitId,abilityId){
   }
   if(abilityId==='shield')return [u.id];
   if(['impulse','vines'].includes(abilityId))return [];
-  if(abilityId==='sap')return state.units.filter(t=>t.alive&&t.team===u.team&&(t.id===u.id||abilityRangeContains(u,abilityId,t)&&clearAbilityLOS(state,u,t))).map(t=>t.id);
+  if(abilityId==='sap')return state.units.filter(t=>t.alive&&t.team===u.team&&!(u.onodSapTargetsUsed??[]).includes(t.id)&&(t.id===u.id||abilityRangeContains(u,abilityId,t)&&clearAbilityLOS(state,u,t))).map(t=>t.id);
   if(abilityId==='spores')return ownSprouts(state,u).map(s=>s.id);
   if(abilityId==='awakening')return ownSprouts(state,u).length?[u.id]:[];
   if(abilityId==='reabsorption')return absorbableSprouts(state,u).length?[u.id]:[];
@@ -900,10 +901,10 @@ function triggerKorganTraps(state,target,events,source='movement'){
   for(const trap of state.traps.filter(t=>t.active&&t.team!==target.team&&t.x===target.x&&t.y===target.y)){
     trap.active=false;count++;
     events.push({type:'trap.triggered',trapId:trap.id,trapType:trap.trapType,x:trap.x,y:trap.y,targetId:target.id,source});
-    const amount=trap.trapType==='spikes'?10:8,result=damageWithDollEffect(state,target,amount,false,events,`trap.${trap.trapType}`);
+    const amount=trap.trapType==='spikes'?10:target.kind==='champion'&&target.pa===0?12:8,result=damageWithDollEffect(state,target,amount,false,events,`trap.${trap.trapType}`);
     if(result.killed)break;
     if(target.kind==='champion'&&trap.trapType==='spikes'){const before=target.status.wound;target.status.wound=Math.min(3,before+1);events.push({type:'status.applied',targetId:target.id,status:'wound',amount:target.status.wound-before,value:target.status.wound});}
-    else if(target.kind==='champion'&&trap.trapType==='mine'){target.status.paPenaltyNext+=1;events.push({type:'status.applied',targetId:target.id,status:'paPenaltyNext',amount:1,value:target.status.paPenaltyNext,source:'trap.mine'});}
+    else if(target.kind==='champion'&&trap.trapType==='mine'){if(target.pa>0){target.pa-=1;events.push({type:'resource.lost',targetId:target.id,resource:'pa',amount:1,value:target.pa,source:'trap.mine'});}}
   }
   return count;
 }
@@ -1153,7 +1154,8 @@ function useOnodAbility(state,unit,id,targetId,position){
   if(id==='thorn'){damage(target,6,'ability.thorn');poison(target);}
   if(id==='sap'){
     const adjacentSprouts=ownSprouts(next,u).filter(s=>adjacent(s,target));
-    if(healEntity(target,adjacentSprouts.length?12:8,events,'ability.sap')>0)for(const s of adjacentSprouts)healEntity(s,4,events,'symbiosis.heal');
+    (u.onodSapTargetsUsed??=[]).push(target.id);
+    if(healEntity(target,10+2*adjacentSprouts.length,events,'ability.sap')>0)for(const s of adjacentSprouts)healEntity(s,4,events,'symbiosis.heal');
   }
   if(['vines','spores','awakening'].includes(id))for(const cell of onodEffectCells(next,{unitId:u.id,abilityId:id,targetId,position})){
     const t=entities(next).find(t=>t.alive&&t.team!==u.team&&key(t)===key(cell));if(!t)continue;

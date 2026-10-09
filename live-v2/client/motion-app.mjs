@@ -279,7 +279,7 @@ function render(force=false){
         setState:next=>syncAoeSelection(next),
         isValid:(cell,state)=>aoeValidCell(cell,state),
         effectFor:state=>aoeEffectFor(state),
-        onCommit:()=>render(true),
+        onCommit:()=>confirmSelection(),
         onChange:(state,meta)=>{
           syncAoeSelection(state);
           if(meta.phase==='up')render(true);
@@ -306,6 +306,15 @@ async function tapCell(x,y,confirm=false){
   if(!canMove())return;
   const unit=activeUnit(),selected=game.preview;
   if(!abilitySelection&&!movementArmed)return;
+  if(!confirm){
+    const selection=abilitySelection;
+    const targetId=selection?.abilityId==='magnetism'?selection.secondaryTargetId:selection?.targetId;
+    const entity=[...(game.state.combat.units??[]),...(game.state.combat.objects??[]),...(game.state.combat.traps??[])].find(t=>t.id===targetId);
+    const cell=selection
+      ?selection.aoe?.locked?selection.aoe.target:selection.position??entity
+      :selected?.path?.at(-1);
+    confirm=sameCell(cell,{x,y});
+  }
   if(game.state.combat?.dollPhase){
     const phase=game.state.combat.dollPhase;
     if(phase.ownerId!==unit.id)return;

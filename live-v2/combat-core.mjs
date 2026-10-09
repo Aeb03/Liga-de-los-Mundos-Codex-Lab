@@ -625,14 +625,14 @@ export function abilityTargets(state,unitId,abilityId){
     if(['precise','vector','interference','rupture','fixation'].includes(abilityId))return t.team!==u.team&&abilityRangeContains(u,abilityId,t)&&(!['interference','rupture','fixation'].includes(abilityId)||markedTarget(state,u)?.id===t.id)&& (abilityId!=='interference'||!u.piplusInterferenceTargets.includes(t.id))&&!abilityLOSBlocked(state,u,abilityId,t);
     if(abilityId==='quake')return t.team!==u.team&&quakeOrigin(state,u,t);
     if(abilityId==='stonearmor')return !u.stoneArmorTargetsUsed.includes(t.id)&&(t.kind==='champion'?t.team===u.team:t.ownerId===u.id)&&(t.id===u.id||distance(u,t)<=3&&clearAbilityLOS(state,u,t));
-    if(['absorb','collapse','magnetism'].includes(abilityId))return t.type==='pillar'&&t.ownerId===u.id&&abilityRangeContains(u,abilityId,t)&&clearAbilityLOS(state,u,t)&&(abilityId!=='absorb'||t.createdByColosoTurn!==u.colosoTurnSerial&&u.hp<u.maxHp);
+    if(['absorb','collapse','magnetism'].includes(abilityId))return t.type==='pillar'&&t.ownerId===u.id&&abilityRangeContains(u,abilityId,t)&&clearAbilityLOS(state,u,t)&&(!['absorb','collapse'].includes(abilityId)||t.createdByColosoTurn!==u.colosoTurnSerial)&&(abilityId!=='absorb'||u.hp<u.maxHp);
     return t.team!==u.team&&abilityRangeContains(u,abilityId,t)&&(!a.los||clearAbilityLOS(state,u,t))&&(!a.jump||hammerLanding(state,u,t));
   }).map(t=>t.id);
 }
 export function collapseCells(pillar,direction){
   if(!direction||!Number.isInteger(direction.x)||!Number.isInteger(direction.y)||Math.abs(direction.x)+Math.abs(direction.y)!==1)fail('INVALID_DIRECTION','Elegí una dirección cardinal');
   const {x:dx,y:dy}=direction, cells=[];
-  for(const [band,step,offsets] of [['near',1,[-1,0,1]],['middle',2,[-1,1]],['far',3,[0]]])for(const off of offsets){const p={x:pillar.x+dx*step-dy*off,y:pillar.y+dy*step+dx*off,band};if(inside(p))cells.push(p);}
+  for(const [band,step] of [['near',1],['middle',2],['far',3]]){const p={x:pillar.x+dx*step,y:pillar.y+dy*step,band};if(inside(p))cells.push(p);}
   return cells;
 }
 export function magnetismTargets(state,unitId,pillarId){
@@ -732,9 +732,9 @@ export function hammerLanding(state, actor, target) {
 }
 export function pillarAvailable(state,unitId) {
   validateSupportedState(state);const u=unitById(state,unitId);
-  if(state.phase!=='active'||activeUnit(state).id!==unitId||u.championId!=='coloso'||!u.colosoCreateWindow||u.colosoPillarCreatedThisTurn||state.objects.filter(o=>o.alive&&o.ownerId===u.id).length>=(u.monolith?3:2))return [];
+  if(state.phase!=='active'||activeUnit(state).id!==unitId||u.championId!=='coloso'||u.colosoPillarCreatedThisTurn||state.objects.filter(o=>o.alive&&o.ownerId===u.id).length>=(u.monolith?3:2))return [];
   const occupied=occupiedKeys(state,unitId),cells=[];
-  for(let y=0;y<12;y++)for(let x=0;x<12;x++){const p={x,y},d=Math.abs(u.x-x)+Math.abs(u.y-y);if(d>0&&d<=5&&!occupied.has(key(p))&&!state.board.obstacles.includes(key(p))&&clearAbilityLOS(state,u,p))cells.push(p);}
+  for(let y=0;y<12;y++)for(let x=0;x<12;x++){const p={x,y},d=Math.abs(u.x-x)+Math.abs(u.y-y);if(d>0&&d<=(u.monolith?5:3)&&!occupied.has(key(p))&&!state.board.obstacles.includes(key(p))&&clearAbilityLOS(state,u,p))cells.push(p);}
   return cells;
 }
 export function createPillar(state,{unitId,position}) {
@@ -801,7 +801,7 @@ function resolveColosoSkill(state,u,target,id,context,events,damage){
     consumePillar(target,events,id);const amount=Math.min(15,u.maxHp-u.hp);u.hp+=amount;events.push({type:'unit.healed',unitId:u.id,amount});
   }else if(id==='collapse'){
     const hp=target.hp,cells=collapseCells(target,context.direction);consumePillar(target,events,id);
-    for(const cell of cells){const t=entities(state).find(e=>e.alive&&e.team!==u.team&&key(e)===key(cell));if(t)damage(t,Math.max(3,hp-(cell.band==='near'?6:cell.band==='middle'?3:0)),'ability.collapse');}
+    for(const cell of cells){const t=entities(state).find(e=>e.alive&&e.team!==u.team&&key(e)===key(cell));if(t)damage(t,Math.max(0,hp-(cell.band==='near'?0:cell.band==='middle'?2:4)),'ability.collapse');}
   }else if(id==='magnetism'){
     pushOrPull(state,entityById(state,context.secondaryTargetId),target,2,false,0,events,damage,'magnetism');
   }else if(id==='quake'){
@@ -827,7 +827,7 @@ export function colosoAction(state,{unitId,action,targetId}){
   if(!colosoActionTargets(state,unitId,action).includes(targetId))fail('INVALID_TARGET','Acción propia de Coloso no disponible');
   const next=clone(state),u=unitById(next,unitId),target=entityById(next,targetId),events=[];u.colosoCreateWindow=false;
   if(action==='fusion'){
-    u.pa-=3;consumePillar(target,events,action);u.monolithStoredPm=u.pm;u.pm=0;u.monolith=true;
+    u.pa-=3;const amount=target.hp;consumePillar(target,events,action);u.shield.push({amount,sourceId:u.id});events.push({type:'shield.added',unitId:u.id,sourceId:u.id,amount});u.monolithStoredPm=u.pm;u.pm=0;u.monolith=true;
   }else if(action==='exit'){
     u.monolith=false;u.exitedMonolithThisTurn=true;u.pm=u.monolithStoredPm;
   }else{

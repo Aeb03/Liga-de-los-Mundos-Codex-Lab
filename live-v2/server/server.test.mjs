@@ -412,12 +412,13 @@ test('complete Coloso: own actions enforce ownership, stale turns, deadline, onc
  const exit=cmd('complete-exit','colosoAction',out.version,{slotId:'B1',expectedTurn:out.turn,action:'exit',targetId:'B1'});out=await x.svc.command('u2',exit);assert(!out.state.combat.units[1].monolith);assert.equal(out.state.combat.units[1].pm,3);
 });
 
-test('authority forwards cone direction and secondary target atomically, including idempotent collapse',async()=>{
+test('authority forwards line direction and secondary target atomically, including idempotent collapse',async()=>{
  const x=await ready();let out=await x.svc.command('u1',cmd('cone-start','startCombat',x.v));let m=await x.repo.get('m');m.slots.B1.skills=['stonearmor','absorb','collapse','magnetism'];m.combat.units[0].x=8;m.combat.units[0].y=5;m.combat.units[1].x=6;m.combat.units[1].y=5;x.repo.matches.set('m',m);
  out=await x.svc.command('u1',cmd('cone-turn','endTurn',m.version,{slotId:'A1',expectedTurn:m.turnSerial}));out=await x.svc.command('u2',cmd('cone-pillar','createPillar',out.version,{slotId:'B1',expectedTurn:out.turn,position:{x:7,y:5}}));
  const args={slotId:'B1',expectedTurn:out.turn,abilityId:'magnetism',targetId:'pillar1'};
  await assert.rejects(()=>x.svc.command('u2',cmd('cone-missing-secondary','ability',out.version,args)),e=>e.code==='INVALID_TARGET');
- const collapse=cmd('cone-collapse','ability',out.version,{...args,abilityId:'collapse',direction:{x:1,y:0}});out=await x.svc.command('u2',collapse);assert.equal(out.state.combat.units[0].hp,91);assert.equal(out.state.combat.objects[0].alive,false);assert.deepEqual(await x.svc.command('u2',collapse),out);assert.deepEqual((await x.svc.snapshot('u1','m')).combat,out.state.combat);
+ let current=await x.repo.get('m');current.combat.objects[0].createdByColosoTurn=0;x.repo.matches.set('m',current);
+ const collapse=cmd('cone-collapse','ability',out.version,{...args,abilityId:'collapse',direction:{x:1,y:0}});out=await x.svc.command('u2',collapse);assert.equal(out.state.combat.units[0].hp,85);assert.equal(out.state.combat.objects[0].alive,false);assert.deepEqual(await x.svc.command('u2',collapse),out);assert.deepEqual((await x.svc.snapshot('u1','m')).combat,out.state.combat);
 });
 
 async function readyPiplus() {

@@ -9,7 +9,7 @@
   "stonearmor": "Coloso: 6 → 4 PA",
   "absorb": "Coloso: 85 → 100 PV · Coloso: 6 → 4 PA",
   "quake": "Rival: 100 → 90 PV · Rival: (5, 5) → (6, 5) · Coloso: 6 → 3 PA",
-  "collapse": "Coloso: 6 → 3 PA",
+  "collapse": "Rival: 100 → 87 PV · Coloso: 6 → 3 PA",
   "magnetism": "Rival: 100 → 98 PV · Rival: (7, 4) → (6, 4) · Coloso: 6 → 3 PA",
   "precise": "Rival: 100 → 90 PV · Piplus: 6 → 3 PA",
   "vector": "Rival: 100 → 94 PV · Rival: (6, 5) → (8, 5) · Piplus: 6 → 3 PA",

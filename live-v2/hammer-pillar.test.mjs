@@ -5,10 +5,10 @@ const make=()=>initializeCombat({units:[createUnit({championId:'arfeli',id:'a',t
 const pillar=(s,position={x:4,y:5})=>createPillar(endTurn(s,{unitId:'a'}).state,{unitId:'b',position}).state;
 const arfeli=s=>endTurn(s,{unitId:'b'}).state;
 const hammer=(s,targetId='b')=>useAbility(s,{unitId:'a',abilityId:'hammer',targetId});
-test('Pilar creation is a 0 PA opening action, LOS 5, one per turn, max two, unique identity and serialization',()=>{
+test('Pilar creation is a 0 PA action at any time, LOS 3/5, one per turn, max two, unique identity and serialization',()=>{
  let s=endTurn(make(),{unitId:'a'}).state,before=serializeState(s);assert(pillarAvailable(s,'b').some(p=>p.x===4&&p.y===5));let o=createPillar(s,{unitId:'b',position:{x:4,y:5}});assert.equal(serializeState(s),before);s=o.state;assert.equal(s.units[1].pa,6);assert.equal(s.objects[0].hp,15);assert.equal(s.objects[0].ownerId,'b');assert.deepEqual(pillarAvailable(s,'b'),[]);assert.throws(()=>createPillar(s,{unitId:'b',position:{x:5,y:5}}));assert.deepEqual(restoreState(serializeState(s)),s);
  s=endTurn(endTurn(s,{unitId:'b'}).state,{unitId:'a'}).state;s=createPillar(s,{unitId:'b',position:{x:5,y:6}}).state;assert.equal(s.objects[1].id,'pillar2');s=endTurn(endTurn(s,{unitId:'b'}).state,{unitId:'a'}).state;assert.deepEqual(pillarAvailable(s,'b'),[]);
- s=endTurn(make(),{unitId:'a'}).state;s.units[1].colosoCreateWindow=false;assert.deepEqual(pillarAvailable(s,'b'),[]);assert.throws(()=>createPillar(s,{unitId:'a',position:{x:4,y:5}}));
+ s=endTurn(make(),{unitId:'a'}).state;s.units[1].colosoCreateWindow=false;assert(pillarAvailable(s,'b').length>0);assert.throws(()=>createPillar(s,{unitId:'a',position:{x:4,y:5}}));
 });
 test('Pilar blocks movement, LOS and landing; hammer jumps over it without PM or tackle, then penalizes next turn',()=>{
  const s=arfeli(pillar(make()));assert(!clearAbilityLOS(s,s.units[0],s.units[1]));assert.throws(()=>calculatePath(s,'a',{x:4,y:5}));assert.deepEqual(abilityTargets(s,'a','hammer'),['b','pillar1']);assert.deepEqual(hammerLanding(s,s.units[0],s.units[1]),{x:5,y:5});

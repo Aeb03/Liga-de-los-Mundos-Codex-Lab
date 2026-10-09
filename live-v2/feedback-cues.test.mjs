@@ -28,7 +28,7 @@ test('ground AoE and collapse show complete core area even when empty; consumed 
  before=make('coloso');before.objects.push({id:'pillar1',number:1,type:'pillar',kind:'object',ownerId:'A1',team:'A',x:5,y:4,hp:15,maxHp:15,alive:true,shield:[],blocksLOS:true,createdByColosoTurn:0});before.nextPillarId=2;
  command={unitId:'A1',abilityId:'collapse',targetId:'pillar1',direction:{x:0,y:-1}};
  out=useAbility(before,command);feedback=confirmedFeedback(out.events,before,out.state,command);
- assert.equal(feedback.effects.find(e=>e.type==='area').cells.length,6);assert.deepEqual(feedback.effects.find(e=>e.type==='vanish').subject,{x:5,y:4});
+ assert.equal(feedback.effects.find(e=>e.type==='area').cells.length,3);assert.deepEqual(feedback.effects.find(e=>e.type==='vanish').subject,{x:5,y:4});
 });
 test('statuses, heal, relation, transform and poison-cancelled ability use confirmed semantic output',()=>{
  const before=make('onod');before.units[0].hp=80;

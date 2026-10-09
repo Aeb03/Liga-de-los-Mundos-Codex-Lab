@@ -1,8 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import vm from 'node:vm';
-import {execFileSync} from 'node:child_process';
-import {createUnit,initializeCombat,endTurn,useAbility,abilityTargets,colosoAction,colosoActionTargets,createPillar,collapseCells,magnetismTargets,previewAbility,serializeState,restoreState,applyDamage,movementAvailable} from './combat-core.mjs';
+import {createUnit,initializeCombat,endTurn,useAbility,abilityTargets,colosoAction,colosoActionTargets,createPillar,collapseCells,magnetismTargets,previewAbility,serializeState,restoreState,applyDamage,movementAvailable,resolvePath,pillarAvailable} from './combat-core.mjs';
 import {abilityOverlay} from './client/ability-overlay.mjs';
 import {renderArena} from './client/presentation.mjs';
 const make=(enemy={x:9,y:6})=>endTurn(initializeCombat({units:[createUnit({championId:'arfeli',id:'a',team:'A',slot:1,controllerId:'one',position:enemy}),createUnit({championId:'coloso',id:'b',team:'B',slot:1,controllerId:'two',position:{x:5,y:5}})]}).state,{unitId:'a'}).state;
@@ -31,8 +29,8 @@ test('Absorción consume Pilar antiguo y cura 15 reales aunque su HP sea menor; 
 test('Absorción rechaza Pilar nuevo, salud completa, muerto y LOS sin consumir PA o Pilar',()=>{
  let s=make(),p=pillar(s,6,5,15,1);s.units[1].hp=90;atomic(s,()=>cast(s,'absorb',p),'INVALID_TARGET');s.objects[0].createdByColosoTurn=0;s.units[1].hp=115;atomic(s,()=>cast(s,'absorb',p),'INVALID_TARGET');
 });
-test('Fusión conserva PM, cuesta 3 sin escudo gratis; salir recupera PM e impide nueva fusión ese turno',()=>{
- let s=make(),p=pillar(s,6,5);s.units[1].pm=2;s=colosoAction(s,{unitId:'b',action:'fusion',targetId:p}).state;assert.equal(s.units[1].pa,3);assert.equal(s.units[1].pm,0);assert(s.units[1].monolith);assert.deepEqual(s.units[1].shield,[]);assert.deepEqual(movementAvailable(s,'b'),[]);
+test('Fusión conserva PM, cuesta 3 y da escudo según PV; salir recupera PM e impide nueva fusión ese turno',()=>{
+ let s=make(),p=pillar(s,6,5);s.units[1].pm=2;s=colosoAction(s,{unitId:'b',action:'fusion',targetId:p}).state;assert.equal(s.units[1].pa,3);assert.equal(s.units[1].pm,0);assert(s.units[1].monolith);assert.deepEqual(s.units[1].shield,[{amount:15,sourceId:'b'}]);assert.deepEqual(movementAvailable(s,'b'),[]);
  s=colosoAction(s,{unitId:'b',action:'exit',targetId:'b'}).state;assert.equal(s.units[1].pm,2);assert(!s.units[1].monolith);p=pillar(s,5,6);atomic(s,()=>colosoAction(s,{unitId:'b',action:'fusion',targetId:p}),'INVALID_TARGET');
 });
 test('Monolito permite 3 Pilares; salir no destruye excedente y bloquea nuevas creaciones',()=>{
@@ -43,14 +41,27 @@ test('Reciclaje repara el Pilar con menor HP, desempate por número; una vez por
  let s=make();s.units[1].monolith=true;const p=pillar(s,6,5),q=pillar(s,5,6,7),r=pillar(s,4,5,7);s=colosoAction(s,{unitId:'b',action:'recycle',targetId:p}).state;assert.equal(s.objects.find(o=>o.id===q).hp,15);assert.equal(s.objects.find(o=>o.id===r).hp,7);assert.equal(s.units[1].pa,6);atomic(s,()=>colosoAction(s,{unitId:'b',action:'recycle',targetId:r}),'INVALID_TARGET');
  s=make();s.units[1].monolith=true;const only=pillar(s,6,5);s=colosoAction(s,{unitId:'b',action:'recycle',targetId:only}).state;assert.equal(s.units[1].shield[0].amount,6);
 });
-test('Colapso previsualiza geometría exacta 3/2/1, usa PV reales, ignora aliados y consume Pilar',()=>{
- let s=make({x:7,y:5}),p=pillar(s,6,5,10);const c={unitId:'b',abilityId:'collapse',targetId:p,direction:{x:1,y:0}},before=serializeState(s),preview=previewAbility(s,c);assert.equal(preview.effect.length,6);assert.equal(preview.damage[0].amount,4);assert.equal(serializeState(s),before);s=useAbility(s,c).state;assert.equal(s.units[0].hp,96);assert.equal(s.objects[0].alive,false);assert.equal(s.units[1].pa,3);
+test('Colapso previsualiza línea exacta de 3 casillas, usa PV reales, ignora aliados y consume Pilar',()=>{
+ let s=make({x:7,y:5}),p=pillar(s,6,5,10);const c={unitId:'b',abilityId:'collapse',targetId:p,direction:{x:1,y:0}},before=serializeState(s),preview=previewAbility(s,c);assert.equal(preview.effect.length,3);assert.equal(preview.damage[0].amount,10);assert.equal(serializeState(s),before);s=useAbility(s,c).state;assert.equal(s.units[0].hp,90);assert.equal(s.objects[0].alive,false);assert.equal(s.units[1].pa,3);
 });
-test('Colapso dirección inválida es atómico; bandas media/lejana y mínimo coinciden con offline',()=>{
+test('Colapso resta 2 por casilla, mínimo cero, excluye laterales y rechaza Pilar nuevo sin mutar',()=>{
  let s=make(),p=pillar(s,6,5);atomic(s,()=>cast(s,'collapse',p,{direction:{x:1,y:1}}),'INVALID_DIRECTION');
- for(const [x,y,hp,amount] of [[8,6,15,12],[9,5,15,15],[7,5,2,3]]){s=make({x,y});p=pillar(s,6,5,hp);assert.equal(cast(s,'collapse',p,{direction:{x:1,y:0}}).state.units[0].hp,100-amount);}
- const src=execFileSync('git',['show','0b4983953a37fca0a60867f1007f78c67b263683:coloso-rework-0627.js'],{encoding:'utf8'}),ctx=vm.createContext({inside:(x,y)=>x>=0&&x<12&&y>=0&&y<12});vm.runInContext(src.slice(src.indexOf('function collapseCells('),src.indexOf('function magnetTargetValid(')),ctx);
- for(const origin of [{x:0,y:0},{x:6,y:5},{x:11,y:11}])for(const [x,y] of [[1,0],[-1,0],[0,1],[0,-1]])assert.equal(JSON.stringify(collapseCells(origin,{x,y})),JSON.stringify(ctx.collapseCells(origin,x,y)));
+ for(const hp of [15,13,10,2,1])for(const step of [1,2,3]){s=make({x:6+step,y:5});p=pillar(s,6,5,hp);assert.equal(cast(s,'collapse',p,{direction:{x:1,y:0}}).state.units[0].hp,100-Math.max(0,hp-2*(step-1)));}
+ s=make({x:7,y:6});p=pillar(s,6,5);assert.equal(cast(s,'collapse',p,{direction:{x:1,y:0}}).state.units[0].hp,100);
+ s=make();p=pillar(s,6,5,15,s.units[1].colosoTurnSerial);assert(!abilityTargets(s,'b','collapse').includes(p));atomic(s,()=>cast(s,'collapse',p,{direction:{x:1,y:0}}),'INVALID_TARGET');
+ for(const [x,y] of [[1,0],[-1,0],[0,1],[0,-1]])assert.deepEqual(collapseCells({x:5,y:5},{x,y}).map(c=>[c.x,c.y]),[1,2,3].map(step=>[5+x*step,5+y*step]));
+ assert.deepEqual(collapseCells({x:11,y:11},{x:1,y:0}),[]);
+});
+test('Pilar después de movimiento y habilidad; alcance 3 normal y 5 Monolito; uno por turno',()=>{
+ let s=make();s=resolvePath(s,'b',[{x:5,y:5},{x:5,y:4}]).state;s=cast(s,'stonearmor','b').state;
+ assert(pillarAvailable(s,'b').some(p=>p.x===8&&p.y===4));assert(!pillarAvailable(s,'b').some(p=>p.x===9&&p.y===4));
+ s=createPillar(s,{unitId:'b',position:{x:8,y:4}}).state;assert.deepEqual(pillarAvailable(s,'b'),[]);
+ s=make();s.units[1].monolith=true;assert(pillarAvailable(s,'b').some(p=>p.x===10&&p.y===5));assert(!pillarAvailable(s,'b').some(p=>p.x===11&&p.y===5));
+});
+test('Fusión usa PV actuales, conserva escudo previo y expira al siguiente turno propio',()=>{
+ let s=make(),p=pillar(s,6,5,7);s=cast(s,'stonearmor','b').state;s=colosoAction(s,{unitId:'b',action:'fusion',targetId:p}).state;
+ assert.deepEqual(s.units[1].shield,[{amount:10,sourceId:'b'},{amount:7,sourceId:'b'}]);assert(!s.objects[0].alive);
+ s=endTurn(s,{unitId:'b'}).state;assert.equal(s.units[1].shield.length,2);s=endTurn(s,{unitId:'a'}).state;assert.deepEqual(s.units[1].shield,[]);
 });
 test('Magnetismo selección válida, atrae 2 con Herida y sin PM/placaje, colisión 2 por paso restante',()=>{
  let s=make({x:9,y:5}),p=pillar(s,6,5);s.units[0].status.wound=2;assert(magnetismTargets(s,'b',p).includes('a'));let o=cast(s,'magnetism',p,{secondaryTargetId:'a'});assert.equal(o.state.units[0].x,7);assert.equal(o.state.units[0].hp,96);assert.equal(o.state.units[0].pm,3);assert.equal(o.events.filter(e=>e.type==='unit.moved').length,2);
@@ -67,8 +78,8 @@ test('Veneno mortal cancela habilidad antes de consumir Pilar o añadir escudo; 
  let s=make(),p=pillar(s,6,5);s.units[1].hp=1;s.units[1].status.poison=1;let o=cast(s,'collapse',p,{direction:{x:1,y:0}});assert.equal(o.state.phase,'ended');assert(o.state.objects[0].alive);assert.equal(o.state.units[1].pa,3);
  s=make({x:9,y:5});p=pillar(s,6,5);s.units[0].hp=2;s.units[0].status.wound=2;o=cast(s,'magnetism',p,{secondaryTargetId:'a'});assert.equal(o.state.units[0].x,8);assert.equal(o.state.phase,'ended');assert.equal(o.events.filter(e=>e.type==='unit.moved').length,1);
 });
-test('HUD y overlays muestran cono, segundo objetivo, Monolito y acciones propias sin mutar',()=>{
- let s=make({x:9,y:5}),p=pillar(s,6,5);const before=serializeState(s);let o=abilityOverlay(s,'b','collapse',p,{direction:{x:1,y:0}});assert.equal(o.effect.length,6);assert.equal(o.range.length,4);
+test('HUD y overlays muestran línea, segundo objetivo, Monolito y acciones propias sin mutar',()=>{
+ let s=make({x:9,y:5}),p=pillar(s,6,5);const before=serializeState(s);let o=abilityOverlay(s,'b','collapse',p,{direction:{x:1,y:0}});assert.equal(o.effect.length,3);assert.equal(o.range.length,4);
  o=abilityOverlay(s,'b','magnetism',p,{secondaryTargetId:'a'});assert.equal(o.forced.moves.length,2);assert.equal(serializeState(s),before);s.units[1].monolith=true;
  const html=renderArena({state:{phase:'combat',combat:s,slots:{a:{id:'a',team:'A',controllerId:'one',championId:'arfeli',skills:['sword','bow','shield','hammer']},b:{id:'b',team:'B',controllerId:'two',championId:'coloso',skills:['stonearmor','absorb','collapse','magnetism']}}},actor:'two',slotId:'b',canMove:true,blocked:false,remaining:20,abilitySelection:{abilityId:'collapse',targetId:p,direction:{x:1,y:0}}});assert.match(html,/monolito-coloso/);assert.match(html,/data-action="recycle"/);assert.match(html,/data-action="exit"/);assert.match(html,/ability-selected ability-effect/);assert(!html.includes('class="board-note"')); assert(!html.includes('NaN'));
 });

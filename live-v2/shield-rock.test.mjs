@@ -28,14 +28,21 @@ test('shield resolves poison before adding new protection, and rock resolves dea
  let s=make();s.units[0].hp=1;s.units[0].status.poison=1;let out=use(s,'a','shield','a');assert.equal(out.state.winnerTeam,'B');assert.deepEqual(out.state.units[0].shield,[]);assert.equal(out.state.units[0].pa,3);
  s=make();s.units[0].hp=8;s=endTurn(s,{unitId:'a'}).state;out=use(s,'b','rock','a');assert.equal(out.state.winnerTeam,'B');assert(out.events.some(e=>e.type==='unit.died'));
 });
-test('LOS sampling matches exact base offline algorithm including diagonal corners',()=>{
- const source=execFileSync('git',['show','0b4983953a37fca0a60867f1007f78c67b263683:app.js'],{encoding:'utf8'});
- const extract=n=>source.slice(source.indexOf(`function ${n}(`),source.indexOf('\n}',source.indexOf(`function ${n}(`))+2);
- const context=vm.createContext({key:(x,y)=>`${x},${y}`});vm.runInContext(extract('lineCells'),context);
+test('LOS agrees with segment/rectangle intersection, excluding point contact at diagonal corners',()=>{
+ const crosses=(a,b,cell)=>{
+  if((a.x===cell.x&&a.y===cell.y)||(b.x===cell.x&&b.y===cell.y))return false;
+  let lo=0,hi=1;
+  for(const axis of ['x','y']){const start=a[axis]+.5,delta=b[axis]-a[axis];
+   if(!delta){if(start<=cell[axis]||start>=cell[axis]+1)return false;continue;}
+   const t0=(cell[axis]-start)/delta,t1=(cell[axis]+1-start)/delta;lo=Math.max(lo,Math.min(t0,t1));hi=Math.min(hi,Math.max(t0,t1));
+  }
+  return hi-lo>1e-9;
+ };
  for(let x=0;x<12;x++)for(let y=0;y<12;y++){
-  const a={id:'a',x:1,y:2},b={id:'b',x,y};const cells=context.lineCells(a,b);
+  const a={id:'a',x:1,y:2},b={id:'b',x,y};
   for(const obstacle of ['5,5','2,3','3,2']){
-   const state={board:{obstacles:[obstacle]},units:[]};assert.equal(clearAbilityLOS(state,a,b),!cells.some(([cx,cy])=>`${cx},${cy}`===obstacle));
+   const [cx,cy]=obstacle.split(',').map(Number),state={board:{obstacles:[obstacle]},units:[]};
+   assert.equal(clearAbilityLOS(state,a,b),!crosses(a,b,{x:cx,y:cy}));assert.equal(clearAbilityLOS(state,b,a),clearAbilityLOS(state,a,b));
   }
  }
 });

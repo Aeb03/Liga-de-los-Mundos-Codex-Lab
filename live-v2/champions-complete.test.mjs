@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createUnit,initializeCombat,endTurn,useAbility,abilityTargets,colosoAction,colosoActionTargets,createPillar,collapseCells,magnetismTargets,previewAbility,serializeState,restoreState,applyDamage,movementAvailable,resolvePath,pillarAvailable} from './combat-core.mjs';
+import {createUnit,initializeCombat,endTurn,useAbility,abilityTargets,colosoAction,colosoActionTargets,createPillar,collapseCells,magnetismTargets,previewAbility,serializeState,restoreState,applyDamage,movementAvailable,resolvePath,pillarAvailable,clearAbilityLOS} from './combat-core.mjs';
 import {abilityOverlay} from './client/ability-overlay.mjs';
 import {renderArena} from './client/presentation.mjs';
 const make=(enemy={x:9,y:6})=>endTurn(initializeCombat({units:[createUnit({championId:'arfeli',id:'a',team:'A',slot:1,controllerId:'one',position:enemy}),createUnit({championId:'coloso',id:'b',team:'B',slot:1,controllerId:'two',position:{x:5,y:5}})]}).state,{unitId:'a'}).state;
@@ -82,4 +82,15 @@ test('HUD y overlays muestran línea, segundo objetivo, Monolito y acciones prop
  let s=make({x:9,y:5}),p=pillar(s,6,5);const before=serializeState(s);let o=abilityOverlay(s,'b','collapse',p,{direction:{x:1,y:0}});assert.equal(o.effect.length,3);assert.equal(o.range.length,4);
  o=abilityOverlay(s,'b','magnetism',p,{secondaryTargetId:'a'});assert.equal(o.forced.moves.length,2);assert.equal(serializeState(s),before);s.units[1].monolith=true;
  const html=renderArena({state:{phase:'combat',combat:s,slots:{a:{id:'a',team:'A',controllerId:'one',championId:'arfeli',skills:['sword','bow','shield','hammer']},b:{id:'b',team:'B',controllerId:'two',championId:'coloso',skills:['stonearmor','absorb','collapse','magnetism']}}},actor:'two',slotId:'b',canMove:true,blocked:false,remaining:20,abilitySelection:{abilityId:'collapse',targetId:p,direction:{x:1,y:0}}});assert.match(html,/monolito-coloso/);assert.match(html,/data-action="recycle"/);assert.match(html,/data-action="exit"/);assert.match(html,/ability-selected ability-effect/);assert(!html.includes('class="board-note"')); assert(!html.includes('NaN'));
+});
+
+test('Colapso can target an old diagonal pillar beside Arfeli: corner contact does not block LOS',()=>{
+ let s=make({x:4,y:11});Object.assign(s.units[1],{x:3,y:11,monolith:true,pm:0,colosoTurnSerial:5});
+ const p=pillar(s,4,10,15,1);pillar(s,2,9,15,4);const target=s.objects.find(o=>o.id===p);
+ assert(clearAbilityLOS(s,s.units[1],target));assert(clearAbilityLOS(s,target,s.units[1]));assert(abilityTargets(s,'b','collapse').includes(p));
+ const out=cast(s,'collapse',p,{direction:{x:0,y:1}});assert.equal(out.state.units[0].hp,85);assert(!out.state.objects[0].alive);
+});
+test('LOS still rejects a champion or obstacle actually inside the line to a pillar',()=>{
+ let s=make({x:6,y:5}),p=pillar(s,7,5);assert(!abilityTargets(s,'b','collapse').includes(p));
+ s=make({x:9,y:6});p=pillar(s,7,5);s.board.obstacles.push('6,5');assert(!abilityTargets(s,'b','collapse').includes(p));
 });

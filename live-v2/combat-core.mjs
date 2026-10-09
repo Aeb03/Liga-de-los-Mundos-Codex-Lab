@@ -571,7 +571,11 @@ export function clearAbilityLOS(state,a,b){
   const samples=Math.max(Math.abs(b.x-a.x),Math.abs(b.y-a.y))*16;
   const cells=new Set();
   for(let i=1;i<samples;i++){
-    const t=i/samples,x=Math.floor(a.x+.5+(b.x-a.x)*t),y=Math.floor(a.y+.5+(b.y-a.y)*t);
+    const t=i/samples,px=a.x+.5+(b.x-a.x)*t,py=a.y+.5+(b.y-a.y)*t;
+    // Crossing a grid vertex only touches the side cells at a single point.
+    // They do not occupy the segment between the two cell centres.
+    if(Math.abs(px-Math.round(px))<1e-10&&Math.abs(py-Math.round(py))<1e-10)continue;
+    const x=Math.floor(px),y=Math.floor(py);
     if((x!==a.x||y!==a.y)&&(x!==b.x||y!==b.y))cells.add(`${x},${y}`);
   }
   const blockers=new Set([...state.board.obstacles,...entities(state).filter(u=>u.alive&&u.id!==a.id&&u.id!==b.id&&u.blocksLOS!==false).map(key)]);

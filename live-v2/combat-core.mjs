@@ -736,19 +736,20 @@ export function hammerLanding(state, actor, target) {
 }
 export function pillarAvailable(state,unitId) {
   validateSupportedState(state);const u=unitById(state,unitId);
-  if(state.phase!=='active'||activeUnit(state).id!==unitId||u.championId!=='coloso'||u.colosoPillarCreatedThisTurn||state.objects.filter(o=>o.alive&&o.ownerId===u.id).length>=(u.monolith?3:2))return [];
+  if(state.phase!=='active'||activeUnit(state).id!==unitId||u.championId!=='coloso'||u.pa<1||u.colosoPillarCreatedThisTurn||state.objects.filter(o=>o.alive&&o.ownerId===u.id).length>=(u.monolith?3:2))return [];
   const occupied=occupiedKeys(state,unitId),cells=[];
   for(let y=0;y<12;y++)for(let x=0;x<12;x++){const p={x,y},d=Math.abs(u.x-x)+Math.abs(u.y-y);if(d>0&&d<=(u.monolith?5:3)&&!occupied.has(key(p))&&!state.board.obstacles.includes(key(p))&&clearAbilityLOS(state,u,p))cells.push(p);}
   return cells;
 }
 export function createPillar(state,{unitId,position}) {
-  if(!pillarAvailable(state,unitId).some(p=>p.x===position?.x&&p.y===position?.y))fail('PILLAR_UNAVAILABLE','No se puede crear un Pilar en esa casilla o en este momento');
+  if(unitById(state,unitId).pa<1)fail('INSUFFICIENT_PA','Crear Pilar requiere 1 PA');
+   if(!pillarAvailable(state,unitId).some(p=>p.x===position?.x&&p.y===position?.y))fail('PILLAR_UNAVAILABLE','No se puede crear un Pilar en esa casilla o en este momento');
   const next=clone(state),u=unitById(next,unitId);let number=next.nextPillarId??Math.max(0,...next.objects.map(o=>o.number))+1;
   while(entities(next).some(e=>e.id===`pillar${number}`))number++;
   next.nextPillarId=number+1;
   const object={id:`pillar${number}`,number,kind:'object',type:'pillar',ownerId:u.id,team:u.team,x:position.x,y:position.y,hp:15,maxHp:15,alive:true,shield:[],blocksLOS:true,createdByColosoTurn:u.colosoTurnSerial};
-  next.objects.push(object);u.colosoPillarCreatedThisTurn=true;u.colosoCreateWindow=false;
-  return {state:next,events:[{type:'object.created',object:clone(object),cost:0,unitId}]};
+  next.objects.push(object);u.pa-=1;u.colosoPillarCreatedThisTurn=true;u.colosoCreateWindow=false;
+  return {state:next,events:[{type:'object.created',object:clone(object),cost:1,unitId}]};
 }
 
 export function previewAbility(state, command) {

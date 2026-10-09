@@ -9,6 +9,7 @@ export class ProtocolError extends Error {
 export const phases = ["preparation", "deployment", "combat", "finished"];
 export const commandTypes = [
   "preparationTick",
+  "deploymentTick",
   "aiStep",
   "select",
   "setReady",

@@ -7,3 +7,6 @@
 
 .controller-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}.controller-layout label{display:flex;flex-direction:column;gap:6px}.controller-layout select{width:100%;min-height:44px}
 @media(max-width:480px){.controller-layout{grid-template-columns:1fr}}
+
+body.in-arena .toast{top:30%;bottom:auto;z-index:1000;pointer-events:none;padding:8px 14px;background:#071d30e8;border-color:#d5b66d;font-size:14px;max-width:min(80vw,420px)}
+.collapse-damage-preview{fill:#fff3bb;stroke:#10212c;stroke-width:2.5;paint-order:stroke;font-size:15px;font-weight:800;pointer-events:none}.timer.urgent{color:#ff8b79}

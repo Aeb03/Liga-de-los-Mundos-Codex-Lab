@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {createUnit,initializeCombat,calculatePath,previewPath,abilityTargets} from '../combat-core.mjs';
+import {actionBlockReason} from './action-feedback.mjs';
 import {sameCell,createAoEState,aoePointerDown,aoePointerUp} from './aoe-preview.mjs';
 
 const source=readFileSync(new URL('./motion-app.mjs',import.meta.url),'utf8');
@@ -19,7 +20,7 @@ function setup(selection=null){
     abilitySelection:selection,movementArmed:!selection,inspectedId:null,
     blocked:()=>false,canMove:()=>true,activeUnit:()=>combat.units[0],
     render:()=>{},notify:()=>{},errors:{},sameCell,key:p=>`${p.x},${p.y}`,
-    calculatePath,previewPath,abilityTargets,send:async(type,args)=>{commands.push({type,args});},
+    calculatePath,previewPath,abilityTargets,actionBlockReason,send:async(type,args)=>{commands.push({type,args});},
     commitAoE:async state=>{commands.push({type:'aoe',args:state});}});
   vm.runInContext(handlers,ctx);
   return {ctx,commands};

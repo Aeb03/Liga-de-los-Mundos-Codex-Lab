@@ -87,12 +87,36 @@ export function createMatch({ id, creatorId, slots, createdAt, mapId, random }) 
     diagnostics: [],
   };
 }
-function deployPrepared(m) {
-  m.phase='deployment';m.countdownDeadline=null;
+function deployPrepared(m,now) {
+  m.phase='deployment';m.countdownDeadline=null;m.deploymentDeadline=now+30000;
   for(const bot of Object.values(m.slots).filter(s=>s.controllerKind==='ai')){
     const free=arenaFor(m).deployment[bot.team].find(cell=>!Object.values(m.slots).some(s=>s.position&&`${s.position.x},${s.position.y}`===cell));
     const [x,y]=free.split(',').map(Number);bot.position={x,y};bot.confirmed=true;
   }
+}
+function startDeployedCombat(m,started,random) {
+  const units = Object.values(m.slots).map((s) =>
+    createUnit({
+      championId: s.championId,
+      ...structuredClone(s),
+      id: s.id,
+      team: s.team,
+      slot: s.slot,
+      controllerId: s.controllerId,
+      position: s.position,
+    }),
+  );
+  const out = initializeCombat({
+    units,
+    random: random,
+    clock: started,
+    obstacles: arenaObstacleCells(arenaFor(m)),
+  });
+  m.combat = out.state;
+  m.phase = "combat";
+  m.turnSerial = 0;
+  m.turnDeadline = started + 40000;
+  m.deploymentDeadline=null;return out.events;
 }
 function fillPreparation(m) {
   for(const slot of Object.values(m.slots)){
@@ -169,7 +193,26 @@ export class AuthoritativeService {
           if(!m.preparationDeadline)m.preparationDeadline=started+90000;
           if(!m.countdownDeadline&&started>=m.preparationDeadline)fillPreparation(m);
           if(Object.values(m.slots).every(s=>s.ready)&&!m.countdownDeadline)m.countdownDeadline=started+5000;
-          if(m.countdownDeadline&&started>=m.countdownDeadline)deployPrepared(m);
+          if(m.countdownDeadline&&started>=m.countdownDeadline)deployPrepared(m,started);
+        } else if (input.type === "deploymentTick") {
+          if(!Object.values(m.slots).some(s=>s.controllerId===identity))err('FORBIDDEN','No pertenece a la partida');
+          if(m.phase!=='deployment')err('WRONG_PHASE','Despliegue no disponible');
+          if(!m.deploymentDeadline)m.deploymentDeadline=started+30000;
+          else if(started>=m.deploymentDeadline){
+            const occupied=new Set();
+            const ordered=Object.values(m.slots).sort((a,b)=>Number(b.confirmed)-Number(a.confirmed));
+            // Keep chosen valid cells, then allocate unset/conflicting slots without stealing their choices.
+            for(const slot of ordered){const k=slot.position&&`${slot.position.x},${slot.position.y}`;
+              if(k&&arenaFor(m).deployment[slot.team].includes(k)&&!occupied.has(k)){occupied.add(k);slot.confirmed=true;}
+              else{slot.position=null;slot.confirmed=false;}
+            }
+            for(const slot of ordered.filter(s=>!s.position)){
+              const free=arenaFor(m).deployment[slot.team].find(cell=>!occupied.has(cell));
+              if(!free)err('INVALID_POSITION','Sin casillas disponibles');
+              const [x,y]=free.split(',').map(Number);slot.position={x,y};slot.confirmed=true;occupied.add(free);
+            }
+            events=startDeployedCombat(m,started,this.random);
+          }
         } else if (input.type === "aiStep") {
           if(!Object.values(m.slots).some(s=>s.controllerId===identity))err('FORBIDDEN','No pertenece a la partida');
           if(m.phase!=='combat'||input.expectedTurn!==m.turnSerial)err('TURN_CONFLICT','Turno cambiado');
@@ -271,8 +314,9 @@ export class AuthoritativeService {
           if(m.preparationFlow){
             if(!input.ready&&m.preparationDeadline&&started>=m.preparationDeadline)err('SELECTION_EXPIRED','La selección terminó');
             m.countdownDeadline=Object.values(m.slots).every(s=>s.ready)?started+5000:null;
-          } else if(Object.values(m.slots).every(s=>s.ready))deployPrepared(m);
+          } else if(Object.values(m.slots).every(s=>s.ready))deployPrepared(m,started);
         } else if (input.type === "setPosition") {
+          if(m.deploymentDeadline&&started>=m.deploymentDeadline)err("DEPLOYMENT_EXPIRED","El despliegue terminó");
           if (m.phase !== "deployment" || !slot)
             err("WRONG_PHASE", "Despliegue no disponible");
           if (
@@ -289,6 +333,7 @@ export class AuthoritativeService {
           slot.position = { ...input.position };
           slot.confirmed = false;
         } else if (input.type === "confirmPosition") {
+          if(m.deploymentDeadline&&started>=m.deploymentDeadline)err("DEPLOYMENT_EXPIRED","El despliegue terminó");
           if (m.phase !== "deployment" || !slot?.position)
             err("WRONG_PHASE", "Confirmación no disponible");
           if (
@@ -309,28 +354,7 @@ export class AuthoritativeService {
             err("FORBIDDEN", "Sólo el creador solicita el inicio");
           if (!Object.values(m.slots).every((s) => s.confirmed))
             err("NOT_CONFIRMED", "Faltan confirmaciones");
-          const units = Object.values(m.slots).map((s) =>
-            createUnit({
-              championId: s.championId,
-              ...structuredClone(s),
-              id: s.id,
-              team: s.team,
-              slot: s.slot,
-              controllerId: s.controllerId,
-              position: s.position,
-            }),
-          );
-          const out = initializeCombat({
-            units,
-            random: this.random,
-            clock: started,
-            obstacles: arenaObstacleCells(arenaFor(m)),
-          });
-          m.combat = out.state;
-          m.phase = "combat";
-          m.turnSerial = 0;
-          m.turnDeadline = started + 40000;
-          events = out.events;
+          events=startDeployedCombat(m,started,this.random);
         } else if (input.type === "expireTurn") {
           if (identity !== "backend") err("FORBIDDEN", "Sólo backend");
           if (
@@ -416,6 +440,11 @@ export class AuthoritativeService {
     let m=await this.repo.get(id);
     if(m.phase==='preparation'&&m.preparationFlow&&Object.values(m.slots).every(s=>s.controllerId)&&(!m.preparationDeadline||!m.countdownDeadline&&this.clock()>=m.preparationDeadline||m.countdownDeadline&&this.clock()>=m.countdownDeadline)){
       try{await this.command(identity,{id:randomUUID(),matchId:id,type:'preparationTick',expectedVersion:m.version});}
+      catch(error){if(!['VERSION_CONFLICT','WRONG_PHASE'].includes(error.code))throw error;}
+      m=await this.repo.get(id);
+    }
+    if(m.phase==='deployment'&&(!m.deploymentDeadline||this.clock()>=m.deploymentDeadline)){
+      try{await this.command(identity,{id:randomUUID(),matchId:id,type:'deploymentTick',expectedVersion:m.version});}
       catch(error){if(!['VERSION_CONFLICT','WRONG_PHASE'].includes(error.code))throw error;}
       m=await this.repo.get(id);
     }

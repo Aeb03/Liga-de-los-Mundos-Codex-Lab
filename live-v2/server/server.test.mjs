@@ -390,7 +390,7 @@ test('Pilar opening action and hammer jump synchronize once, enforce owner/loado
  const x=await ready();let out=await x.svc.command('u1',cmd('pillar-start','startCombat',x.v));let m=await x.repo.get('m');m.slots.A1.skills=['sword','hammer','spear','shield'];m.combat.units[0].x=3;m.combat.units[0].y=5;m.combat.units[1].x=6;m.combat.units[1].y=5;x.repo.matches.set('m',m);
  out=await x.svc.command('u1',cmd('pillar-turn','endTurn',m.version,{slotId:'A1',expectedTurn:m.turnSerial}));
  const input=cmd('create-pillar','createPillar',out.version,{slotId:'B1',expectedTurn:out.turn,position:{x:4,y:5}});
- await assert.rejects(()=>x.svc.command('u1',input),e=>e.code==='FORBIDDEN');out=await x.svc.command('u2',input);assert.equal(out.state.combat.objects.length,1);assert.equal(out.state.combat.units[1].pa,6);assert.deepEqual(await x.svc.command('u2',input),out);assert.deepEqual((await x.svc.snapshot('u1','m')).combat,out.state.combat);
+ await assert.rejects(()=>x.svc.command('u1',input),e=>e.code==='FORBIDDEN');out=await x.svc.command('u2',input);assert.equal(out.state.combat.objects.length,1);assert.equal(out.state.combat.units[1].pa,5);assert.deepEqual(await x.svc.command('u2',input),out);assert.deepEqual((await x.svc.snapshot('u1','m')).combat,out.state.combat);
  await assert.rejects(()=>x.svc.command('u2',cmd('second-pillar','createPillar',out.version,{slotId:'B1',expectedTurn:out.turn,position:{x:5,y:6}})),e=>e.code==='PILLAR_UNAVAILABLE');
  out=await x.svc.command('u2',cmd('hammer-turn','endTurn',out.version,{slotId:'B1',expectedTurn:out.turn}));
  const hammer=cmd('hammer-hit','ability',out.version,{slotId:'A1',expectedTurn:out.turn,abilityId:'hammer',targetId:'B1'});out=await x.svc.command('u1',hammer);assert.equal(out.state.combat.units[0].x,5);assert.equal(out.state.combat.units[1].hp,102);assert.equal(out.state.presentation.moves.at(-1).kind,'jump');assert.deepEqual(out.state.presentation.moves.at(-1).path,[{x:3,y:5},{x:5,y:5}]);assert.deepEqual(await x.svc.command('u1',hammer),out);assert.deepEqual((await x.svc.snapshot('u2','m')).combat,out.state.combat);
@@ -405,7 +405,7 @@ test('complete Coloso: own actions enforce ownership, stale turns, deadline, onc
  out=await x.svc.command('u2',cmd('complete-pillar','createPillar',out.version,{slotId:'B1',expectedTurn:out.turn,position:{x:7,y:5}}));
  const fusion=cmd('complete-fusion','colosoAction',out.version,{slotId:'B1',expectedTurn:out.turn,action:'fusion',targetId:'pillar1'});
  await assert.rejects(()=>x.svc.command('u1',fusion),e=>e.code==='FORBIDDEN');
- out=await x.svc.command('u2',fusion);assert(out.state.combat.units[1].monolith);assert.equal(out.state.combat.units[1].pa,3);assert.deepEqual(await x.svc.command('u2',fusion),out);assert.deepEqual(await x.svc.recover('u2','m',fusion.id),out);
+ out=await x.svc.command('u2',fusion);assert(out.state.combat.units[1].monolith);assert.equal(out.state.combat.units[1].pa,2);assert.deepEqual(await x.svc.command('u2',fusion),out);assert.deepEqual(await x.svc.recover('u2','m',fusion.id),out);
  assert.deepEqual((await x.svc.snapshot('u1','m')).combat,(await x.svc.snapshot('u2','m')).combat);
  await assert.rejects(()=>x.svc.command('u2',cmd('complete-stale','colosoAction',out.version,{slotId:'B1',expectedTurn:0,action:'exit',targetId:'B1'})),e=>e.code==='TURN_CONFLICT');
  await assert.rejects(()=>x.svc.command('u2',cmd('complete-unselected','ability',out.version,{slotId:'B1',expectedTurn:out.turn,abilityId:'rock',targetId:'A1'})),e=>e.code==='ABILITY_NOT_SELECTED');

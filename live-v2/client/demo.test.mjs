@@ -1,3 +1,5 @@
+import {prepareTutorialScene} from './tutorial.mjs';
+import {LiveSession} from './session.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {createDemoAPI,tutorialHint} from './demo.mjs';import {accountAllowed} from './entry.mjs';
 import {calculatePath,previewPath} from '../combat-core.mjs';
@@ -27,6 +29,9 @@ test('guided tutorial prepares and deploys, pauses deadlines, and executes real 
  await scene('base');await cmd('createPillar',{slotId:'A1',expectedTurn:state.turnSerial,position:{x:5,y:6}});assert.equal(state.combat.objects.length,1);
  await scene('area');await cmd('ability',{slotId:'A1',expectedTurn:state.turnSerial,abilityId:'collapse',targetId:'pillar1',direction:{x:0,y:1}});assert(state.combat.units.find(u=>u.id==='B1').hp<100);
  await scene('states');assert.equal(state.combat.units.find(u=>u.id==='A1').status.wound,2);
- await scene('clock');const timed=state.turnSerial;now+=10001;state=(await api('snapshot',{matchId:state.id})).data;assert(state.turnSerial>timed);
+ const session=new LiveSession({api,clock:()=>now});await session.attach('demo-player',state);session.busy=true;
+ const timedState=await prepareTutorialScene(session,'clock');assert.equal(session.state.turnSerial,timedState.turnSerial);assert.equal(session.remaining(),10);
+ session.busy=false;const timed=session.state.turnSerial;now+=9000;await session.refresh();assert.equal(session.state.turnSerial,timed);assert.equal(session.remaining(),1);
+ now+=1001;await session.refresh();state=session.state;assert(state.turnSerial>timed);
  const normal=createDemoAPI();await assert.rejects(normal('tutorialScene',{matchId:state.id,scene:'base'}),/DEMO_ONLY/);
 });

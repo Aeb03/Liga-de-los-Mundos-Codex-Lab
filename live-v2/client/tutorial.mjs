@@ -1,6 +1,11 @@
 // One shared tutorial for the game's controls, never a champion strategy guide.
 const action=id=>`[data-action="${id}"]`;
 const board='.live-board';
+export async function prepareTutorialScene(session,scene){
+ const state=await session.request('tutorialScene',{matchId:session.state.id,scene});
+ session.sync.applyEnvelope({version:state.version,state});
+ return state;
+}
 export const tutorialSteps=[
  {id:'champion',title:'Elegí un campeón',text:'Cada campeón tiene estadísticas y seis habilidades. Tocá Coloso: lo usaremos para aprender los controles comunes.',focus:'[data-champion="coloso"]',done:c=>c.draft?.champion==='coloso'},
  {id:'skills-tab',title:'Elegí tus habilidades',text:'Abrí Habilidades. En cada partida llevás cuatro de las seis disponibles.',focus:'[data-action="preparationTab"][data-tab="skills"]',done:c=>c.preparationTab==='skills'||c.skillsVisible},

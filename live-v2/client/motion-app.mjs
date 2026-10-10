@@ -1,8 +1,8 @@
 import {skillArt} from './skill-art.mjs?v=20261010-icons1';
 import {mountEntry,accountAllowed} from './entry.mjs?v=20261009-startupfix1';
-import {mountTutorial} from './tutorial.mjs?v=20261010-tutorial6';
+import {mountTutorial,prepareTutorialScene} from './tutorial.mjs?v=20261010-tutorial7';
 import {actionBlockReason,briefErrors} from './action-feedback.mjs?v=20261009-sapmine1';
-import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-tutorial6';
+import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-tutorial7';
 import {mountLobby} from './lobby.mjs?v=20261008-play1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261010-icons1';
 import { SocialPanel } from './social.mjs?v=20261010-navigation1';
@@ -15,7 +15,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261009-sapmine1';
 import { renderArena } from './presentation.mjs?v=20261010-native1';
-import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261010-tutorial6';
+import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261010-tutorial7';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261010-icons1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261009-sapmine1';
 import { createAoEState, bindAoEGesture, sameCell } from './aoe-preview.mjs?v=20261005-aoe1';
@@ -78,7 +78,7 @@ async function ensureAuth(){
   if(!session)throw new Error('UNAUTHENTICATED');actor=session.user.id;return session;
 }
 async function api(operation,args){
-  if(accessMode==='demo'||demoTutorial){demoAPI??=(await import('./demo.mjs?v=20261010-tutorial6')).createDemoAPI({actor:actor??'demo-player'});return demoAPI(operation,args);}
+  if(accessMode==='demo'||demoTutorial){demoAPI??=(await import('./demo.mjs?v=20261010-tutorial7')).createDemoAPI({actor:actor??'demo-player'});return demoAPI(operation,args);}
 
   const auth=await ensureAuth();
   return requestJson(`${labUrl}/functions/v1/live-v2-command`,{method:'POST',headers:{authorization:`Bearer ${auth.access_token}`,apikey:publishableKey,'content-type':'application/json'},body:JSON.stringify({operation,args})});
@@ -97,7 +97,7 @@ const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
 const tutorial=mountTutorial({
  context:()=>({state:game.state,draft,preparationTab,skillsVisible:Boolean(document.querySelector('.prep-skills-pane')?.getBoundingClientRect().height),own:game.state?.combat?.units.find(u=>u.id==='A1'),enemy:game.state?.combat?.units.find(u=>u.id==='B1'),selection:abilitySelection,preview:game.preview,movementArmed,camera}),
- scene:async scene=>{abilitySelection=null;movementArmed=false;game.preview=null;inspectedId='A1';camera={x:0,y:0,rotation:0,zoom:1};await api('tutorialScene',{matchId:game.state.id,scene});await game.refresh();render(true);},
+ scene:async scene=>{abilitySelection=null;movementArmed=false;game.preview=null;inspectedId='A1';camera={x:0,y:0,rotation:0,zoom:1};await prepareTutorialScene(game,scene);render(true);},
  finish:()=>exitDemo()
 });
 function remaining(){if(demoTutorial&&tutorial.active&&tutorial.step!=='clock'){document.querySelector('#timer')?.replaceChildren('Ⅱ');document.querySelector('#deployment-timer')?.replaceChildren('Ⅱ');if(!game.state?.countdownDeadline)document.querySelector('#preparation-timer')?.replaceChildren('Ⅱ');return;}const deploymentTimer=document.querySelector('#deployment-timer');if(deploymentTimer&&game.state?.phase==='deployment'){const seconds=Math.max(0,Math.ceil(((game.state.deploymentDeadline??game.now()+30000)-game.now())/1000));deploymentTimer.textContent=String(seconds);deploymentTimer.classList.toggle('urgent',seconds<=5);}const prep=document.querySelector('#preparation-timer');if(prep&&game.state?.phase==='preparation'){const seconds=preparationSeconds(game.state,game.now());prep.textContent=seconds==null?'—':game.state.countdownDeadline?String(seconds):`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;prep.closest('.preparation-clock').classList.toggle('urgent',seconds!=null&&seconds<=15);}const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}

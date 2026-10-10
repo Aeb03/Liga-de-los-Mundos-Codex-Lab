@@ -31,7 +31,7 @@ export const tutorialSteps=[
  {id:'native-confirm',title:'Confirmá la invocación',text:'Tocá otra vez la casilla o Pilar. Aparece la invocación y se descuenta su costo.',focus:`${board},${action('createPillar')}`,done:c=>c.state?.combat.objects.some(o=>o.alive&&o.type==='pillar')},
  {id:'area-button',title:'Habilidades de área',text:'Tocá Colapso. Prepararemos un Pilar de un turno anterior para aprender a orientar un área.',focus:action('collapse'),scene:'area',done:c=>c.selection?.abilityId==='collapse'},
  {id:'area-object',title:'Seleccioná la invocación',text:'Tocá el Pilar. Esta habilidad empieza seleccionando una invocación propia, no al rival.',focus:board,done:c=>Boolean(c.selection?.targetId)},
- {id:'area-direction',title:'Orientá el área',text:'Deslizá la línea desde el Pilar hacia el rival y soltá. Las casillas magenta muestran qué posiciones recibirán el efecto. Todavía no se ejecuta.',focus:board,done:c=>Boolean(c.selection?.direction&&c.selection?.aoe?.locked)},
+ {id:'area-direction',title:'Orientá el área',text:'Deslizá la línea desde el Pilar hacia el rival y soltá. Las casillas magenta muestran qué posiciones recibirán el efecto. Todavía no se ejecuta.',focus:board,done:c=>Boolean(c.events.areaOriented&&c.selection?.direction&&c.selection?.aoe?.locked)},
  {id:'area-confirm',title:'Confirmá el área',text:'Revisá las casillas magenta y tocá Colapso para ejecutar. Seleccionar, orientar y confirmar son pasos distintos.',focus:action('collapse'),done:c=>c.enemy?.hp<c.enemy?.maxHp},
  {id:'self',title:'Seleccioná un aliado o a vos',text:'Tocá Armadura de Piedra y después tu campeón, en la arena o en la barra de turnos. Algunas habilidades se usan sobre aliados o sobre uno mismo.',focus:`${action('stonearmor')},${board},.turn-order [data-inspect-id="A1"]`,scene:'base',done:c=>c.selection?.abilityId==='stonearmor'&&c.selection?.targetId==='A1'},
  {id:'self-confirm',title:'Confirmá la protección',text:'Tocá nuevamente tu campeón o Armadura de Piedra para obtener escudo.',focus:`${action('stonearmor')},${board},.turn-order [data-inspect-id="A1"]`,done:c=>c.own?.shield.some(s=>s.amount>0)},
@@ -46,9 +46,9 @@ export function tutorialAllows(target,step){
 }
 export function mountTutorial({context,scene,finish}){
  let index=0,active=false,pending=false,sceneId=null,clockSerial=0;
- const events={};let lastCamera={x:0,y:0,zoom:1};let root=document.createElement('div');root.id='tutorial-overlay';root.hidden=true;document.body.append(root);
+ const events={};let lastCamera={x:0,y:0,zoom:1},paintKey=null;let root=document.createElement('div');root.id='tutorial-overlay';root.hidden=true;document.body.append(root);
  function start(){index=0;active=true;pending=false;sceneId=null;clockSerial=0;Object.keys(events).forEach(k=>delete events[k]);update();}
- function stop(){active=false;root.hidden=true;root.replaceChildren();document.body.classList.remove('tutorial-active');}
+ function stop(){active=false;paintKey=null;root.hidden=true;root.replaceChildren();document.body.classList.remove('tutorial-active');}
  function note(kind){if(active){events[kind]=true;update();}}
  function update(){
   if(!active)return;const c={...context(),events,clockSerial};if(tutorialSteps[index].id==='pan'&&(c.camera.x!==lastCamera.x||c.camera.y!==lastCamera.y))events.pan=true;if(tutorialSteps[index].id==='zoom'&&c.camera.zoom!==lastCamera.zoom)events.zoom=true;lastCamera={...c.camera};if(!c.state){stop();return;}
@@ -59,6 +59,9 @@ export function mountTutorial({context,scene,finish}){
  }
  function paint(step,error=''){
   document.body.classList.add('tutorial-active');root.hidden=false;
+  const key=`${index}:${pending}:${error}`;
+  if(paintKey===key){requestAnimationFrame(()=>highlight(step));return;}
+  paintKey=key;
   root.innerHTML=`<svg class="tutorial-shade" width="100%" height="100%" aria-hidden="true"><defs><mask id="tutorial-holes"><rect width="100%" height="100%" fill="white"/></mask></defs><rect width="100%" height="100%" fill="#020812" fill-opacity=".84" mask="url(#tutorial-holes)"/></svg><button class="tutorial-options" type="button" aria-label="Opciones">⚙ Opciones</button><section class="tutorial-card" role="region" aria-label="Guía del tutorial" aria-live="polite"><small>TUTORIAL · ${index+1}/${tutorialSteps.length}${step.id==='clock'?'':' · RELOJ PAUSADO'}</small><strong>${step.title}</strong><p>${error||step.text}</p>${error?'<button data-tutorial-next>Reintentar</button>':pending?'<span>Preparando…</span>':step.next?'<button data-tutorial-next>Entendido · Continuar</button>':step.finish?'<button data-tutorial-finish>Volver al lobby</button>':'<span>Completá la acción resaltada para continuar.</span>'}</section>`;
   root.querySelector('.tutorial-options').onclick=()=>window.LigaAudioOptions?.open();
   root.querySelector('[data-tutorial-next]')?.addEventListener('click',()=>{if(error){update();return;}index++;update();});
@@ -67,6 +70,7 @@ export function mountTutorial({context,scene,finish}){
  }
  function highlight(step){
   const mask=root.querySelector('#tutorial-holes');if(!mask)return;
+  while(mask.children.length>1)mask.lastElementChild.remove();
   const selector=[step.focus,'.tutorial-options','.liga-options-battle','.liga-options-lobby','.liga-audio-options-backdrop'].filter(Boolean).join(',');
   const boxes=[...document.querySelectorAll(selector)].filter(el=>!el.closest('#tutorial-overlay')||el.matches('.tutorial-options')).map(el=>el.getBoundingClientRect()).filter(r=>r.width&&r.height);
   for(const r of boxes){const hole=document.createElementNS('http://www.w3.org/2000/svg','rect');for(const [k,v] of Object.entries({x:r.left-3,y:r.top-3,width:r.width+6,height:r.height+6,rx:5,fill:'black'}))hole.setAttribute(k,v);mask.append(hole);}
@@ -77,6 +81,8 @@ export function mountTutorial({context,scene,finish}){
  }
  function gate(e){
   if(!active)return;const target=e.target instanceof Element?e.target:e.target?.parentElement;
+  const prepScroll=['champion','skills-tab','skills','ready'].includes(tutorialSteps[index].id)&&['pointerdown','wheel'].includes(e.type)&&target?.closest('.prep-editor,.prep-grid')&&!target.closest('button,input,label');
+  if(prepScroll)return;
   if(pending&&!target?.closest('.tutorial-options,.liga-audio-options-backdrop,.liga-options-battle,.liga-options-lobby,.tutorial-card')||!tutorialAllows(target,tutorialSteps[index])){e.preventDefault();e.stopImmediatePropagation();return;}
   if(e.type==='click'&&target?.closest('[data-hud-orient]'))events.orientation=true;
   if(e.type==='click'&&target?.closest('[data-hud-collapse]'))events.fold=true;

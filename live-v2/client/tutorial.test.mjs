@@ -8,6 +8,11 @@ test('spotlight gate always admits Options and blocks unrelated commands',()=>{
  assert.equal(tutorialAllows(target('[data-action="end"]'),move),false);
  for(const s of tutorialSteps){assert.equal(tutorialAllows(target('.tutorial-options'),s),true);assert.equal(tutorialAllows(target('.liga-audio-options-backdrop'),s),true);}
 });
+test('confirmed collapse completes orientation even after the selection and pillar are consumed',()=>{
+ const context={events:{},selection:null,enemy:{hp:85,maxHp:100}};
+ assert.equal(tutorialSteps.find(s=>s.id==='area-direction').done(context),true);
+ assert.equal(tutorialSteps.find(s=>s.id==='area-confirm').done(context),true);
+});
 test('action lessons advance on confirmed changes, not mere previews',()=>{
  const move=tutorialSteps.find(s=>s.id==='move-confirm');assert.equal(move.done({own:{pm:3},preview:{cost:1}}),false);assert.equal(move.done({own:{pm:2}}),true);
  const attack=tutorialSteps.find(s=>s.id==='attack');assert.equal(attack.done({enemy:{hp:100,maxHp:100},selection:{targetId:'B1'}}),false);assert.equal(attack.done({enemy:{hp:88,maxHp:100}}),true);

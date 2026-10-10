@@ -36,7 +36,7 @@ export const tutorialSteps=[
  {id:'native-confirm',title:'Confirmá la invocación',text:'Tocá otra vez la casilla o Pilar. Aparece la invocación y se descuenta su costo.',focus:`${board},${action('createPillar')}`,done:c=>c.state?.combat.objects.some(o=>o.alive&&o.type==='pillar')},
  {id:'area-button',title:'Habilidades de área',text:'Tocá Colapso. Prepararemos un Pilar de un turno anterior para aprender a orientar un área.',focus:action('collapse'),scene:'area',done:c=>c.selection?.abilityId==='collapse'},
  {id:'area-object',title:'Seleccioná la invocación',text:'Tocá el Pilar. Esta habilidad empieza seleccionando una invocación propia, no al rival.',focus:board,done:c=>Boolean(c.selection?.targetId)},
- {id:'area-direction',title:'Orientá el área',text:'Arrastrá desde una casilla al costado del Pilar hasta la casilla del rival y soltá. Las casillas magenta muestran qué posiciones recibirán el efecto. Todavía no se ejecuta.',focus:board,done:c=>Boolean(c.events.areaOriented&&c.selection?.direction&&c.selection?.aoe?.locked)},
+ {id:'area-direction',title:'Orientá el área',text:'Arrastrá desde una casilla al costado del Pilar hasta la casilla del rival y soltá, o tocá esa casilla para orientar. Las casillas magenta muestran el área. Tocarla otra vez confirma el ataque.',focus:board,done:c=>Boolean(c.enemy?.hp<c.enemy?.maxHp||c.events.areaOriented&&c.selection?.direction&&c.selection?.aoe?.locked)},
  {id:'area-confirm',title:'Confirmá el área',text:'Revisá las casillas magenta y tocá Colapso para ejecutar. Seleccionar, orientar y confirmar son pasos distintos.',focus:action('collapse'),done:c=>c.enemy?.hp<c.enemy?.maxHp},
  {id:'self',title:'Seleccioná un aliado o a vos',text:'Tocá Armadura de Piedra y después tu campeón, en la arena o en la barra de turnos. Algunas habilidades se usan sobre aliados o sobre uno mismo.',focus:`${action('stonearmor')},${board},.turn-order [data-inspect-id="A1"]`,scene:'base',done:c=>c.selection?.abilityId==='stonearmor'&&c.selection?.targetId==='A1'},
  {id:'self-confirm',title:'Confirmá la protección',text:'Tocá nuevamente tu campeón o Armadura de Piedra para obtener escudo.',focus:`${action('stonearmor')},${board},.turn-order [data-inspect-id="A1"]`,done:c=>c.own?.shield.some(s=>s.amount>0)},
@@ -58,7 +58,7 @@ export function mountTutorial({context,scene,finish}){
  function update(){
   if(!active)return;const c={...context(),events,clockSerial};if(tutorialSteps[index].id==='pan'&&(c.camera.x!==lastCamera.x||c.camera.y!==lastCamera.y))events.pan=true;if(tutorialSteps[index].id==='zoom'&&c.camera.zoom!==lastCamera.zoom)events.zoom=true;lastCamera={...c.camera};if(!c.state){stop();return;}
   let step=tutorialSteps[index];
-  if(!pending&&(!step.scene||sceneId===step.id)&&step.done?.(c)){index++;step=tutorialSteps[index];}
+  while(!pending&&(!step.scene||sceneId===step.id)&&step.done?.(c)){index++;step=tutorialSteps[index];}
   if(step.scene&&sceneId!==step.id&&!pending){pending=true;sceneId=step.id;paint(step);Promise.resolve(scene(step.scene)).then(()=>{clockSerial=context().state?.turnSerial??0;pending=false;update();}).catch(()=>{pending=false;sceneId=null;paint(step,'No pudimos preparar este paso. Tocá Reintentar.');});return;}
   paint(step);
  }

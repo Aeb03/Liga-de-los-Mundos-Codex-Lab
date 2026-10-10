@@ -1,8 +1,8 @@
 import {skillArt} from './skill-art.mjs?v=20261010-icons1';
 import {mountEntry,accountAllowed} from './entry.mjs?v=20261009-startupfix1';
-import {mountTutorial,prepareTutorialScene} from './tutorial.mjs?v=20261010-loganchor2';
+import {mountTutorial,prepareTutorialScene} from './tutorial.mjs?v=20261010-collapse-guide1';
 import {actionBlockReason,briefErrors} from './action-feedback.mjs?v=20261009-sapmine1';
-import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-loganchor2';
+import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-collapse-guide1';
 import {mountLobby} from './lobby.mjs?v=20261008-play1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261010-icons1';
 import { SocialPanel } from './social.mjs?v=20261010-navigation1';
@@ -15,7 +15,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261009-sapmine1';
 import { renderArena } from './presentation.mjs?v=20261010-native1';
-import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261010-loganchor2';
+import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261010-collapse-guide1';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261010-icons1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261009-sapmine1';
 import { createAoEState, bindAoEGesture, sameCell } from './aoe-preview.mjs?v=20261005-aoe1';
@@ -78,7 +78,7 @@ async function ensureAuth(){
   if(!session)throw new Error('UNAUTHENTICATED');actor=session.user.id;return session;
 }
 async function api(operation,args){
-  if(accessMode==='demo'||demoTutorial){demoAPI??=(await import('./demo.mjs?v=20261010-loganchor2')).createDemoAPI({actor:actor??'demo-player'});return demoAPI(operation,args);}
+  if(accessMode==='demo'||demoTutorial){demoAPI??=(await import('./demo.mjs?v=20261010-collapse-guide1')).createDemoAPI({actor:actor??'demo-player'});return demoAPI(operation,args);}
 
   const auth=await ensureAuth();
   return requestJson(`${labUrl}/functions/v1/live-v2-command`,{method:'POST',headers:{authorization:`Bearer ${auth.access_token}`,apikey:publishableKey,'content-type':'application/json'},body:JSON.stringify({operation,args})});
@@ -434,7 +434,9 @@ async function tapCell(x,y,confirm=false){
       if(!pillar){unavailable();return;}
       const cell={x,y};if(!aoeValidCell(cell,abilitySelection.aoe))return;
       if(confirm&&abilitySelection.aoe?.locked&&sameCell(abilitySelection.aoe.target,cell)){await commitAoE(abilitySelection.aoe);return;}
-      const next=createAoEState('collapse',{target:cell,locked:true});syncAoeSelection(next);render(true);return;
+      const next=createAoEState('collapse',{target:cell,locked:true});syncAoeSelection(next);
+      if(tutorial.active&&tutorial.step==='area-direction')tutorial.note('areaOriented');
+      render(true);return;
     }
     if(id==='magnetism'&&abilitySelection.targetId){
       const valid=magnetismTargets(game.state.combat,unit.id,abilitySelection.targetId),target=game.state.combat.units.find(p=>valid.includes(p.id)&&p.x===x&&p.y===y);if(!target){unavailable();return;}

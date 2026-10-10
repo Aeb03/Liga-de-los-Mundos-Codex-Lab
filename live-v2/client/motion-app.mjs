@@ -14,7 +14,7 @@ import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261009-sapmine1';
-import { renderArena } from './presentation.mjs?v=20261010-icons1';
+import { renderArena } from './presentation.mjs?v=20261010-native1';
 import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261007-flex1';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261010-icons1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261009-sapmine1';

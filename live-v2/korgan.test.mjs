@@ -118,7 +118,7 @@ test('HUD muestra trampas propias, controles de Korgan y nunca NaN',()=>{
  let s=make();s=cast(s,'trap_spikes',{position:{x:6,y:5}}).state;
  const slots={k:{...s.units[0],skills:['trap_spikes','grenade','shot','hook']},e:{...s.units[1],skills:['precise','vector','impulse','fixation']}};
  const html=renderArena({state:{phase:'combat',slots,combat:s},actor:'a',slotId:'k',canMove:true,blocked:false,remaining:20,abilitySelection:{abilityId:'hook',targetId:'e'}});
- assert(html.includes('trampa-korgan.png'));assert(html.includes('Preparación Oculta'));assert(html.includes('Atraer 1'));assert(html.includes('Atraer 2'));assert(!html.includes('NaN'));
+ assert(html.includes('trampa-korgan.png'));assert(html.includes('data-action="korganDisarm"'));assert(html.includes('Atraer 1'));assert(html.includes('Atraer 2'));assert(!html.includes('NaN'));
 });
 
 test('Servidor oculta trampas rivales pero el dueño las conserva',async()=>{

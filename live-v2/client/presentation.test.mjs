@@ -209,3 +209,23 @@ test('queue avatars select champions and mark only legal ability targets without
  const blocked=renderArena({state,actor:'shared',slotId:'A1',remaining:24,canMove:true,blocked:false,abilitySelection:{abilityId:'precise',unitId:'A1'}}).match(/<ol class="turn-order"[\s\S]*?<\/ol>/)[0];
  assert.doesNotMatch(blocked,/targetable/);
 });
+
+test('native actions stay in champion card and never occupy movement controls',()=>{
+ const state=fixture();state.combat.order=['B1','A1'];state.combat.turnIndex=0;
+ const args={state,actor:'rival',slotId:'B1',remaining:24,canMove:true,blocked:false};
+ let html=renderArena(args);
+ const card=html.slice(html.indexOf('aria-label="Combatiente inspeccionado"'),html.indexOf('aria-label="Habilidades seleccionadas"'));
+ assert.match(card,/data-action="createPillar"/);assert.match(card,/data-action="fusion"/);assert.match(card,/data-action="recycle"[^>]*disabled/);
+ const controls=html.slice(html.indexOf('<div class="command-controls">'));
+ assert.match(controls,/data-action="moveMode"/);assert.match(controls,/data-action="end"/);assert.doesNotMatch(controls,/createPillar|coloso-options/);
+ state.combat.units.find(u=>u.id==='B1').monolith=true;
+ html=renderArena(args);assert.match(html,/data-action="exit"/);assert.doesNotMatch(html,/data-action="fusion"/);
+ html=renderArena({...args,actor:'shared'});assert.doesNotMatch(html,/class="native-actions"/);
+});
+test('queue status strips show stacked damage and resource penalties with full accessible labels',()=>{
+ const state=fixture(),unit=state.combat.units[0];unit.status={wound:3,poison:2,burn:4,paPenaltyNext:2,pmPenaltyNext:1};
+ const html=renderArena({state,actor:'shared',slotId:'A1',remaining:24,canMove:true,blocked:false});
+ const queue=html.slice(html.indexOf('<ol class="turn-order"'),html.indexOf('</ol>'));
+ for(const label of ['Herida 3','Veneno 2','Quemadura 4','PA -2 próximo','PM -1 próximo'])assert.ok(queue.includes(label));
+ assert.equal((queue.match(/class="turn-state"/g)??[]).length,5);
+});

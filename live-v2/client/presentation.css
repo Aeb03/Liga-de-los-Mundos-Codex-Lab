@@ -320,3 +320,23 @@ body.in-arena #notice{position:static;flex:none;order:-1;transform:none;margin:0
 
 /* Queue avatars share board target selection without changing HUD dimensions. */
 .turn-order li{padding:0}.turn-avatar-select{display:flex;align-items:center;gap:3px;width:100%;min-height:32px;margin:0;padding:3px;border:0;border-radius:4px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}.turn-avatar-select:focus-visible{outline:2px solid #8beaff;outline-offset:-2px}.turn-order li.targetable{border-color:#74d5ff}.turn-order li.target-selected{background:#175473;border-color:#c4f3ff;box-shadow:inset 0 0 0 1px #c4f3ff}
+
+/* Status strip stays inside queue cards; native actions occupy the existing card. */
+.turn-avatar-select{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1px 3px;min-height:32px;padding:2px 3px}
+.turn-avatar-select>span:not(.turn-states){min-width:0}
+.turn-states{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:1px;max-width:100%;font-size:8px;line-height:1.1}
+.turn-state{display:inline-flex;align-items:center;background:#061827;border-radius:3px;padding:1px 2px;color:#fff;white-space:nowrap}
+.live-command .active-champion.has-native-actions{display:grid;grid-template-columns:24px minmax(0,1fr);grid-template-rows:minmax(0,1fr) 23px;gap:1px 3px;overflow:hidden}
+.has-native-actions>img{width:24px;height:24px;align-self:center}
+.has-native-actions .active-details{font-size:8px;line-height:1.1}
+.has-native-actions .active-details>strong{font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.has-native-actions .active-life{flex-wrap:nowrap}.has-native-actions .active-life meter{min-width:15px;height:6px}
+.has-native-actions .active-resources{gap:4px;flex-wrap:nowrap;white-space:nowrap}
+.native-actions{grid-column:1/-1;display:flex;gap:2px;min-width:0;min-height:0}
+.native-action{display:flex;align-items:center;justify-content:center;gap:2px;flex:1;min-width:0;min-height:0;padding:1px 2px;border:1px solid #ac9050;border-radius:4px;background:#0b2638;color:#f2e8d0;font:8px/1 sans-serif;cursor:pointer}
+.native-action small{display:block;font-size:7px;margin-top:1px}.native-action:disabled{opacity:.4;cursor:default}
+.native-icon{display:flex;align-items:center;justify-content:center;width:17px;height:18px;font-size:16px;flex-shrink:0}.native-icon img{width:100%;height:100%;object-fit:contain}
+.native-action.selected-skill{border-color:#9beaff;box-shadow:inset 0 0 0 1px #9beaff}.native-action:focus-visible{outline:2px solid #9beaff}
+.hook-options{position:absolute;bottom:100%;right:0;display:flex;gap:3px;background:#061827;padding:3px}
+@media(orientation:landscape) and (max-height:300px){.live-command .active-champion.has-native-actions{grid-template-columns:18px minmax(0,1fr);grid-template-rows:minmax(0,1fr) 19px}.has-native-actions>img{width:18px;height:18px}.has-native-actions .active-details,.has-native-actions .active-details>strong{font-size:7px}.native-action{font-size:7px}.native-icon{width:12px;height:14px;font-size:12px}.native-action small{font-size:6px}.turn-states{font-size:7px}}
+@media(orientation:portrait){.live-command .active-champion.has-native-actions{grid-template-columns:28px minmax(0,1fr);grid-template-rows:auto 28px}.native-action{font-size:10px}.native-action small{font-size:8px}}

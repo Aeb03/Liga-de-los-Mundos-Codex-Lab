@@ -13,9 +13,20 @@ test('normal demo prepares, deploys, plays and expires turns entirely in memory'
  await assert.rejects(api('join',{matchId:state.id}),/DEMO_ONLY/);
  const fresh=createDemoAPI();await assert.rejects(fresh('snapshot',{matchId:state.id}),/Partida inexistente/);
 });
-test('guided tutorial uses actual movement, damage and AI, and commands are idempotent',async()=>{
- const api=createDemoAPI({clock:()=>1000,random:()=>0.2});let state=(await api('create',{room:{id:crypto.randomUUID(),tutorial:true}})).data;assert.equal(state.phase,'combat');assert.equal(state.arena.pieces.length,0);assert.match(tutorialHint(state.combat),/Mover/);
- const path=calculatePath(state.combat,'A1',{x:5,y:5});assert.equal(previewPath(state.combat,'A1',path).lethal,false);
- let cmd={id:crypto.randomUUID(),matchId:state.id,type:'move',slotId:'A1',expectedVersion:state.version,expectedTurn:state.turnSerial,path};let reply=await api('command',{command:cmd});state=reply.data.state;assert.match(tutorialHint(state.combat),/habilidad/);assert.deepEqual(await api('command',{command:cmd}),reply);
- cmd={id:crypto.randomUUID(),matchId:state.id,type:'ability',slotId:'A1',expectedVersion:state.version,expectedTurn:state.turnSerial,abilityId:'bow',targetId:'B1'};reply=await api('command',{command:cmd});state=reply.data.state;assert(state.combat.units.find(u=>u.id==='B1').hp<115);assert.match(tutorialHint(state.combat),/Fin de turno/);
+test('guided tutorial prepares and deploys, pauses deadlines, and executes real targeting types',async()=>{
+ let now=1000;const api=createDemoAPI({clock:()=>now,random:()=>0.2});let state=(await api('create',{room:{id:crypto.randomUUID(),tutorial:true,layout:{B1:{championId:'arfeli'}}}})).data;
+ assert.equal(state.phase,'preparation');
+ const cmd=async(type,args={})=>{const reply=await api('command',{command:{id:crypto.randomUUID(),matchId:state.id,type,expectedVersion:state.version,...args}});state=reply.data.state;return reply;};
+ await cmd('select',{slotId:'A1',championId:'coloso',skills:['rock','stonearmor','quake','collapse']});await cmd('setReady',{slotId:'A1',ready:true});now+=5001;state=(await api('snapshot',{matchId:state.id})).data;assert.equal(state.phase,'deployment');
+ const [x,y]=state.arena.deployment.A[0].split(',').map(Number);await cmd('setPosition',{slotId:'A1',position:{x,y}});await cmd('confirmPosition',{slotId:'A1'});await cmd('startCombat');
+ const scene=async(scene)=>{state=(await api('tutorialScene',{matchId:state.id,scene})).data;};
+ await scene('base');const serial=state.turnSerial;now+=120000;state=(await api('snapshot',{matchId:state.id})).data;assert.equal(state.turnSerial,serial);assert.equal(state.combat.order[state.combat.turnIndex],'A1');
+ const path=calculatePath(state.combat,'A1',{x:4,y:5});await cmd('move',{slotId:'A1',expectedTurn:state.turnSerial,path});assert.equal(state.combat.units.find(u=>u.id==='A1').pm,2);
+ await scene('base');await cmd('ability',{slotId:'A1',expectedTurn:state.turnSerial,abilityId:'rock',targetId:'B1'});assert(state.combat.units.find(u=>u.id==='B1').hp<100);
+ await scene('vision');await assert.rejects(cmd('ability',{slotId:'A1',expectedTurn:state.turnSerial,abilityId:'rock',targetId:'B1'}),/visión|BLOCKED_LOS/i);
+ await scene('base');await cmd('createPillar',{slotId:'A1',expectedTurn:state.turnSerial,position:{x:5,y:6}});assert.equal(state.combat.objects.length,1);
+ await scene('area');await cmd('ability',{slotId:'A1',expectedTurn:state.turnSerial,abilityId:'collapse',targetId:'pillar1',direction:{x:0,y:1}});assert(state.combat.units.find(u=>u.id==='B1').hp<100);
+ await scene('states');assert.equal(state.combat.units.find(u=>u.id==='A1').status.wound,2);
+ await scene('clock');const timed=state.turnSerial;now+=10001;state=(await api('snapshot',{matchId:state.id})).data;assert(state.turnSerial>timed);
+ const normal=createDemoAPI();await assert.rejects(normal('tutorialScene',{matchId:state.id,scene:'base'}),/DEMO_ONLY/);
 });

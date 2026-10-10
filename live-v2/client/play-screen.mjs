@@ -6,7 +6,7 @@ export function renderPlayMenu(){return playHeader('JUGAR')+`<section class="pla
  ['custom','Crear partida','Jugá con amigos o contra IA. Prepará tu sala a tu manera.','Crear sala'],
  ['normal','Normal','Partidas aleatorias de 1v1, 2v2 y 3v3, sin puntos de Liga.','Próximamente'],
  ['league','Liga','Competí por puntos y clasificación en cada formato.','Próximamente'],
- ['tutorial','Tutorial','Aprendé a moverte, usar habilidades y dominar la arena.','Próximamente']
+ ['tutorial','Tutorial','Aprendé a moverte, usar habilidades y dominar la arena.','Comenzar']
 ].map(([id,title,description,status])=>`<button class="play-mode" data-action="playMode" data-mode="${id}"><img src="assets/play-${id}-v1.webp" alt="" loading="lazy"><span class="play-mode-copy"><strong>${title}</strong><small>${description}</small><span class="play-mode-status">${status} ${id==='custom'?'›':''}</span></span></button>`).join('')}</div>`;}
 export function renderComingMode(mode){const names={normal:'Normal',league:'Liga',tutorial:'Tutorial'};return playHeader(names[mode]??'Jugar')+`<section class="panel play-coming"><img src="assets/play-${mode}-v1.webp" alt=""><h3>Próximamente</h3><p>${mode==='tutorial'?'El tutorial todavía está en preparación.':mode==='league'?'La Liga tendrá puntos y clasificaciones separadas para 1v1, 2v2 y 3v3.':'Normal permitirá entrar solo o con amigos a partidas aleatorias de 1v1, 2v2 y 3v3.'}</p><button data-action="playMode" data-mode="custom">Crear una partida</button></section>`;}
 export function preparationSeconds(state,now){const deadline=state.countdownDeadline??state.preparationDeadline;return deadline==null?null:Math.max(0,Math.ceil((deadline-now)/1000));}

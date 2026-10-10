@@ -1,8 +1,8 @@
 import {skillArt} from './skill-art.mjs?v=20261010-icons1';
 import {mountEntry,accountAllowed} from './entry.mjs?v=20261009-startupfix1';
-import {tutorialHint} from './demo.mjs?v=20261009-entry1';
+import {mountTutorial} from './tutorial.mjs?v=20261010-tutorial1';
 import {actionBlockReason,briefErrors} from './action-feedback.mjs?v=20261009-sapmine1';
-import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-icons1';
+import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-tutorial1';
 import {mountLobby} from './lobby.mjs?v=20261008-play1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261010-icons1';
 import { SocialPanel } from './social.mjs?v=20261010-navigation1';
@@ -78,7 +78,7 @@ async function ensureAuth(){
   if(!session)throw new Error('UNAUTHENTICATED');actor=session.user.id;return session;
 }
 async function api(operation,args){
-  if(accessMode==='demo'){demoAPI??=(await import('./demo.mjs?v=20261009-entry1')).createDemoAPI();return demoAPI(operation,args);}
+  if(accessMode==='demo'||demoTutorial){demoAPI??=(await import('./demo.mjs?v=20261010-tutorial1')).createDemoAPI({actor:actor??'demo-player'});return demoAPI(operation,args);}
 
   const auth=await ensureAuth();
   return requestJson(`${labUrl}/functions/v1/live-v2-command`,{method:'POST',headers:{authorization:`Bearer ${auth.access_token}`,apikey:publishableKey,'content-type':'application/json'},body:JSON.stringify({operation,args})});
@@ -90,12 +90,17 @@ let resultPending=false,resultTimer=null,previousMatch=null,previousPhase=null;
 
 const audioPlayback=new ConfirmedAudioPlayback({clock:()=>game.now(),play:(key,{delay,dedupe})=>{window.LigaMusic?.duck?.();window.LigaAudio?.schedule?.(key,delay,{dedupe,dedupeMs:120});}});
 for(const id of Object.keys(catalog))for(const direction of ['down-right','down-left','up-right','up-left']){const image=new Image();image.src=spriteSource(id,direction);}
-const game=new LiveSession({api,storage:{getItem:key=>accessMode==='demo'?null:localStorage.getItem(key),setItem:(key,value)=>{if(accessMode!=='demo')localStorage.setItem(key,value);},removeItem:key=>{if(accessMode!=='demo')localStorage.removeItem(key);}},onChange:()=>render(),onError:notify});
+const game=new LiveSession({api,storage:{getItem:key=>accessMode==='demo'||demoTutorial?null:localStorage.getItem(key),setItem:(key,value)=>{if(accessMode!=='demo'&&!demoTutorial)localStorage.setItem(key,value);},removeItem:key=>{if(accessMode!=='demo'&&!demoTutorial)localStorage.removeItem(key);}},onChange:()=>render(),onError:notify});
 const ownSlots=()=>Object.values(game.state?.slots??{}).filter(s=>s.controllerId===actor);
 const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
 const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.order[game.state.combat.turnIndex]);
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
-function remaining(){const deploymentTimer=document.querySelector('#deployment-timer');if(deploymentTimer&&game.state?.phase==='deployment'){const seconds=Math.max(0,Math.ceil(((game.state.deploymentDeadline??game.now()+30000)-game.now())/1000));deploymentTimer.textContent=String(seconds);deploymentTimer.classList.toggle('urgent',seconds<=5);}const prep=document.querySelector('#preparation-timer');if(prep&&game.state?.phase==='preparation'){const seconds=preparationSeconds(game.state,game.now());prep.textContent=seconds==null?'—':game.state.countdownDeadline?String(seconds):`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;prep.closest('.preparation-clock').classList.toggle('urgent',seconds!=null&&seconds<=15);}const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
+const tutorial=mountTutorial({
+ context:()=>({state:game.state,draft,preparationTab,own:game.state?.combat?.units.find(u=>u.id==='A1'),enemy:game.state?.combat?.units.find(u=>u.id==='B1'),selection:abilitySelection,preview:game.preview,movementArmed,camera}),
+ scene:async scene=>{abilitySelection=null;movementArmed=false;game.preview=null;inspectedId='A1';camera={x:0,y:0,rotation:0,zoom:1};await api('tutorialScene',{matchId:game.state.id,scene});await game.refresh();render(true);},
+ finish:()=>returnToLobby()
+});
+function remaining(){if(demoTutorial&&tutorial.active&&tutorial.step!=='clock'){document.querySelector('#timer')?.replaceChildren('Ⅱ');return;}const deploymentTimer=document.querySelector('#deployment-timer');if(deploymentTimer&&game.state?.phase==='deployment'){const seconds=Math.max(0,Math.ceil(((game.state.deploymentDeadline??game.now()+30000)-game.now())/1000));deploymentTimer.textContent=String(seconds);deploymentTimer.classList.toggle('urgent',seconds<=5);}const prep=document.querySelector('#preparation-timer');if(prep&&game.state?.phase==='preparation'){const seconds=preparationSeconds(game.state,game.now());prep.textContent=seconds==null?'—':game.state.countdownDeadline?String(seconds):`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;prep.closest('.preparation-clock').classList.toggle('urgent',seconds!=null&&seconds<=15);}const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
 function link(inviteSlot=null){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261007-flex1');url.searchParams.set('match',game.state.id);if(game.state.players===4){url.searchParams.set('players','4');if(inviteSlot)url.searchParams.set('slot',inviteSlot);}return url.href;}
 function roomId(value){
   let id=value.trim();try{const url=new URL(id);id=url.searchParams.get('match')??'';}catch{}
@@ -105,12 +110,12 @@ async function enter(id,create=false,mode='1v1',players=2,inviteSlot='B1',layout
   if(joining)return;homeOpen=false;guideOpen=false;toggleGuide();joining=true;render(true);
   try{
     await ensureAuth();let state;
-    if(create)state=(await api('create',{room:{id,mode,players,...(layout?{layout}:{}),...(accessMode==='demo'?{tutorial:demoTutorial}:{})}})).data;
+    if(create)state=(await api('create',{room:{id,mode,players,...(layout?{layout}:{}),...((accessMode==='demo'||demoTutorial)?{tutorial:demoTutorial}:{})}})).data;
     else{
       try{state=(await api('snapshot',{matchId:id})).data;}
       catch(error){if(error.message!=='FORBIDDEN')throw error;if(players===4&&!inviteSlot){pendingInvite={id};return;}state=(await api('join',{matchId:id,slotId:inviteSlot??'B1'})).data;}
     }
-    if(accessMode!=='demo'){const url=new URL(location.href);url.searchParams.set('match',id);history.replaceState(null,'',url);}
+    if(accessMode!=='demo'&&!demoTutorial){const url=new URL(location.href);url.searchParams.set('match',id);history.replaceState(null,'',url);}
     pendingInvite=null;await game.attach(actor,state);notify(accessMode==='demo'?'Demo · esta partida no guarda resultados.':create?'Sala creada. Compartí las invitaciones de los jugadores.':'Conectado a la sala.');
   }catch(error){notify(error.message);}finally{joining=false;render(true);}
 }
@@ -120,7 +125,7 @@ function teams(){return `<div class="teams">${Object.values(game.state.slots).ma
   const u=game.state.combat?.units.find(u=>u.id===s.id),mine=s.controllerId===actor;
   return `<article class="unit-card ${mine?'':'enemy'} ${activeUnit()?.id===s.id?'active':''}"><div class="row">${s.championId?`<img src="../assets/champions/${s.championId}/${s.championId}-avatar.png" alt="">`:''}<strong>${escape(catalog[s.championId]?.name??'Sin selección')}</strong><span class="tag">${escape(s.id)} · ${s.controllerKind==='ai'?'IA':mine?'Tu control':ownSlots().some(own=>own.team===s.team)?'Compañero':'Rival'}</span></div><p>${u?`${u.hp} PV · ${u.pa} PA · ${u.pm} PM`:game.state.phase==='preparation'&&!s.controllerId?'Esperando otro celular':game.state.phase==='preparation'?(s.ready?'Listo':'Preparando'):(s.confirmed?'Posición confirmada':'Desplegando')}</p></article>`;
 }).join('')}</div>`;}
-function roomBar(){if(accessMode==='demo')return `<div class="room-bar row spread"><span class="tag">DEMO · ${demoTutorial?'Tutorial':'Normal contra IA'} · Sin guardar resultados</span><button data-action="demoExit">Volver a la demo</button></div>`;return `<div class="room-bar row spread"><span class="tag">${escape(game.state.id.slice(0,8))} · Sala ${game.state.mode??(Object.keys(game.state.slots).length===4?'2v2':'1v1')} · ${escape(game.state.arena?.name??'Arena Central')}</span>${game.state.phase==='preparation'?'<button data-action="copy" class="subtle">Copiar enlace</button>':''}<button data-action="leave" class="subtle">${game.state.phase==='finished'?'Salir':'Abandonar partida'}</button></div>`;}
+function roomBar(){if(accessMode==='demo'||demoTutorial)return `<div class="room-bar row spread"><span class="tag">DEMO · ${demoTutorial?'Tutorial':'Normal contra IA'} · Sin guardar resultados</span><button data-action="demoExit">Volver a la demo</button></div>`;return `<div class="room-bar row spread"><span class="tag">${escape(game.state.id.slice(0,8))} · Sala ${game.state.mode??(Object.keys(game.state.slots).length===4?'2v2':'1v1')} · ${escape(game.state.arena?.name??'Arena Central')}</span>${game.state.phase==='preparation'?'<button data-action="copy" class="subtle">Copiar enlace</button>':''}<button data-action="leave" class="subtle">${game.state.phase==='finished'?'Salir':'Abandonar partida'}</button></div>`;}
 function setupDraft(){
   const own=ownSlots();if(!own.some(s=>s.id===slotId))slotId=own[0]?.id;
   const s=ownSlot();if(!draft||draft.slot!==slotId)draft={slot:slotId,champion:s?.championId??'arfeli',skills:[...(s?.skills.length?s.skills:catalog[s?.championId??'arfeli'].skills.slice(0,4).map(a=>a.id))],dirty:false};
@@ -226,7 +231,7 @@ async function commitAoE(state){
 
 function arena(){
   setupDraft();syncInspection();
-  return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:game.remaining(),hudSettings,camera,abilitySelection,inspectedId,movementArmed});
+  return slotChooser()+renderArena({state:game.state,actor,slotId,preview:game.preview,blocked:blocked(),canMove:canMove(),remaining:demoTutorial&&tutorial.step!=='clock'?'Ⅱ':game.remaining(),hudSettings,camera,abilitySelection,inspectedId,movementArmed});
 }
 let announcedTurn=null,turnBannerTimer;
 function announceTurn(){
@@ -272,7 +277,7 @@ function render(force=false){
   const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,movementArmed,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings,resultPending]);
   if(!force&&signature===lastRendered){remaining();return;}lastRendered=signature;
   app.classList.toggle('preparing',game.state?.phase==='preparation');
-  const hint=document.querySelector('#demo-guide');hint.hidden=!(accessMode==='demo'&&demoTutorial&&game.state?.phase==='combat');if(!hint.hidden)hint.textContent=tutorialHint(game.state.combat);
+  document.querySelector('#demo-guide').hidden=true;
   if(accessMode==='demo'&&!game.state){app.innerHTML=renderDemoMenu();return;}
   if(pendingInvite){app.innerHTML=`<section class="panel welcome"><h2>Elegí tu puesto en el 2v2</h2><p>Cada invitación asigna los campeones configurados para ese jugador. A1 pertenece al creador.</p>${['A2','B1','B2'].map(id=>`<button data-action="joinSlot" data-slot="${id}" ${joining?'disabled':''}>${id} · Equipo ${id[0]==='A'?'azul':'rojo'}</button>`).join('')}<p>Si el puesto está ocupado, elegí otro.</p></section>`;return;}
   if(!game.state){
@@ -284,7 +289,7 @@ function render(force=false){
   motion.paint(app);
   if(game.state.phase!=='preparation'&&!showResult){
     const battle=app.querySelector('.live-battle');
-    bindDraggableHud(battle,{storage:localStorage,onStored:next=>{hudSettings=next;}});
+    bindDraggableHud(battle,{storage:localStorage,onStored:next=>{hudSettings=next;tutorial.note('drag');}});
     Object.assign(camera,applyCameraDom(battle,camera));
     bindBattleCamera(battle,camera);
     skillHoldCleanup=bindSkillHoldInfo(battle,{getInfo:(id,button)=>offlineSkillInfo(button.dataset.skillChampion,id)});
@@ -304,6 +309,7 @@ function render(force=false){
     }
   }
   feedbackPlayback.receive(game.state,{visible:!document.hidden&&!showResult,connected:game.online});
+  tutorial.update();
 }
 async function send(type,args){const fusionShield=type==='colosoAction'&&args.action==='fusion'?game.state.combat?.objects.find(o=>o.id===args.targetId)?.hp:null;try{const confirmed=await game.send(type,args);await game.refresh();if(confirmed&&fusionShield)notify(`Fusión: +${fusionShield} de escudo`);return confirmed;}catch(error){notify(error.message);return false;}}
 async function confirmSelection(){
@@ -488,11 +494,11 @@ app.addEventListener('click',async event=>{
       camera={x:0,y:0,rotation:normalizeRotation(camera.rotation+step),zoom:camera.zoom??1};render(true);
       requestAnimationFrame(()=>centerCameraOn(app.querySelector('.live-battle'),camera,focus));break;
     }
-    case 'demoNormal':case 'demoTutorial':demoTutorial=target.dataset.action==='demoTutorial';await enter(newId(),true,'1v1',2,'B1',{A1:{controller:'A1'},B1:{controller:'ai',championId:'coloso'}});break;
+    case 'demoNormal':case 'demoTutorial':demoAPI=null;demoTutorial=target.dataset.action==='demoTutorial';await enter(newId(),true,'1v1',2,'B1',{A1:{controller:'A1'},B1:{controller:'ai',championId:demoTutorial?'arfeli':'coloso'}});if(demoTutorial)tutorial.start();break;
     case 'demoExit':exitDemo();break;
     case 'entryExit':location.href=location.pathname;break;
     case 'demoChampions':showGuide();break;
-    case 'playMode':playView=target.dataset.mode;render(true);break;
+    case 'playMode':if(target.dataset.mode==='tutorial'){demoAPI=null;demoTutorial=true;await enter(newId(),true,'1v1',2,'B1',{A1:{controller:'A1'},B1:{controller:'ai',championId:'arfeli'}});tutorial.start();}else{playView=target.dataset.mode;render(true);}break;
     case 'playBack':if(playView==='menu'){homeOpen=true;toggleGuide();}else playView='menu';render(true);break;
     case 'playClose':homeOpen=true;playView='menu';toggleGuide();render(true);break;
     case 'openFriends':social.show('friends');break;
@@ -537,6 +543,7 @@ function exitDemo(){if(game.busy||game.sync.pendingCommand()){notify('Esperá a 
 
 
 function returnToLobby(){
+  tutorial.stop();
   skillHoldCleanup();skillHoldCleanup=()=>{};aoeCleanup();aoeCleanup=()=>{};
   clearTimeout(resultTimer);clearTimeout(turnBannerTimer);document.querySelector('#turn-announcement')?.remove();
   vfx.clear();feedbackPlayback.suspend();audioPlayback.suspend();
@@ -547,7 +554,7 @@ function returnToLobby(){
 }
 async function leaveMatch(){
   if(!game.state){returnToLobby();return true;}
-  if(accessMode!=='demo'&&game.state.phase!=='finished'){
+  if(accessMode!=='demo'&&!demoTutorial&&game.state.phase!=='finished'){
     if(blocked()){notify('Esperá a que se confirme la acción pendiente antes de salir.');return false;}
     await game.refresh();
     let confirmed=game.state.phase==='finished'||await game.send('abandon',{});

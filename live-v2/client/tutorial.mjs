@@ -59,10 +59,10 @@ export function mountTutorial({context,scene,finish}){
  }
  function paint(step,error=''){
   document.body.classList.add('tutorial-active');root.hidden=false;
-  root.innerHTML=`<svg class="tutorial-shade" width="100%" height="100%" aria-hidden="true"><defs><mask id="tutorial-holes"><rect width="100%" height="100%" fill="white"/></mask></defs><rect width="100%" height="100%" fill="#020812" fill-opacity=".84" mask="url(#tutorial-holes)"/></svg><button class="tutorial-options" type="button" aria-label="Opciones">⚙ Opciones</button><section class="tutorial-card" role="region" aria-label="Guía del tutorial" aria-live="polite"><small>TUTORIAL · ${index+1}/${tutorialSteps.length}${step.id==='clock'?'':' · RELOJ PAUSADO'}</small><strong>${step.title}</strong><p>${error||step.text}</p>${error?'<button data-tutorial-next>Reintentar</button>':step.next?'<button data-tutorial-next>Entendido · Continuar</button>':step.finish?'<button data-tutorial-finish>Volver al lobby</button>':pending?'<span>Preparando…</span>':'<span>Completá la acción resaltada para continuar.</span>'}</section>`;
+  root.innerHTML=`<svg class="tutorial-shade" width="100%" height="100%" aria-hidden="true"><defs><mask id="tutorial-holes"><rect width="100%" height="100%" fill="white"/></mask></defs><rect width="100%" height="100%" fill="#020812" fill-opacity=".84" mask="url(#tutorial-holes)"/></svg><button class="tutorial-options" type="button" aria-label="Opciones">⚙ Opciones</button><section class="tutorial-card" role="region" aria-label="Guía del tutorial" aria-live="polite"><small>TUTORIAL · ${index+1}/${tutorialSteps.length}${step.id==='clock'?'':' · RELOJ PAUSADO'}</small><strong>${step.title}</strong><p>${error||step.text}</p>${error?'<button data-tutorial-next>Reintentar</button>':pending?'<span>Preparando…</span>':step.next?'<button data-tutorial-next>Entendido · Continuar</button>':step.finish?'<button data-tutorial-finish>Volver al lobby</button>':'<span>Completá la acción resaltada para continuar.</span>'}</section>`;
   root.querySelector('.tutorial-options').onclick=()=>window.LigaAudioOptions?.open();
   root.querySelector('[data-tutorial-next]')?.addEventListener('click',()=>{if(error){update();return;}index++;update();});
-  root.querySelector('[data-tutorial-finish]')?.addEventListener('click',()=>{stop();finish();});
+  root.querySelector('[data-tutorial-finish]')?.addEventListener('click',()=>finish());
   requestAnimationFrame(()=>highlight(step));
  }
  function highlight(step){
@@ -85,8 +85,8 @@ export function mountTutorial({context,scene,finish}){
   if(e.type==='click'||e.type==='change'||e.type==='pointerup'||e.type==='wheel')setTimeout(update,80);
  }
  for(const type of ['pointerdown','click','change','keydown','wheel'])document.addEventListener(type,gate,{capture:true,passive:false});
- document.addEventListener('pointerup',()=>{if(active)setTimeout(update,80);},true);
- window.addEventListener('liga-tutorial-exit',()=>{if(active){stop();finish();}});
+ document.addEventListener('pointerup',()=>{if(active&&['pan','zoom','panel-drag','area-direction'].includes(tutorialSteps[index].id))setTimeout(update,120);},true);
+ window.addEventListener('liga-tutorial-exit',()=>{if(active)finish();});
  window.addEventListener('resize',()=>{if(active)paint(tutorialSteps[index]);});
  return {start,stop,update,note,get active(){return active;},get step(){return tutorialSteps[index]?.id;}};
 }

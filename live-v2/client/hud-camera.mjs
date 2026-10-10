@@ -95,11 +95,12 @@ function anchorCombatLog(root,settings){
   let pr=player.getBoundingClientRect();
   const lr=log.getBoundingClientRect(),command=root.querySelector('[data-hud-panel="command"]')?.getBoundingClientRect();
   const gap=6,header=log.querySelector('.log-head')?.getBoundingClientRect().height||30;
+  const body=log.querySelector('.combat-log');
   const box=hudBox(root,log),fixed=hudIsFixed(log);
   const x=clamp(pr.left,box.left+2,Math.max(box.left+2,box.left+box.width-lr.width-2));
   const overlapsCommand=command&&x<command.right&&x+lr.width>command.left;
   const limit=overlapsCommand?command.top-gap:box.top+box.height-gap;
-  const overflow=Math.max(0,pr.bottom+gap+header-limit);
+  const overflow=Math.max(0,pr.bottom+gap+header+(body?68:0)-limit);
   if(overflow){
     const pb=hudBox(root,player),pf=hudIsFixed(player);
     setHudCoords(player,pf?pr.left:pr.left-pb.left,pf?pr.top-overflow:pr.top-pb.top-overflow);
@@ -107,7 +108,6 @@ function anchorCombatLog(root,settings){
   }
   const y=pr.bottom+gap;
   setHudCoords(log,fixed?x:x-box.left,fixed?y:y-box.top);
-  const body=log.querySelector('.combat-log');
   if(body)body.style.maxHeight=`${Math.max(0,Math.min(140,limit-y-header-8))}px`;
 }
 export function bindDraggableHud(root,{storage=globalThis.localStorage,onStored=()=>{}}={}){

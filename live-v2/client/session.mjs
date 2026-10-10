@@ -14,13 +14,14 @@ export class LiveSession {
   constructor({ api, storage, onChange = () => {}, onError = () => {}, clock = () => Date.now() }) {
     this.api=api; this.storage=storage; this.onChange=onChange; this.onError=onError; this.clock=clock;
     this.state=null; this.actor=null; this.preview=null; this.online=true; this.refreshing=false;
-    this.busy=false; this.offset=0;
+    this.busy=false; this.offset=0; this.attachmentGeneration=0;
     this.sync=new SyncCoordinator({applySnapshot: state=>{
       this.state=state; this.preview=null; this.storage?.setItem('live-v2-lab2-match',state.id);
       this.onChange();
     }});
   }
   async attach(actor, state) {
+    this.attachmentGeneration++;
     this.actor=actor;
     this.sync.applyEnvelope({version:state.version,state});
     const saved=this.storage?.getItem(`live-v2-lab2-pending:${actor}:${state.id}`);
@@ -29,6 +30,15 @@ export class LiveSession {
     await this.refresh();
   }
   now(){return this.clock()+this.offset;}
+  detach(){
+    if(this.busy||this.sync.pendingCommand())throw new Error('COMMAND_PENDING');
+    const matchId=this.state?.id;
+    this.attachmentGeneration++;
+    this.state=null;this.preview=null;this.sync.version=-1;this.sync.pending=null;this.sync.preview=null;
+    this.storage?.removeItem('live-v2-lab2-match');
+    if(matchId&&this.actor)this.storage?.removeItem(`live-v2-lab2-pending:${this.actor}:${matchId}`);
+    this.onChange();
+  }
   remaining(){return this.state?.turnDeadline == null ? null : Math.max(0,Math.ceil((this.state.turnDeadline-this.now())/1000));}
   canAct(){return this.online&&!this.busy&&!this.sync.pendingCommand()&&this.state?.phase==='combat'&&this.remaining()>0;}
   persistPending(){
@@ -65,13 +75,16 @@ export class LiveSession {
   async refresh(){
     if(!this.state||this.refreshing||this.busy)return;
     this.refreshing=true;
+    const generation=this.attachmentGeneration;
     try{
       const state=await this.request('snapshot',{matchId:this.state.id});
+      if(generation!==this.attachmentGeneration)return;
       this.online=true;this.sync.reconnect();this.sync.applyEnvelope({version:state.version,state});
       if(this.remaining()===0)this.preview=null;
       const pending=this.sync.pendingCommand();
       if(pending){
         const result=await this.request('recover',{matchId:this.state.id,commandId:pending.command.id});
+        if(generation!==this.attachmentGeneration)return;
         const resolution=this.sync.recover(result);
         if(resolution==='rejected'){this.onError(result.error?.code??'COMMAND_REJECTED');this.sync.acknowledgeRejection();}
         if(resolution==='retry-original'){
@@ -81,6 +94,7 @@ export class LiveSession {
         this.persistPending();
       }
     }catch(error){
+      if(generation!==this.attachmentGeneration)return;
       if(error.definitive)this.onError(error.message);else this.disconnect();
     }finally{this.refreshing=false;this.onChange();}
   }

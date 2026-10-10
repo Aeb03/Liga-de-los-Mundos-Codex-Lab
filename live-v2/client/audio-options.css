@@ -150,3 +150,9 @@
 
 body>header .liga-options-lobby{margin-left:auto;margin-right:12px}
 @media(max-width:600px){.liga-audio-options-panel{width:min(520px,92vw)}}
+.liga-audio-options-panel{max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain}
+.liga-exit-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #b89b5a66}
+.liga-exit-actions button{flex:1;min-height:36px;padding:7px 12px;border:1px solid #b89b5a;border-radius:8px;background:#102e40;color:#f5e6c2;font-weight:700}
+.game-exit-screen{position:fixed;inset:0;z-index:20000;display:grid;place-items:center;padding:20px;background:#061522;color:#f5e6c2;text-align:center}
+.game-exit-screen>div{max-width:480px;padding:24px;border:1px solid #b89b5a;border-radius:16px;background:#0d2a3b}
+.game-exit-screen h2{color:#e9c77b}.game-exit-screen button{min-height:42px;padding:10px 20px;border:1px solid #b89b5a;border-radius:8px;background:#14647b;color:white}

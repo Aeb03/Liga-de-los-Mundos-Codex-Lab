@@ -7,6 +7,23 @@ const state=(version=0)=>({id:'room',version,phase:'combat',turnDeadline:31000})
 const storage=()=>{const map=new Map();return {getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)};};
 const envelope=(command,version=1)=>({commandId:command.id,version,confirmed:true,state:state(version)});
 
+test('leaving a room preserves account storage and ignores an in-flight old snapshot',async()=>{
+  const saved=storage();saved.setItem('account-session','keep');
+  let complete;
+  const game=new LiveSession({storage:saved,api:()=>new Promise(resolve=>complete=resolve)});
+  game.actor='actor';game.state=state();game.sync.version=0;saved.setItem('live-v2-lab2-match','room');
+  const refreshing=game.refresh();game.detach();
+  complete({data:state(2)});await refreshing;
+  assert.equal(game.state,null);assert.equal(game.sync.version,-1);
+  assert.equal(saved.getItem('live-v2-lab2-match'),null);assert.equal(saved.getItem('account-session'),'keep');
+});
+
+test('leaving cannot discard an unconfirmed command',()=>{
+  const game=new LiveSession({api:async()=>({}),storage:storage()});game.state=state();
+  game.sync.beginCommand({id:'pending'});
+  assert.throws(()=>game.detach(),/COMMAND_PENDING/);assert.equal(game.state.id,'room');
+});
+
 test('respuesta perdida: recupera aceptación sin repetir el movimiento ni retroceder el estado',async()=>{
   let command, recovered=false, sends=0;
   const saved=storage();

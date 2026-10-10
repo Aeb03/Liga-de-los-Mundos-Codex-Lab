@@ -5,7 +5,7 @@ import {actionBlockReason,briefErrors} from './action-feedback.mjs?v=20261009-sa
 import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-icons1';
 import {mountLobby} from './lobby.mjs?v=20261008-play1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261010-icons1';
-import { SocialPanel } from './social.mjs?v=20261009-profilefit1';
+import { SocialPanel } from './social.mjs?v=20261010-navigation1';
 import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261007-flex1';
 import { createVfxPlayer } from './vfx.mjs?v=20261007-flex1';
 import { renderResult } from './feedback-ui.mjs?v=20261007-flex1';
@@ -20,7 +20,7 @@ import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261010
 import { abilityOverlay } from './ability-overlay.mjs?v=20261009-sapmine1';
 import { createAoEState, bindAoEGesture, sameCell } from './aoe-preview.mjs?v=20261005-aoe1';
 import { catalog } from './catalog.mjs?v=20261009-sapmine1';
-import { LiveSession, newId } from './session.mjs?v=20261004-lab2';
+import { LiveSession, newId } from './session.mjs?v=20261010-navigation1';
 import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261009-sapmine1';
 
 const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -57,6 +57,7 @@ let deadlineExpired=false,abilitySelection=null,inspectedId=null,lastInspectionF
 let skillHoldCleanup=()=>{},aoeCleanup=()=>{};
 let hudSettings=loadHudSettings(localStorage),camera={x:0,y:0,rotation:0,zoom:1},cameraMatchId=null;
 let pendingInvite=null;
+let gameExited=false;
 let playView='menu';
 let creationMode='1v1';
 let duelOpponent='human',duelBot='arfeli';
@@ -239,7 +240,7 @@ function announceTurn(){
   document.body.append(banner);turnBannerTimer=setTimeout(()=>banner.remove(),1100);
 }
 function render(force=false){
-  if(!accessMode)return;
+  if(!accessMode||gameExited)return;
   announceTurn();
   const inCombat=['combat','deployment'].includes(game.state?.phase);
   document.querySelector('.game-navigation').hidden=inCombat||homeOpen;
@@ -511,33 +512,19 @@ app.addEventListener('click',async event=>{
     case 'confirmPosition':if(await send('confirmPosition',{slotId:ownSlot().id})){const next=ownSlots().find(s=>!s.confirmed);if(next){slotId=next.id;draft=null;render(true);}}break;
     case 'start':await send('startCombat',{});break;
     case 'end':await send('endTurn',{slotId:activeUnit().id,expectedTurn:game.state.turnSerial});break;
-    case 'leave':{
-      if(accessMode==='demo'){exitDemo();break;}
-      if(game.state.phase!=='finished'){
-        if(blocked())break;
-        await game.refresh();
-        let confirmed=await game.send('abandon',{});
-        if(!confirmed&&game.online&&!game.sync.pendingCommand()){await game.refresh();if(game.state.phase==='finished')confirmed=true;else confirmed=await game.send('abandon',{});}
-        if(!confirmed){notify('No se pudo confirmar el abandono. La partida sigue activa para permitir reconexión.');break;}
-        render(true);break;
-      }
-      localStorage.removeItem('live-v2-lab2-match');
-      history.replaceState(null,'',location.pathname);
-      location.reload();
-      break;
-    }
+    case 'leave':await leaveMatch();break;
   }
 });
 app.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;if(event.target.dataset.inspectId&&event.target.tagName!=='BUTTON'){event.preventDefault();event.target.click();return;}if(['moveMode','dollMoveMode'].includes(event.target.dataset.action)){event.preventDefault();event.target.click();return;}if(event.target.dataset.x!=null){event.preventDefault();tapCell(Number(event.target.dataset.x),Number(event.target.dataset.y));}});
-window.addEventListener('offline',()=>game.disconnect());window.addEventListener('online',()=>game.refresh());
-document.addEventListener('visibilitychange',()=>{if(document.hidden){feedbackPlayback.suspend();vfx.clear();audioPlayback.suspend();game.preview=null;game.sync.preview=null;}else game.refresh();});
-setInterval(()=>game.refresh(),1200);setInterval(()=>{remaining();},250);
-social=new SocialPanel({client,host:document.querySelector('#social'),notify,onPrepare:()=>{playView='custom';homeOpen=false;guideOpen=false;toggleGuide();render(true);},onJoin:id=>{social.open=false;social.paint();return enter(id);},room:()=>game.state,onChange:()=>{document.body.classList.toggle('social-open',social.open);lobby.update({profile:social.data?.profile,invitations:social.data?.invitations?.length??0,active:Boolean(game.state)});}});social.bind();
+window.addEventListener('offline',()=>game.disconnect());window.addEventListener('online',()=>{if(!gameExited)game.refresh();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){feedbackPlayback.suspend();vfx.clear();audioPlayback.suspend();game.preview=null;game.sync.preview=null;}else if(!gameExited)game.refresh();});
+setInterval(()=>{if(!gameExited)game.refresh();},1200);setInterval(()=>{remaining();},250);
+social=new SocialPanel({onLogout:logoutGame,client,host:document.querySelector('#social'),notify,onPrepare:()=>{playView='custom';homeOpen=false;guideOpen=false;toggleGuide();render(true);},onJoin:id=>{social.open=false;social.paint();return enter(id);},room:()=>game.state,onChange:()=>{document.body.classList.toggle('social-open',social.open);lobby.update({profile:social.data?.profile,invitations:social.data?.invitations?.length??0,active:Boolean(game.state)});}});social.bind();
 client.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){social.recovery=true;social.open=true;social.paint();}});
-await new Promise(resolve=>{const entry=mountEntry(document.querySelector('#entry'),{client,onEnter:mode=>{accessMode=mode;resolve();}});entry.show().catch(error=>notify(error.message));});
+await new Promise(resolve=>{const entry=mountEntry(document.querySelector('#entry'),{client,onEnter:mode=>{accessMode=mode;document.body.dataset.accessMode=mode;resolve();}});entry.show().catch(error=>notify(error.message));});
 await ensureAuth();if(accessMode==='account')await social.run(()=>social.refresh());
 if(location.hash.includes('access_token'))history.replaceState(null,'',location.pathname+location.search);
-setInterval(()=>{if(confirmedSocial())social.refresh().catch(()=>{});},10000);
+setInterval(()=>{if(!gameExited&&confirmedSocial())social.refresh().catch(()=>{});},10000);
 function confirmedSocial(){return accessMode==='account'&&social.user&&!social.user.is_anonymous&&social.user.email_confirmed_at;}
 render(true);
 document.querySelector('#entry').hidden=true;document.body.classList.remove('at-entry');
@@ -546,4 +533,47 @@ if(invited&&accessMode==='account'){try{await joinInvitation(location.search.inc
 
 function renderDemoMenu(){return `<section class="demo-menu"><header class="play-header"><h2>DEMO</h2><button data-action="entryExit">Volver al inicio</button></header><p class="demo-notice">Jugás como invitado. Las partidas y sus resultados no se guardan.</p><div class="play-modes"><button class="play-mode" data-action="demoTutorial"><img src="assets/play-tutorial-v1.webp" alt=""><span class="play-mode-copy"><strong>Tutorial</strong><small>Aprendé a moverte, usar habilidades y terminar tu turno.</small><span class="play-mode-status">Comenzar ›</span></span></button><button class="play-mode" data-action="demoNormal"><img src="assets/play-normal-v1.webp" alt=""><span class="play-mode-copy"><strong>Partida normal</strong><small>Elegí un campeón y cuatro habilidades para jugar contra IA.</small><span class="play-mode-status">Jugar ›</span></span></button></div><button data-action="demoChampions">Conocer los campeones</button></section>`;}
 
-function exitDemo(){if(game.busy||game.refreshing){notify('Esperá a que termine la acción.');return;}game.state=null;game.preview=null;game.sync.version=-1;game.sync.pending=null;game.sync.preview=null;demoAPI=null;draft=null;slotId=null;demoTutorial=false;homeOpen=false;guideOpen=false;lastRendered='';toggleGuide();render(true);}
+function exitDemo(){if(game.busy||game.sync.pendingCommand()){notify('Esperá a que termine la acción.');return;}returnToLobby();}
+
+
+function returnToLobby(){
+  skillHoldCleanup();skillHoldCleanup=()=>{};aoeCleanup();aoeCleanup=()=>{};
+  clearTimeout(resultTimer);clearTimeout(turnBannerTimer);document.querySelector('#turn-announcement')?.remove();
+  vfx.clear();feedbackPlayback.suspend();audioPlayback.suspend();
+  draft=null;slotId=null;abilitySelection=null;movementArmed=false;inspectedId=null;pendingInvite=null;
+  resultPending=false;demoTutorial=false;demoAPI=null;guideOpen=false;homeOpen=accessMode!=='demo';playView='menu';lastRendered='';
+  if(social){social.open=false;social.paint();}
+  game.detach();history.replaceState(null,'',location.pathname);render(true);
+}
+async function leaveMatch(){
+  if(!game.state){returnToLobby();return true;}
+  if(accessMode!=='demo'&&game.state.phase!=='finished'){
+    if(blocked()){notify('Esperá a que se confirme la acción pendiente antes de salir.');return false;}
+    await game.refresh();
+    let confirmed=game.state.phase==='finished'||await game.send('abandon',{});
+    if(!confirmed&&game.online&&!game.sync.pendingCommand()){
+      await game.refresh();confirmed=game.state.phase==='finished'||await game.send('abandon',{});
+    }
+    if(!confirmed){notify('No se pudo confirmar el abandono. La partida sigue disponible para reconectar.');return false;}
+  }
+  if(game.busy||game.sync.pendingCommand()){notify('Esperá a que se confirme la acción pendiente.');return false;}
+  returnToLobby();return true;
+}
+async function logoutGame(){
+  if(!await leaveMatch())return;
+  const {error}=await client.auth.signOut({scope:'local'});
+  if(error){notify(error.message);return;}
+  location.href=location.pathname;
+}
+async function exitGame(){
+  if(!await leaveMatch())return;
+  gameExited=true;feedbackPlayback.suspend();audioPlayback.suspend();vfx.clear();
+  window.LigaAudio?.mute?.(true);window.LigaMusic?.mute?.(true);
+  if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+  let screen=document.querySelector('#game-exit');
+  if(!screen){screen=document.createElement('section');screen.id='game-exit';screen.className='game-exit-screen';screen.innerHTML='<div><h2>Hasta la próxima</h2><p>Podés cerrar esta pestaña o ventana. Tu sesión sigue abierta.</p><button type="button">Volver al lobby</button></div>';screen.querySelector('button').onclick=()=>{screen.remove();gameExited=false;window.LigaAudio?.mute?.(window.LigaAudioOptions?.getSettings?.().muted??false);window.LigaMusic?.mute?.(window.LigaAudioOptions?.getSettings?.().muted??false);render(true);};document.body.append(screen);}
+  screen.querySelector('button').focus();
+  window.close();
+}
+window.addEventListener('liga-session-logout',()=>{logoutGame().catch(error=>notify(error.message));});
+window.addEventListener('liga-game-exit',()=>{exitGame().catch(error=>notify(error.message));});

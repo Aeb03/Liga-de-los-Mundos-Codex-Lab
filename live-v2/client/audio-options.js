@@ -61,9 +61,9 @@ function panel(){
   root.className='liga-audio-options-backdrop';
   root.hidden=true;
   root.innerHTML=`
-    <section class="liga-audio-options-panel" role="dialog" aria-modal="true" aria-label="Opciones de audio">
+    <section class="liga-audio-options-panel" role="dialog" aria-modal="true" aria-label="Opciones del juego">
       <div class="liga-audio-options-head">
-        <div><small>OPCIONES</small><b>Audio</b></div>
+        <div><small>OPCIONES</small><b>Juego y audio</b></div>
         <button type="button" class="liga-audio-close" aria-label="Cerrar opciones">×</button>
       </div>
 
@@ -90,11 +90,14 @@ function panel(){
         <span><b>Silenciar todo</b><small>Conserva los volúmenes configurados</small></span>
       </button>
       <button type="button" class="danger liga-match-leave" hidden>Abandonar partida</button>
+      <div class="liga-exit-actions"><button type="button" class="liga-session-logout" hidden>Cerrar sesión</button><button type="button" class="liga-game-exit">Salir del juego</button></div>
     </section>`;
 
   const close=()=>{root.hidden=true;root._returnFocus?.focus?.();};
   root.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();}if(e.key==='Tab'){const controls=[...root.querySelectorAll('button,input')];const first=controls[0],last=controls.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
   root.querySelector('.liga-audio-close').onclick=close;
+  root.querySelector('.liga-session-logout').onclick=()=>{close();window.dispatchEvent(new Event('liga-session-logout'));};
+  root.querySelector('.liga-game-exit').onclick=()=>{close();window.dispatchEvent(new Event('liga-game-exit'));};
   root.querySelector('.liga-match-leave').onclick=()=>{close();document.querySelector('#app .room-bar [data-action="leave"]')?.click();};
   root.addEventListener('pointerdown',e=>{if(e.target===root)close()});
 
@@ -140,6 +143,8 @@ function open(){
   refreshPanel();
   panel()._returnFocus=document.activeElement;
   panel().querySelector('.liga-match-leave').hidden=!document.body.classList.contains('in-arena');
+  panel().querySelector('.liga-session-logout').hidden=document.body.dataset.accessMode!=='account';
+  panel().querySelector('.liga-game-exit').hidden=!document.body.dataset.accessMode;
   panel().hidden=false;
   panel().querySelector('.liga-audio-close').focus();
 }

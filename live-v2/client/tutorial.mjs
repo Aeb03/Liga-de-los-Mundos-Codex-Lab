@@ -3,7 +3,7 @@ const action=id=>`[data-action="${id}"]`;
 const board='.live-board';
 export const tutorialSteps=[
  {id:'champion',title:'Elegí un campeón',text:'Cada campeón tiene estadísticas y seis habilidades. Tocá Coloso: lo usaremos para aprender los controles comunes.',focus:'[data-champion="coloso"]',done:c=>c.draft?.champion==='coloso'},
- {id:'skills-tab',title:'Elegí tus habilidades',text:'Abrí Habilidades. En cada partida llevás cuatro de las seis disponibles.',focus:'[data-action="preparationTab"][data-tab="skills"]',done:c=>c.preparationTab==='skills'},
+ {id:'skills-tab',title:'Elegí tus habilidades',text:'Abrí Habilidades. En cada partida llevás cuatro de las seis disponibles.',focus:'[data-action="preparationTab"][data-tab="skills"]',done:c=>c.preparationTab==='skills'||c.skillsVisible},
  {id:'skills',title:'Prepará cuatro habilidades',text:'Dejá seleccionadas Lanzar Roca, Armadura de Piedra, Golpe Sísmico y Colapso. Quitá Absorción Rocosa y seleccioná Colapso. Cada tarjeta muestra costo y alcance.',focus:'.prep-skills-pane input,.prep-skills-pane label',done:c=>c.draft?.skills?.length===4&&['rock','stonearmor','quake','collapse'].every(id=>c.draft.skills.includes(id))},
  {id:'ready',title:'Confirmá tu preparación',text:'Tocá Guardar y marcar listo. Cuando todos están listos comienza el despliegue.',focus:action('ready'),done:c=>c.state?.phase==='deployment'},
  {id:'deployment',title:'Elegí dónde comenzar',text:'Tocá una casilla azul de tu zona. Antes del combate podés cambiar tu posición inicial.',focus:board,done:c=>Boolean(c.state?.slots.A1.position)},

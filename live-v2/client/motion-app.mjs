@@ -1,8 +1,8 @@
 import {skillArt} from './skill-art.mjs?v=20261010-icons1';
 import {mountEntry,accountAllowed} from './entry.mjs?v=20261009-startupfix1';
-import {mountTutorial} from './tutorial.mjs?v=20261010-tutorial1';
+import {mountTutorial} from './tutorial.mjs?v=20261010-tutorial2';
 import {actionBlockReason,briefErrors} from './action-feedback.mjs?v=20261009-sapmine1';
-import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-tutorial1';
+import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-tutorial2';
 import {mountLobby} from './lobby.mjs?v=20261008-play1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261010-icons1';
 import { SocialPanel } from './social.mjs?v=20261010-navigation1';
@@ -78,7 +78,7 @@ async function ensureAuth(){
   if(!session)throw new Error('UNAUTHENTICATED');actor=session.user.id;return session;
 }
 async function api(operation,args){
-  if(accessMode==='demo'||demoTutorial){demoAPI??=(await import('./demo.mjs?v=20261010-tutorial1')).createDemoAPI({actor:actor??'demo-player'});return demoAPI(operation,args);}
+  if(accessMode==='demo'||demoTutorial){demoAPI??=(await import('./demo.mjs?v=20261010-tutorial2')).createDemoAPI({actor:actor??'demo-player'});return demoAPI(operation,args);}
 
   const auth=await ensureAuth();
   return requestJson(`${labUrl}/functions/v1/live-v2-command`,{method:'POST',headers:{authorization:`Bearer ${auth.access_token}`,apikey:publishableKey,'content-type':'application/json'},body:JSON.stringify({operation,args})});
@@ -96,7 +96,7 @@ const ownSlot=()=>game.state?.slots[slotId]??ownSlots()[0];
 const activeUnit=()=>game.state?.combat?.units.find(u=>u.id===game.state.combat.order[game.state.combat.turnIndex]);
 const canMove=()=>game.canAct()&&activeUnit()?.controllerId===actor;
 const tutorial=mountTutorial({
- context:()=>({state:game.state,draft,preparationTab,own:game.state?.combat?.units.find(u=>u.id==='A1'),enemy:game.state?.combat?.units.find(u=>u.id==='B1'),selection:abilitySelection,preview:game.preview,movementArmed,camera}),
+ context:()=>({state:game.state,draft,preparationTab,skillsVisible:Boolean(document.querySelector('.prep-skills-pane')?.getBoundingClientRect().height),own:game.state?.combat?.units.find(u=>u.id==='A1'),enemy:game.state?.combat?.units.find(u=>u.id==='B1'),selection:abilitySelection,preview:game.preview,movementArmed,camera}),
  scene:async scene=>{abilitySelection=null;movementArmed=false;game.preview=null;inspectedId='A1';camera={x:0,y:0,rotation:0,zoom:1};await api('tutorialScene',{matchId:game.state.id,scene});await game.refresh();render(true);},
  finish:()=>returnToLobby()
 });

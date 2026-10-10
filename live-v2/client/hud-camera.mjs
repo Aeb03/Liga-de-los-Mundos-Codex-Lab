@@ -1,4 +1,5 @@
-export const HUD_STORAGE_KEY='live-v2-hud-v045';
+export const HUD_STORAGE_KEY='live-v2-hud-v046';
+const PREVIOUS_HUD_STORAGE_KEY='live-v2-hud-v045';
 export const HUD_DEFAULTS=Object.freeze({
   log:{x:null,y:null,collapsed:true,orientation:'horizontal'},
   player:{x:null,y:null,collapsed:false,orientation:'vertical'},
@@ -23,7 +24,16 @@ export function normalizeHudSettings(raw={}){
   return out;
 }
 export function loadHudSettings(storage=globalThis.localStorage){
-  try{return normalizeHudSettings(JSON.parse(storage?.getItem(HUD_STORAGE_KEY)||'{}')||{});}catch{return normalizeHudSettings({});}
+  try{
+    const saved=storage?.getItem(HUD_STORAGE_KEY);
+    if(saved)return normalizeHudSettings(JSON.parse(saved)||{});
+    const previous=storage?.getItem(PREVIOUS_HUD_STORAGE_KEY);
+    if(!previous)return normalizeHudSettings({});
+    const migrated=normalizeHudSettings(JSON.parse(previous)||{});
+    migrated.log.x=null;migrated.log.y=null;
+    storage?.setItem(HUD_STORAGE_KEY,JSON.stringify(migrated));
+    return migrated;
+  }catch{return normalizeHudSettings({});}
 }
 export function saveHudSetting(storage,key,patch){
   const all=loadHudSettings(storage);
@@ -34,7 +44,7 @@ export function saveHudSetting(storage,key,patch){
   return normalized;
 }
 export function resetHudSettings(storage=globalThis.localStorage){
-  try{storage?.removeItem(HUD_STORAGE_KEY);}catch{}
+  try{storage?.removeItem(HUD_STORAGE_KEY);storage?.removeItem(PREVIOUS_HUD_STORAGE_KEY);}catch{}
   return normalizeHudSettings({});
 }
 export function hudClass(settings,key){
@@ -76,6 +86,29 @@ export function applyStoredHudPositions(root,settings){
     const relY=clamp(Math.round(clamp(pos.y,0,1)*usableY),2,Math.max(2,usableY-2));
     setHudCoords(panel,fixed?cr.left+relX:relX,fixed?cr.top+relY:relY);
   }
+  anchorCombatLog(root,all);
+}
+function anchorCombatLog(root,settings){
+  if(settings.log.x!=null&&settings.log.y!=null)return;
+  const log=root.querySelector('[data-hud-panel="log"]'),player=root.querySelector('[data-hud-panel="player"]');
+  if(!log||!player)return;
+  let pr=player.getBoundingClientRect();
+  const lr=log.getBoundingClientRect(),command=root.querySelector('[data-hud-panel="command"]')?.getBoundingClientRect();
+  const gap=6,header=log.querySelector('.log-head')?.getBoundingClientRect().height||30;
+  const box=hudBox(root,log),fixed=hudIsFixed(log);
+  const x=clamp(pr.left,box.left+2,Math.max(box.left+2,box.left+box.width-lr.width-2));
+  const overlapsCommand=command&&x<command.right&&x+lr.width>command.left;
+  const limit=overlapsCommand?command.top-gap:box.top+box.height-gap;
+  const overflow=Math.max(0,pr.bottom+gap+header-limit);
+  if(overflow){
+    const pb=hudBox(root,player),pf=hudIsFixed(player);
+    setHudCoords(player,pf?pr.left:pr.left-pb.left,pf?pr.top-overflow:pr.top-pb.top-overflow);
+    pr=player.getBoundingClientRect();
+  }
+  const y=pr.bottom+gap;
+  setHudCoords(log,fixed?x:x-box.left,fixed?y:y-box.top);
+  const body=log.querySelector('.combat-log');
+  if(body)body.style.maxHeight=`${Math.max(0,Math.min(140,limit-y-header-8))}px`;
 }
 export function bindDraggableHud(root,{storage=globalThis.localStorage,onStored=()=>{}}={}){
   if(!root)return;
@@ -85,7 +118,7 @@ export function bindDraggableHud(root,{storage=globalThis.localStorage,onStored=
     const key=panel.dataset.hudPanel,handle=panel.querySelector('.hud-drag-handle');
     if(!key||!handle)continue;
     let pointer=null,startX=0,startY=0,left=0,top=0,moved=false,raf=0,nextX=0,nextY=0;
-    const paint=()=>{raf=0;setHudCoords(panel,nextX,nextY);};
+    const paint=()=>{raf=0;setHudCoords(panel,nextX,nextY);if(key==='player')anchorCombatLog(root,settings);};
     handle.addEventListener('pointerdown',event=>{
       if(event.pointerType==='mouse'&&event.button!==0)return;
       event.preventDefault();event.stopPropagation();

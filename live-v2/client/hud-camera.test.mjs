@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  HUD_STORAGE_KEY, normalizeHudSettings, loadHudSettings, saveHudSetting, resetHudSettings,
+  HUD_STORAGE_KEY, normalizeHudSettings, loadHudSettings, saveHudSetting, resetHudSettings, applyStoredHudPositions,
   rotateCell, rotateFacing, clampCamera, cameraParallax, clampZoom, cameraForPinch, CAMERA_MIN_ZOOM, CAMERA_MAX_ZOOM
 } from './hud-camera.mjs';
 
@@ -25,6 +25,27 @@ test('HUD copia defaults offline y fuerza Ronda/Comando horizontales',()=>{
   assert.equal(hud.enemy.orientation,'vertical');
   assert.equal(hud.round.orientation,'horizontal');
   assert.equal(hud.command.orientation,'horizontal');
+});
+test('new log placement preserves existing panel preferences and clears only the old log coordinates',()=>{
+ const storage=fakeStorage();
+ storage.setItem('live-v2-hud-v045',JSON.stringify({player:{x:.2,y:.4},log:{x:0,y:1,collapsed:true}}));
+ const hud=loadHudSettings(storage);
+ assert.equal(hud.player.x,.2);assert.equal(hud.player.y,.4);
+ assert.equal(hud.log.x,null);assert.equal(hud.log.y,null);
+ assert.equal(hud.log.collapsed,true);
+ saveHudSetting(storage,'log',{x:.1,y:.3});
+ assert.equal(loadHudSettings(storage).log.y,.3);
+ resetHudSettings(storage);
+ assert.equal(loadHudSettings(storage).player.x,null);
+});
+test('log stays below the blue team and above native commands on a low screen',()=>{
+ const panel=(key,x,y,width,height)=>({dataset:{hudPanel:key},style:{setProperty(name,value){this[name]=value;}},getBoundingClientRect(){const left=parseFloat(this.style.left) || x,top=parseFloat(this.style.top) || y;return {left,top,right:left+width,bottom:top+height,width,height};},querySelector(){return null;}});
+ const player=panel('player',10,210,150,70),log=panel('log',8,320,180,30),command=panel('command',20,275,760,80);
+ const panels={player,log,command};
+ const root={getBoundingClientRect:()=>({left:0,top:0,width:800,height:360}),querySelectorAll:()=>Object.values(panels),querySelector:selector=>panels[selector.match(/"(\w+)"/)?.[1]]};
+ applyStoredHudPositions(root,normalizeHudSettings({}));
+ assert.equal(log.getBoundingClientRect().top,player.getBoundingClientRect().bottom+6);
+ assert(log.getBoundingClientRect().bottom<=command.getBoundingClientRect().top-6);
 });
 
 test('HUD persiste posición normalizada, plegado y orientación sin contaminar valores inválidos',()=>{

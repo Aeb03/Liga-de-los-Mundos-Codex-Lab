@@ -1,4 +1,4 @@
-import {prepareTutorialScene} from './tutorial.mjs';
+import {prepareTutorialScene,tutorialSteps} from './tutorial.mjs';
 import {LiveSession} from './session.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {createDemoAPI,tutorialHint} from './demo.mjs';import {accountAllowed} from './entry.mjs';
@@ -28,6 +28,13 @@ test('guided tutorial prepares and deploys, pauses deadlines, and executes real 
  await scene('vision');await assert.rejects(cmd('ability',{slotId:'A1',expectedTurn:state.turnSerial,abilityId:'rock',targetId:'B1'}),/visión|BLOCKED_LOS/i);
  await scene('base');await cmd('createPillar',{slotId:'A1',expectedTurn:state.turnSerial,position:{x:5,y:6}});assert.equal(state.combat.objects.length,1);
  await scene('area');await cmd('ability',{slotId:'A1',expectedTurn:state.turnSerial,abilityId:'collapse',targetId:'pillar1',direction:{x:0,y:1}});assert(state.combat.units.find(u=>u.id==='B1').hp<100);
+ await scene('area');
+ const areaContext=()=>({events:{},selection:null,state,own:state.combat.units.find(u=>u.id==='A1'),enemy:state.combat.units.find(u=>u.id==='B1')});
+ const areaLessons=tutorialSteps.filter(s=>['area-direction','area-confirm'].includes(s.id));
+ for(const lesson of areaLessons)assert.equal(lesson.done(areaContext()),false);
+ await cmd('ability',{slotId:'A1',expectedTurn:state.turnSerial,abilityId:'collapse',targetId:'pillar1',direction:{x:1,y:0}});
+ assert.equal(areaContext().enemy.hp,100);assert.equal(areaContext().own.pa,3);
+ for(const lesson of areaLessons)assert.equal(lesson.done(areaContext()),true,'empty-area execution must advance '+lesson.id);
  await scene('states');assert.equal(state.combat.units.find(u=>u.id==='A1').status.wound,2);
  const session=new LiveSession({api,clock:()=>now});await session.attach('demo-player',state);session.busy=true;
  const timedState=await prepareTutorialScene(session,'clock');assert.equal(session.state.turnSerial,timedState.turnSerial);assert.equal(session.remaining(),10);

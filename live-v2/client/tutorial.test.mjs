@@ -9,7 +9,7 @@ test('spotlight gate always admits Options and blocks unrelated commands',()=>{
  for(const s of tutorialSteps){assert.equal(tutorialAllows(target('.tutorial-options'),s),true);assert.equal(tutorialAllows(target('.liga-audio-options-backdrop'),s),true);}
 });
 test('confirmed collapse completes orientation even after the selection and pillar are consumed',()=>{
- const context={events:{},selection:null,enemy:{hp:85,maxHp:100}};
+ const context={events:{},selection:null,own:{pa:3},state:{combat:{objects:[]}},enemy:{hp:85,maxHp:100}};
  assert.equal(tutorialSteps.find(s=>s.id==='area-direction').done(context),true);
  assert.equal(tutorialSteps.find(s=>s.id==='area-confirm').done(context),true);
 });

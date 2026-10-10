@@ -6,6 +6,7 @@ export async function prepareTutorialScene(session,scene){
  session.sync.applyEnvelope({version:state.version,state});
  return state;
 }
+export const tutorialAreaExecuted=c=>Boolean(c.own?.pa<6&&c.state?.combat?.objects&&!c.state.combat.objects.some(o=>o.alive&&o.type==='pillar'));
 export const tutorialSteps=[
  {id:'champion',title:'Elegí un campeón',text:'Cada campeón tiene estadísticas y seis habilidades. Tocá Coloso: lo usaremos para aprender los controles comunes.',focus:'[data-champion="coloso"]',done:c=>c.draft?.champion==='coloso'},
  {id:'skills-tab',title:'Elegí tus habilidades',text:'Abrí Habilidades. En cada partida llevás cuatro de las seis disponibles.',focus:'[data-action="preparationTab"][data-tab="skills"]',done:c=>c.preparationTab==='skills'||c.skillsVisible},
@@ -36,8 +37,8 @@ export const tutorialSteps=[
  {id:'native-confirm',title:'Confirmá la invocación',text:'Tocá otra vez la casilla o Pilar. Aparece la invocación y se descuenta su costo.',focus:`${board},${action('createPillar')}`,done:c=>c.state?.combat.objects.some(o=>o.alive&&o.type==='pillar')},
  {id:'area-button',title:'Habilidades de área',text:'Tocá Colapso. Prepararemos un Pilar de un turno anterior para aprender a orientar un área.',focus:action('collapse'),scene:'area',done:c=>c.selection?.abilityId==='collapse'},
  {id:'area-object',title:'Seleccioná la invocación',text:'Tocá el Pilar. Esta habilidad empieza seleccionando una invocación propia, no al rival.',focus:board,done:c=>Boolean(c.selection?.targetId)},
- {id:'area-direction',title:'Orientá el área',text:'Arrastrá desde una casilla al costado del Pilar hasta la casilla del rival y soltá, o tocá esa casilla para orientar. Las casillas magenta muestran el área. Tocarla otra vez confirma el ataque.',focus:board,done:c=>Boolean(c.enemy?.hp<c.enemy?.maxHp||c.events.areaOriented&&c.selection?.direction&&c.selection?.aoe?.locked)},
- {id:'area-confirm',title:'Confirmá el área',text:'Revisá las casillas magenta y tocá Colapso para ejecutar. Seleccionar, orientar y confirmar son pasos distintos.',focus:action('collapse'),done:c=>c.enemy?.hp<c.enemy?.maxHp},
+ {id:'area-direction',title:'Orientá el área',text:'Arrastrá desde una casilla al costado del Pilar hasta la casilla del rival y soltá, o tocá esa casilla para orientar. Las casillas magenta muestran el área. Tocarla otra vez confirma el ataque.',focus:board,done:c=>Boolean(tutorialAreaExecuted(c)||c.events.areaOriented&&c.selection?.direction&&c.selection?.aoe?.locked)},
+ {id:'area-confirm',title:'Confirmá el área',text:'Revisá las casillas magenta y tocá Colapso para ejecutar. Seleccionar, orientar y confirmar son pasos distintos.',focus:action('collapse'),done:tutorialAreaExecuted},
  {id:'self',title:'Seleccioná un aliado o a vos',text:'Tocá Armadura de Piedra y después tu campeón, en la arena o en la barra de turnos. Algunas habilidades se usan sobre aliados o sobre uno mismo.',focus:`${action('stonearmor')},${board},.turn-order [data-inspect-id="A1"]`,scene:'base',done:c=>c.selection?.abilityId==='stonearmor'&&c.selection?.targetId==='A1'},
  {id:'self-confirm',title:'Confirmá la protección',text:'Tocá nuevamente tu campeón o Armadura de Piedra para obtener escudo.',focus:`${action('stonearmor')},${board},.turn-order [data-inspect-id="A1"]`,done:c=>c.own?.shield.some(s=>s.amount>0)},
  {id:'states',title:'Dónde aparecen los estados',text:'Debajo de cada avatar en el orden de turnos aparecen los estados y su cantidad. Estos son ejemplos de Herida, Veneno y Quemadura. Seleccioná un campeón para consultar sus datos.',focus:'.turn-order',scene:'states',next:true},

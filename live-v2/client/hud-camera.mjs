@@ -237,12 +237,20 @@ export function bindBattleCamera(root,camera,{onChange=()=>{}}={}){
     }else beginPinch();
   };
   const click=event=>{if(!suppressClick)return;suppressClick=false;event.preventDefault();event.stopImmediatePropagation();};
+  const wheel=event=>{
+    if(!event.deltaY)return;
+    event.preventDefault();
+    const sc=stageCenter(),point={x:event.clientX,y:event.clientY};
+    next=cameraForPinch(camera,point,point,1,Math.exp(-Math.sign(event.deltaY)*.08),sc,sc.width,sc.height);
+    queue();
+  };
   stage.addEventListener('pointerdown',down);
   stage.addEventListener('pointermove',move);
   stage.addEventListener('pointerup',finish);
   stage.addEventListener('pointercancel',finish);
   stage.addEventListener('click',click,true);
-  return ()=>{stage.removeEventListener('pointerdown',down);stage.removeEventListener('pointermove',move);stage.removeEventListener('pointerup',finish);stage.removeEventListener('pointercancel',finish);stage.removeEventListener('click',click,true);};
+  stage.addEventListener('wheel',wheel,{passive:false});
+  return ()=>{stage.removeEventListener('pointerdown',down);stage.removeEventListener('pointermove',move);stage.removeEventListener('pointerup',finish);stage.removeEventListener('pointercancel',finish);stage.removeEventListener('click',click,true);stage.removeEventListener('wheel',wheel);};
 }
 export function centerCameraOn(root,camera,entityId){
   if(!root||!entityId)return camera;

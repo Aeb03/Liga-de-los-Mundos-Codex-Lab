@@ -340,3 +340,9 @@ body.in-arena #notice{position:static;flex:none;order:-1;transform:none;margin:0
 .hook-options{position:absolute;bottom:100%;right:0;display:flex;gap:3px;background:#061827;padding:3px}
 @media(orientation:landscape) and (max-height:300px){.live-command .active-champion.has-native-actions{grid-template-columns:18px minmax(0,1fr);grid-template-rows:minmax(0,1fr) 19px}.has-native-actions>img{width:18px;height:18px}.has-native-actions .active-details,.has-native-actions .active-details>strong{font-size:7px}.native-action{font-size:7px}.native-icon{width:12px;height:14px;font-size:12px}.native-action small{font-size:6px}.turn-states{font-size:7px}}
 @media(orientation:portrait){.live-command .active-champion.has-native-actions{grid-template-columns:28px minmax(0,1fr);grid-template-rows:auto 28px}.native-action{font-size:10px}.native-action small{font-size:8px}}
+
+/* Six turn cards fit inside the existing round bar. */
+.live-battle[data-format="3v3"] .turn-order li{min-width:48px;min-height:36px}
+.live-battle[data-format="3v3"] .turn-avatar-select{gap:3px;padding:3px;min-width:0}
+.live-battle[data-format="3v3"] .turn-avatar-select>span{font-size:8px}
+.live-battle[data-format="3v3"] .turn-order img{width:19px;height:19px}

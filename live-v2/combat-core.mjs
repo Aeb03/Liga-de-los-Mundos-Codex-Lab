@@ -75,7 +75,7 @@ function validateSupportedState(state) {
   if (state.summons.length) {
     fail('UNSUPPORTED_MECHANIC', 'Invocaciones están fuera de alcance en esta etapa');
   }
-  if (!Array.isArray(state.units) || ![2,4].includes(state.units.length)) fail('UNSUPPORTED_FORMAT', 'El estado soporta 1v1 y 2v2');
+  if (!Array.isArray(state.units) || ![2,4,6].includes(state.units.length)) fail('UNSUPPORTED_FORMAT', 'El estado soporta 1v1, 2v2 y 3v3');
   const ids = new Set(), positions = new Set(), teams = new Set(), teamSlots = new Set();
   for (const unit of state.units) {
     if (!unit || unit.kind !== 'champion' || !DEFINITIONS[unit.championId]) fail('UNSUPPORTED_ENTITY', 'Sólo se admiten los seis campeones efectivos');
@@ -170,8 +170,8 @@ function chooseTie(units, random) {
 }
 
 export function initializeCombat({ units, obstacles = [], random, clock }) {
-  if (!Array.isArray(units) || ![2,4].includes(units.length) || new Set(units.map(u=>u.team)).size!==2 || units.some(u=>units.filter(v=>v.team===u.team).length!==units.length/2)) {
-    fail('UNSUPPORTED_FORMAT', 'Se admiten 1v1 y 2v2 con equipos equilibrados');
+  if (!Array.isArray(units) || ![2,4,6].includes(units.length) || new Set(units.map(u=>u.team)).size!==2 || units.some(u=>units.filter(v=>v.team===u.team).length!==units.length/2)) {
+    fail('UNSUPPORTED_FORMAT', 'Se admiten 1v1, 2v2 y 3v3 con equipos equilibrados');
   }
   const copy = clone(units);
   const occupied = new Set();
@@ -192,17 +192,17 @@ export function initializeCombat({ units, obstacles = [], random, clock }) {
     sorted.splice(0, 2, tie.winner, copy.find(u => u.id !== tie.winner.id));
     tieBreak = { candidates: copy.map(u => u.id), randomValue: tie.value, winnerId: tie.winner.id };
   }
-  if(copy.length===4){
+  if(copy.length>=4){
     const groups=[],teams=[...new Set(copy.map(u=>u.team))];
     const draw=()=>{const value=typeof random==='function'?random():random;if(typeof value!=='number'||value<0||value>=1)fail('RANDOM_REQUIRED','Un empate requiere azar explícito en [0, 1)');return value;};
     const queues=teams.map(team=>{
       const list=copy.filter(u=>u.team===team).sort((a,b)=>b.initiative-a.initiative);
-      if(list[0].initiative===list[1].initiative){const value=draw();if(value>=.5)list.reverse();groups.push({team,order:list.map(u=>u.id),draws:[value]});}
+      for(let start=0;start<list.length;){let end=start+1;while(end<list.length&&list[end].initiative===list[start].initiative)end++;if(end-start>1){const draws=[];for(let i=end-1;i>start;i--){const value=draw();draws.push(value);const j=end-start===2?start+(value<.5?1:0):start+Math.floor(value*(i-start+1));[list[i],list[j]]=[list[j],list[i]];}groups.push({team,order:list.slice(start,end).map(u=>u.id),draws});}start=end;}
       return list;
     });
     let first=queues[0][0].initiative>=queues[1][0].initiative?0:1;
     if(queues[0][0].initiative===queues[1][0].initiative){const value=draw();first=value<.5?0:1;groups.push({startingTeam:teams[first],draws:[value]});}
-    sorted.splice(0,4,queues[first][0],queues[1-first][0],queues[first][1],queues[1-first][1]);
+    sorted.splice(0,copy.length,...queues[first].flatMap((u,i)=>[u,queues[1-first][i]]));
     if(groups.length)tieBreak={groups};
   }
   let state = {

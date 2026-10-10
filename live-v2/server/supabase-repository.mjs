@@ -12,8 +12,9 @@ export class SupabaseRepository {
   }
   createRoom(actorId, room) {
     const mode=room?.mode??'1v1',players=room?.players??2;
-    if(!['1v1','2v2'].includes(mode)||![2,4].includes(players)||(players===4&&mode!=='2v2'))throw new ProtocolError('UNSUPPORTED_FORMAT','Formato inválido');
-    if(room.layout&&Object.keys(room.layout).length!==(mode==='1v1'?2:4))throw new ProtocolError('INVALID_LAYOUT','La configuración no coincide con el formato');
+    if(!['1v1','2v2','3v3'].includes(mode)||![2,4,6].includes(players)||(players===4&&mode!=='2v2')||(players===6&&mode!=='3v3')||(mode==='3v3'&&players!==6))throw new ProtocolError('UNSUPPORTED_FORMAT','Formato inválido');
+    if(room.layout&&Object.keys(room.layout).length!==(mode==='1v1'?2:mode==='2v2'?4:6))throw new ProtocolError('INVALID_LAYOUT','La configuración no coincide con el formato');
+    if(mode==='3v3'&&!room.layout)room={...room,layout:Object.fromEntries(['A1','A2','A3','B1','B2','B3'].map(id=>[id,{controller:id}]))};
     if(room.layout)return this.rpc('live_v2_create_flexible_room',{p_actor:actorId,p_match:room.id,p_layout:normalizeLayout(room.layout)});
     return this.rpc(players===4?'live_v2_create_four_player_room':mode==='2v2'?'live_v2_create_team_room':'live_v2_create_room', {
       p_actor: actorId,

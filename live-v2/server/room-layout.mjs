@@ -5,8 +5,9 @@ export const BOT_SKILLS = {
   korgan:['shot','grenade','hook','trap_mine'], houngan:['needle','ritual','curse','dance'],
 };
 export function normalizeLayout(layout) {
-  const ids=Object.keys(layout??{}).length===2?['A1','B1']:['A1','A2','B1','B2'];
-  if (!layout || Object.keys(layout).length!==ids.length || ids.some(id=>!layout[id])) throw new ProtocolError('INVALID_LAYOUT','Configuración incompleta');
+  const size=Object.keys(layout??{}).length/2;
+  const ids=[1,2,3].includes(size)?['A','B'].flatMap(team=>Array.from({length:size},(_,i)=>team+(i+1))):[];
+  if (!layout || !ids.length || Object.keys(layout).length!==ids.length || ids.some(id=>!layout[id])) throw new ProtocolError('INVALID_LAYOUT','Configuración incompleta');
   const out={};
   for(const id of ids){
     const value=layout[id],group=value.controller;
@@ -16,6 +17,6 @@ export function normalizeLayout(layout) {
     if(group==='ai'&&!BOT_SKILLS[champion]) throw new ProtocolError('INVALID_SELECTION','Campeón IA inválido');
     out[id]={controller:group,...(group==='ai'?{championId:champion,skills:BOT_SKILLS[champion]}:{})};
   }
-  for(const team of ['A','B'])if(out[team+'1'].controller==='ai'&&out[team+'2']?.controller==='ai'&&out[team+'1'].championId===out[team+'2'].championId)throw new ProtocolError('DUPLICATE_CHAMPION','Dos IA del mismo equipo no pueden repetir campeón');
+  for(const team of ['A','B']){const champions=Object.entries(out).filter(([id,s])=>id[0]===team&&s.controller==='ai').map(([,s])=>s.championId);if(new Set(champions).size!==champions.length)throw new ProtocolError('DUPLICATE_CHAMPION','Las IA del mismo equipo no pueden repetir campeón');}
   return out;
 }

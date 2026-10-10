@@ -25,7 +25,7 @@ export class SocialPanel {
  inviteControls(f,e){const r=this.room();if(!r||r.phase==='finished')return `<button data-social="prepareRoom">Invitar a jugar</button>`;
  if(r.phase!=='preparation')return '<span class="friend-hint">Terminá tu partida para invitar.</span>';
  if(r.slots?.A1?.controllerId!==this.user?.id)return '<span class="friend-hint">El creador de la sala puede invitar.</span>';
- const slots=Object.values(r.slots).filter(s=>!s.controllerId&&s.controllerKind!=='ai'&&(r.players===4||s.id==='B1')&&(!s.controllerGroup||s.controllerGroup===s.id));
+ const slots=Object.values(r.slots).filter(s=>!s.controllerId&&s.controllerKind!=='ai'&&(r.players>=4||s.id==='B1')&&(!s.controllerGroup||s.controllerGroup===s.id));
  if(!slots.length)return '<span class="friend-hint">No hay puestos libres en la sala.</span>';
  return `<form data-form="invite" data-id="${e(f.id)}"><label>Puesto libre<select name="slot">${slots.map(s=>`<option value="${s.id}">${s.id} · Equipo ${s.team}</option>`).join('')}</select></label><button>Invitar a esta sala</button></form>`;}
  accountBody(e){if(this.recovery)return `<form data-form="newPassword"><label>Nueva contraseña <input name="password" type="password" minlength="8" required autocomplete="new-password"></label><button>Guardar contraseña</button></form>`;

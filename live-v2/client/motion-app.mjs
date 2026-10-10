@@ -1,11 +1,11 @@
 import {skillArt} from './skill-art.mjs?v=20261010-icons1';
 import {mountEntry,accountAllowed} from './entry.mjs?v=20261009-startupfix1';
-import {mountTutorial,prepareTutorialScene} from './tutorial.mjs?v=20261010-ai-strategy1';
+import {mountTutorial,prepareTutorialScene} from './tutorial.mjs?v=20261010-3v3-1';
 import {actionBlockReason,briefErrors} from './action-feedback.mjs?v=20261009-sapmine1';
-import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-ai-strategy1';
+import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-3v3-1';
 import {mountLobby} from './lobby.mjs?v=20261008-play1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261010-icons1';
-import { SocialPanel } from './social.mjs?v=20261010-navigation1';
+import { SocialPanel } from './social.mjs?v=20261010-3v3-1';
 import { ConfirmedFeedbackPlayback } from '../feedback-cues.mjs?v=20261007-flex1';
 import { createVfxPlayer } from './vfx.mjs?v=20261007-flex1';
 import { renderResult } from './feedback-ui.mjs?v=20261007-flex1';
@@ -14,14 +14,14 @@ import { requestJson } from './request.mjs?v=20261004-lab2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261009-sapmine1';
-import { renderArena } from './presentation.mjs?v=20261010-native1';
-import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261010-ai-strategy1';
+import { renderArena } from './presentation.mjs?v=20261010-3v3-1';
+import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261010-3v3-1';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261010-icons1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261009-sapmine1';
 import { createAoEState, bindAoEGesture, sameCell } from './aoe-preview.mjs?v=20261005-aoe1';
 import { catalog } from './catalog.mjs?v=20261009-sapmine1';
-import { LiveSession, newId } from './session.mjs?v=20261010-navigation1';
-import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261009-sapmine1';
+import { LiveSession, newId } from './session.mjs?v=20261010-3v3-1';
+import { championDefinitions, calculatePath, previewPath, abilityTargets, pillarAvailable, colosoActionTargets, magnetismTargets, impulseDestinations, piplusMarkTargets, germinateDestinations, onodActionTargets, vinesDestinations, korganTrapDestinations, korganGrenadeDestinations, hunterStepDestinations, korganDisarmTargets, houganDollDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261010-3v3-1';
 
 const client=createClient(labUrl,publishableKey,{auth:{storageKey:'live-v2-lab2-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const app=document.querySelector('#app'),notice=document.querySelector('#notice');
@@ -61,12 +61,13 @@ let gameExited=false;
 let playView='menu';
 let creationMode='1v1';
 let duelOpponent='human',duelBot='arfeli';
-const creationLayout={A1:{controller:'A1'},A2:{controller:'A1',championId:'coloso'},B1:{controller:'B1',championId:'arfeli'},B2:{controller:'B1',championId:'coloso'}};
+const creationLayout={A1:{controller:'A1'},A2:{controller:'A1',championId:'coloso'},A3:{controller:'A3',championId:'onod'},B1:{controller:'B1',championId:'arfeli'},B2:{controller:'B1',championId:'coloso'},B3:{controller:'B3',championId:'onod'}};
+function creationIds(){return creationMode==='3v3-flex'?['A1','A2','A3','B1','B2','B3']:['A1','A2','B1','B2'];}
 function creationControls(){
-  if(creationMode!=='2v2-flex')return '';
-  return `<div class="controller-layout">${['A1','A2','B1','B2'].map(id=>{
-    const choices=id==='A1'?[['A1','Vos']]:id==='A2'?[['A1','Vos · ambos campeones'],['A2','Otro jugador'],['ai','IA']]:id==='B1'?[['B1','Jugador rival'],['ai','IA']]:[['B1','Mismo jugador que B1'],['B2','Otro jugador'],['ai','IA']];
-    return `<label>${id} · Equipo ${id[0]==='A'?'azul':'rojo'}<select data-controller-slot="${id}">${choices.filter(([value])=>!(id==='B2'&&value==='B1'&&creationLayout.B1.controller==='ai')).map(([value,label])=>`<option value="${value}" ${creationLayout[id].controller===value?'selected':''}>${label}</option>`).join('')}</select>${creationLayout[id].controller==='ai'?`<select data-bot-champion="${id}" aria-label="Campeón IA ${id}">${Object.entries(catalog).map(([champion,c])=>`<option value="${champion}" ${creationLayout[id].championId===champion?'selected':''}>${c.name}</option>`).join('')}</select>`:''}</label>`;
+  if(creationMode==='1v1')return '';
+  return `<div class="controller-layout">${creationIds().map(id=>{
+    const choices=id==='A1'?[['A1','Vos']]:id[0]==='A'?[['A1','Vos · control compartido'],[id,'Otro jugador'],['ai','IA']]:id==='B1'?[['B1','Jugador rival'],['ai','IA']]:[['B1','Mismo jugador que B1'],[id,'Otro jugador'],['ai','IA']];
+    return `<label>${id} · Equipo ${id[0]==='A'?'azul':'rojo'}<select data-controller-slot="${id}">${choices.filter(([value])=>!(id!=='B1'&&id[0]==='B'&&value==='B1'&&creationLayout.B1.controller==='ai')).map(([value,label])=>`<option value="${value}" ${creationLayout[id].controller===value?'selected':''}>${label}</option>`).join('')}</select>${creationLayout[id].controller==='ai'?`<select data-bot-champion="${id}" aria-label="Campeón IA ${id}">${Object.entries(catalog).map(([champion,c])=>`<option value="${champion}" ${creationLayout[id].championId===champion?'selected':''}>${c.name}</option>`).join('')}</select>`:''}</label>`;
   }).join('')}</div><p>Cada jugador controla sólo su equipo. Cada campeón conserva su turno y sus cuatro habilidades. La IA prepara y despliega su campeón automáticamente.</p>`;
 }
 let social;
@@ -78,7 +79,7 @@ async function ensureAuth(){
   if(!session)throw new Error('UNAUTHENTICATED');actor=session.user.id;return session;
 }
 async function api(operation,args){
-  if(accessMode==='demo'||demoTutorial){demoAPI??=(await import('./demo.mjs?v=20261010-ai-strategy1')).createDemoAPI({actor:actor??'demo-player'});return demoAPI(operation,args);}
+  if(accessMode==='demo'||demoTutorial){demoAPI??=(await import('./demo.mjs?v=20261010-3v3-1')).createDemoAPI({actor:actor??'demo-player'});return demoAPI(operation,args);}
 
   const auth=await ensureAuth();
   return requestJson(`${labUrl}/functions/v1/live-v2-command`,{method:'POST',headers:{authorization:`Bearer ${auth.access_token}`,apikey:publishableKey,'content-type':'application/json'},body:JSON.stringify({operation,args})});
@@ -101,7 +102,7 @@ const tutorial=mountTutorial({
  finish:()=>exitDemo()
 });
 function remaining(){if(demoTutorial&&tutorial.active&&tutorial.step!=='clock'){document.querySelector('#timer')?.replaceChildren('Ⅱ');document.querySelector('#deployment-timer')?.replaceChildren('Ⅱ');if(!game.state?.countdownDeadline)document.querySelector('#preparation-timer')?.replaceChildren('Ⅱ');return;}const deploymentTimer=document.querySelector('#deployment-timer');if(deploymentTimer&&game.state?.phase==='deployment'){const seconds=Math.max(0,Math.ceil(((game.state.deploymentDeadline??game.now()+30000)-game.now())/1000));deploymentTimer.textContent=String(seconds);deploymentTimer.classList.toggle('urgent',seconds<=5);}const prep=document.querySelector('#preparation-timer');if(prep&&game.state?.phase==='preparation'){const seconds=preparationSeconds(game.state,game.now());prep.textContent=seconds==null?'—':game.state.countdownDeadline?String(seconds):`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;prep.closest('.preparation-clock').classList.toggle('urgent',seconds!=null&&seconds<=15);}const expired=game.remaining()===0;if(expired!==deadlineExpired){deadlineExpired=expired;game.preview=null;render(true);return;}document.querySelector('#timer')?.replaceChildren(String(game.remaining()??'—'));if(game.remaining()===0&&game.preview){game.preview=null;render(true);}}
-function link(inviteSlot=null){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261007-flex1');url.searchParams.set('match',game.state.id);if(game.state.players===4){url.searchParams.set('players','4');if(inviteSlot)url.searchParams.set('slot',inviteSlot);}return url.href;}
+function link(inviteSlot=null){const url=new URL(location.href);url.search='';url.searchParams.set('v','20261010-3v3-1');url.searchParams.set('match',game.state.id);if(game.state.players>=4){url.searchParams.set('players',String(game.state.players));if(inviteSlot)url.searchParams.set('slot',inviteSlot);}return url.href;}
 function roomId(value){
   let id=value.trim();try{const url=new URL(id);id=url.searchParams.get('match')??'';}catch{}
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('Pegá el enlace o el identificador completo de la sala.');return id.toLowerCase();
@@ -113,14 +114,14 @@ async function enter(id,create=false,mode='1v1',players=2,inviteSlot='B1',layout
     if(create)state=(await api('create',{room:{id,mode,players,...(layout?{layout}:{}),...((accessMode==='demo'||demoTutorial)?{tutorial:demoTutorial}:{})}})).data;
     else{
       try{state=(await api('snapshot',{matchId:id})).data;}
-      catch(error){if(error.message!=='FORBIDDEN')throw error;if(players===4&&!inviteSlot){pendingInvite={id};return;}state=(await api('join',{matchId:id,slotId:inviteSlot??'B1'})).data;}
+      catch(error){if(error.message!=='FORBIDDEN')throw error;if(players>=4&&!inviteSlot){pendingInvite={id,players};return;}state=(await api('join',{matchId:id,slotId:inviteSlot??'B1'})).data;}
     }
     if(accessMode!=='demo'&&!demoTutorial){const url=new URL(location.href);url.searchParams.set('match',id);history.replaceState(null,'',url);}
     pendingInvite=null;await game.attach(actor,state);notify(accessMode==='demo'?'Demo · esta partida no guarda resultados.':create?'Sala creada. Compartí las invitaciones de los jugadores.':'Conectado a la sala.');
   }catch(error){notify(error.message);}finally{joining=false;render(true);}
 }
-function joinInvitation(value){const id=roomId(value);let players=2,slot='B1';try{const url=new URL(value);if(url.searchParams.get('players')==='4'){players=4;slot=url.searchParams.get('slot');}}catch{}return enter(id,false,'2v2',players,slot);}
-function invitePanel(){return game.state.players===4?`<p>Compartí una invitación por jugador. Los puestos con el mismo controlador se unen juntos.</p>${['A2','B1','B2'].filter(id=>{const s=game.state.slots[id];return !s.controllerId&&s.controllerKind!=='ai'&&(!s.controllerGroup||s.controllerGroup===id);}).map(id=>`<div class="invite-row"><button data-action="copyInvite" data-slot="${id}">Copiar ${id} · ${id[0]==='A'?'azul':'rojo'}</button><input class="link-field" value="${escape(link(id))}" readonly aria-label="Invitación ${id}"></div>`).join('')}`:'';}
+function joinInvitation(value){const id=roomId(value);let players=2,slot='B1';try{const url=new URL(value);if(['4','6'].includes(url.searchParams.get('players'))){players=Number(url.searchParams.get('players'));slot=url.searchParams.get('slot');}}catch{}return enter(id,false,players===6?'3v3':players===4?'2v2':'1v1',players,slot);}
+function invitePanel(){return game.state.players>=4?`<p>Compartí una invitación por jugador. Los puestos con el mismo controlador se unen juntos.</p>${Object.keys(game.state.slots).filter(id=>id!=='A1').filter(id=>{const s=game.state.slots[id];return !s.controllerId&&s.controllerKind!=='ai'&&(!s.controllerGroup||s.controllerGroup===id);}).map(id=>`<div class="invite-row"><button data-action="copyInvite" data-slot="${id}">Copiar ${id} · ${id[0]==='A'?'azul':'rojo'}</button><input class="link-field" value="${escape(link(id))}" readonly aria-label="Invitación ${id}"></div>`).join('')}`:'';}
 function teams(){return `<div class="teams">${Object.values(game.state.slots).map(s=>{
   const u=game.state.combat?.units.find(u=>u.id===s.id),mine=s.controllerId===actor;
   return `<article class="unit-card ${mine?'':'enemy'} ${activeUnit()?.id===s.id?'active':''}"><div class="row">${s.championId?`<img src="../assets/champions/${s.championId}/${s.championId}-avatar.png" alt="">`:''}<strong>${escape(catalog[s.championId]?.name??'Sin selección')}</strong><span class="tag">${escape(s.id)} · ${s.controllerKind==='ai'?'IA':mine?'Tu control':ownSlots().some(own=>own.team===s.team)?'Compañero':'Rival'}</span></div><p>${u?`${u.hp} PV · ${u.pa} PA · ${u.pm} PM`:game.state.phase==='preparation'&&!s.controllerId?'Esperando otro celular':game.state.phase==='preparation'?(s.ready?'Listo':'Preparando'):(s.confirmed?'Posición confirmada':'Desplegando')}</p></article>`;
@@ -281,9 +282,9 @@ function render(force=false){
   app.classList.toggle('preparing',game.state?.phase==='preparation');
   document.querySelector('#demo-guide').hidden=true;
   if(accessMode==='demo'&&!game.state){app.innerHTML=renderDemoMenu();return;}
-  if(pendingInvite){app.innerHTML=`<section class="panel welcome"><h2>Elegí tu puesto en el 2v2</h2><p>Cada invitación asigna los campeones configurados para ese jugador. A1 pertenece al creador.</p>${['A2','B1','B2'].map(id=>`<button data-action="joinSlot" data-slot="${id}" ${joining?'disabled':''}>${id} · Equipo ${id[0]==='A'?'azul':'rojo'}</button>`).join('')}<p>Si el puesto está ocupado, elegí otro.</p></section>`;return;}
+  if(pendingInvite){app.innerHTML=`<section class="panel welcome"><h2>Elegí tu puesto en el ${pendingInvite.players===6?'3v3':'2v2'}</h2><p>Cada invitación asigna los campeones configurados para ese jugador. A1 pertenece al creador.</p>${(pendingInvite.players===6?['A2','A3','B1','B2','B3']:['A2','B1','B2']).map(id=>`<button data-action="joinSlot" data-slot="${id}" ${joining?'disabled':''}>${id} · Equipo ${id[0]==='A'?'azul':'rojo'}</button>`).join('')}<p>Si el puesto está ocupado, elegí otro.</p></section>`;return;}
   if(!game.state){
-    app.innerHTML=playView==='menu'?renderPlayMenu():playView!=='custom'?renderComingMode(playView):playHeader('CREAR PARTIDA')+`<section class="custom-room"><h3>Prepará tu sala</h3><p>Elegí el formato y quién controla cada campeón.</p><label>Formato<select id="room-mode"><option value="1v1" ${creationMode==='1v1'?'selected':''}>1v1 · un campeón por equipo</option><option value="2v2-flex" ${creationMode==='2v2-flex'?'selected':''}>2v2 · dos campeones por equipo</option></select></label>${creationMode==='1v1'?`<label>Rival<select id="duel-opponent"><option value="human" ${duelOpponent==='human'?'selected':''}>Otro jugador</option><option value="ai" ${duelOpponent==='ai'?'selected':''}>IA</option></select></label>${duelOpponent==='ai'?`<label>Campeón de la IA<select id="duel-bot">${Object.entries(catalog).map(([id,c])=>`<option value="${id}" ${duelBot===id?'selected':''}>${c.name}</option>`).join('')}</select></label>`:''}`:creationControls()}<button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><p class="custom-invites">Invitá a tus amigos desde la sala. También podés aceptar sus invitaciones desde el lobby.</p></section>`;return;
+    app.innerHTML=playView==='menu'?renderPlayMenu():playView!=='custom'?renderComingMode(playView):playHeader('CREAR PARTIDA')+`<section class="custom-room"><h3>Prepará tu sala</h3><p>Elegí el formato y quién controla cada campeón.</p><label>Formato<select id="room-mode"><option value="1v1" ${creationMode==='1v1'?'selected':''}>1v1 · un campeón por equipo</option><option value="2v2-flex" ${creationMode==='2v2-flex'?'selected':''}>2v2 · dos campeones por equipo</option><option value="3v3-flex" ${creationMode==='3v3-flex'?'selected':''}>3v3 · tres campeones por equipo</option></select></label>${creationMode==='1v1'?`<label>Rival<select id="duel-opponent"><option value="human" ${duelOpponent==='human'?'selected':''}>Otro jugador</option><option value="ai" ${duelOpponent==='ai'?'selected':''}>IA</option></select></label>${duelOpponent==='ai'?`<label>Campeón de la IA<select id="duel-bot">${Object.entries(catalog).map(([id,c])=>`<option value="${id}" ${duelBot===id?'selected':''}>${c.name}</option>`).join('')}</select></label>`:''}`:creationControls()}<button class="primary" data-action="create" ${joining?'disabled':''}>${joining?'Conectando…':'Crear sala'}</button><p class="custom-invites">Invitá a tus amigos desde la sala. También podés aceptar sus invitaciones desde el lobby.</p></section>`;return;
   }
   skillHoldCleanup();skillHoldCleanup=()=>{};aoeCleanup();aoeCleanup=()=>{};
   app.innerHTML=roomBar()+(game.state.phase==='preparation'?preparation():showResult?renderResult(game.state,actor,{logCollapsed:hudSettings.log.collapsed}):arena());
@@ -459,8 +460,8 @@ app.addEventListener('submit',event=>{if(event.target.id==='join'){event.prevent
 app.addEventListener('change',event=>{
   if(event.target.id==='duel-opponent'){duelOpponent=event.target.value;render(true);}
   if(event.target.id==='duel-bot'){duelBot=event.target.value;render(true);}
-  if(event.target.id==='room-mode'){creationMode=event.target.value;render(true);}
-  if(event.target.dataset.controllerSlot){const id=event.target.dataset.controllerSlot;creationLayout[id].controller=event.target.value;if(creationLayout.B1.controller==='ai'&&creationLayout.B2.controller==='B1')creationLayout.B2.controller='ai';render(true);}
+  if(event.target.id==='room-mode'){creationMode=event.target.value;if(creationMode==='3v3-flex')for(const id of ['A2','A3','B2','B3'])creationLayout[id].controller=id;render(true);}
+  if(event.target.dataset.controllerSlot){const id=event.target.dataset.controllerSlot;creationLayout[id].controller=event.target.value;if(creationLayout.B1.controller==='ai')for(const other of ['B2','B3'])if(creationLayout[other].controller==='B1')creationLayout[other].controller=other;render(true);}
   if(event.target.dataset.botChampion){creationLayout[event.target.dataset.botChampion].championId=event.target.value;render(true);}
 
   if(event.target.id==='slot'){slotId=event.target.value;draft=null;game.preview=null;render(true);}
@@ -508,8 +509,8 @@ app.addEventListener('click',async event=>{
     case 'playClose':homeOpen=true;playView='menu';toggleGuide();render(true);break;
     case 'openFriends':social.show('friends');break;
     case 'editPreparation':if(!blocked()){await send('setReady',{slotId:ownSlot().id,ready:false});draft=null;render(true);}break;
-    case 'create':{const flexible=creationMode==='2v2-flex';const layout=flexible?structuredClone(creationLayout):{A1:{controller:'A1'},B1:{controller:duelOpponent==='ai'?'ai':'B1',championId:duelBot}};await enter(newId(),true,flexible?'2v2':'1v1',flexible?4:2,'B1',layout);break;}
-    case 'joinSlot':if(pendingInvite)await enter(pendingInvite.id,false,'2v2',4,target.dataset.slot);break;
+    case 'create':{const flexible=creationMode!=='1v1',size=creationMode==='3v3-flex'?3:flexible?2:1;const layout=flexible?Object.fromEntries(creationIds().map(id=>[id,structuredClone(creationLayout[id])])):{A1:{controller:'A1'},B1:{controller:duelOpponent==='ai'?'ai':'B1',championId:duelBot}};await enter(newId(),true,`${size}v${size}`,size*2,'B1',layout);break;}
+    case 'joinSlot':if(pendingInvite)await enter(pendingInvite.id,false,pendingInvite.players===6?'3v3':'2v2',pendingInvite.players,target.dataset.slot);break;
     case 'copyInvite':try{await navigator.clipboard.writeText(link(target.dataset.slot));notify('Invitación copiada.');}catch{notify('Copiá el enlace individual de ese puesto.');}break;
     case 'houganSupport':case 'houganOffense':if(draft?.champion==='houngan'&&!ownSlot()?.ready&&!blocked()){draft.skills=target.dataset.action==='houganSupport'?['needle','transfer','paintransfer','dance']:['needle','transfer','ritual','curse'];draft.dirty=true;render(true);}break;
     case 'copy':try{await navigator.clipboard.writeText(link());notify('Enlace copiado.');}catch{notify('Copiá el enlace que aparece en la sala.');}break;

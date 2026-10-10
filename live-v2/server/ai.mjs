@@ -1,4 +1,4 @@
-import { abilityTargets, useAbility, movementAvailable, calculatePath, resolvePath, endTurn, endHouganDollPhase, executeCommand, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, houganDollDestinations, korganDisarmTargets, korganTrapDestinations, hunterStepDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs';
+import { abilityTargets, useAbility, movementAvailable, calculatePath, resolvePath, endTurn, endHouganDollPhase, executeCommand, pillarAvailable, colosoActionTargets, piplusMarkTargets, germinateDestinations, onodActionTargets, houganDollDestinations, korganDisarmTargets, korganTrapDestinations, hunterStepDestinations, houganDollMovementAvailable, calculateHouganDollPath } from '../combat-core.mjs?v=20261010-3v3-1';
 const distance=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 function score(before,after,team){
   let total=0;

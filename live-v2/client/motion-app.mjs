@@ -1,8 +1,8 @@
 import {skillArt} from './skill-art.mjs?v=20261010-icons1';
 import {mountEntry,accountAllowed} from './entry.mjs?v=20261009-startupfix1';
-import {mountTutorial} from './tutorial.mjs?v=20261010-tutorial5';
+import {mountTutorial} from './tutorial.mjs?v=20261010-tutorial6';
 import {actionBlockReason,briefErrors} from './action-feedback.mjs?v=20261009-sapmine1';
-import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-tutorial5';
+import {renderPlayMenu,renderComingMode,playHeader,renderTeamLobby,renderPreparationClock,preparationSeconds} from './play-screen.mjs?v=20261010-tutorial6';
 import {mountLobby} from './lobby.mjs?v=20261008-play1';
 import { mountChampionGuide, guideSkills } from './champion-guide.mjs?v=20261010-icons1';
 import { SocialPanel } from './social.mjs?v=20261010-navigation1';
@@ -15,7 +15,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
 import { labUrl, publishableKey } from './lab-config.mjs?v=20261004-lab2';
 import { MotionPresenter, spriteSource } from './motion.mjs?v=20261009-sapmine1';
 import { renderArena } from './presentation.mjs?v=20261010-native1';
-import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261010-tutorial5';
+import { loadHudSettings, saveHudSetting, resetHudSettings, bindDraggableHud, bindBattleCamera, centerCameraOn, applyCameraDom, normalizeRotation } from './hud-camera.mjs?v=20261010-tutorial6';
 import { bindSkillHoldInfo, offlineSkillInfo } from './skill-info.mjs?v=20261010-icons1';
 import { abilityOverlay } from './ability-overlay.mjs?v=20261009-sapmine1';
 import { createAoEState, bindAoEGesture, sameCell } from './aoe-preview.mjs?v=20261005-aoe1';
@@ -78,7 +78,7 @@ async function ensureAuth(){
   if(!session)throw new Error('UNAUTHENTICATED');actor=session.user.id;return session;
 }
 async function api(operation,args){
-  if(accessMode==='demo'||demoTutorial){demoAPI??=(await import('./demo.mjs?v=20261010-tutorial5')).createDemoAPI({actor:actor??'demo-player'});return demoAPI(operation,args);}
+  if(accessMode==='demo'||demoTutorial){demoAPI??=(await import('./demo.mjs?v=20261010-tutorial6')).createDemoAPI({actor:actor??'demo-player'});return demoAPI(operation,args);}
 
   const auth=await ensureAuth();
   return requestJson(`${labUrl}/functions/v1/live-v2-command`,{method:'POST',headers:{authorization:`Bearer ${auth.access_token}`,apikey:publishableKey,'content-type':'application/json'},body:JSON.stringify({operation,args})});
@@ -275,6 +275,8 @@ function render(force=false){
   const indicator=document.querySelector('#connection');indicator.textContent=game.state?(game.sync.pendingCommand()?'Acción pendiente':game.online?'Conectado al Lab':'Sin conexión'):'Supabase Lab';indicator.classList.toggle('offline',!game.online);
   document.querySelector('h1 small').textContent=game.state?.mode??(Object.keys(game.state?.slots??{}).length===4?'2v2':'1v1 / 2v2');
   const signature=JSON.stringify([game.state?.version,joining,game.busy,game.online,game.sync.pendingCommand()?.status,game.preview,movementArmed,draft,slotId,abilitySelection,inspectedId,camera.rotation,camera.zoom,hudSettings,resultPending]);
+  // Snapshot polling must not replace the board while it owns a pointer gesture.
+  if(!force&&abilitySelection?.aoe?.dragging){remaining();return;}
   if(!force&&signature===lastRendered){remaining();return;}lastRendered=signature;
   app.classList.toggle('preparing',game.state?.phase==='preparation');
   document.querySelector('#demo-guide').hidden=true;

@@ -1,3 +1,4 @@
+import {skillArt} from './skill-art.mjs?v=20261010-icons1';
 import { catalog } from './catalog.mjs?v=20261009-sapmine1';
 
 export const HOLD_MS=1500;
@@ -59,6 +60,7 @@ export function offlineSkillInfo(championId,id){
   const [target='',range='']=META[id]??['',''];
   return {
     icon:skill.icon||'✨',
+    championId,skillId:id,
     name:skill.name||id,
     cost:`${skill.cost??0} PA`,
     text:OFFLINE_SKILL_TEXT[id]??'',
@@ -91,7 +93,8 @@ export function bindSkillHoldInfo(root,{getInfo}={}){
     const data=getInfo?.(button.dataset.skill,button);if(!data)return;
     tooltip.replaceChildren();
     const head=doc.createElement('div');head.className='skill-hold-tooltip-head';
-    head.append(line('skill-hold-tooltip-icon',data.icon),line('skill-hold-tooltip-name',data.name),line('skill-hold-tooltip-cost',data.cost));
+    const icon=line('skill-hold-tooltip-icon','');icon.innerHTML=skillArt(data.championId,data.skillId);
+    head.append(icon,line('skill-hold-tooltip-name',data.name),line('skill-hold-tooltip-cost',data.cost));
     tooltip.appendChild(head);
     if(data.text){const p=doc.createElement('p');p.className='skill-hold-tooltip-text';p.textContent=data.text;tooltip.appendChild(p);}
     if(data.target||data.range){const meta=doc.createElement('div');meta.className='skill-hold-tooltip-meta';if(data.target)meta.appendChild(line('',`🎯 ${data.target}`));if(data.range)meta.appendChild(line('',`📏 ${data.range}`));tooltip.appendChild(meta);}

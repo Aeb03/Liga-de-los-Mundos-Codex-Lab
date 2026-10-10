@@ -1,6 +1,6 @@
-import {AuthoritativeService,MemoryRepository,createMatch} from './demo/authority.mjs';
+import {AuthoritativeService,MemoryRepository,createMatch} from './demo/authority.mjs?v=20261010-ai-strategy1';
 import {createUnit,initializeCombat} from '../combat-core.mjs?v=20261009-sapmine1';
-const botSkills={arfeli:['sword','daggers','bow','shield'],coloso:['rock','stonearmor','absorb','quake'],piplus:['precise','vector','interference','rupture'],onod:['thorn','vines','sap','reabsorption'],korgan:['shot','grenade','hook','hunterstep'],houngan:['needle','ritual','curse','dance']};
+const botSkills={arfeli:['sword','daggers','bow','shield'],coloso:['rock','stonearmor','absorb','quake'],piplus:['precise','vector','interference','rupture'],onod:['thorn','vines','sap','reabsorption'],korgan:['shot','grenade','hook','trap_mine'],houngan:['needle','ritual','curse','dance']};
 export function createDemoAPI({actor='demo-player',clock=()=>Date.now(),random=Math.random}={}){
  const repo=new MemoryRepository(),service=new AuthoritativeService(repo,{clock,random});
  return async (operation,args)=>{let data;try{

@@ -2,7 +2,7 @@ import { ProtocolError } from './protocol.mjs';
 export const BOT_SKILLS = {
   arfeli:['sword','daggers','bow','shield'], coloso:['rock','stonearmor','absorb','quake'],
   piplus:['precise','vector','interference','rupture'], onod:['thorn','vines','sap','reabsorption'],
-  korgan:['shot','grenade','hook','hunterstep'], houngan:['needle','ritual','curse','dance'],
+  korgan:['shot','grenade','hook','trap_mine'], houngan:['needle','ritual','curse','dance'],
 };
 export function normalizeLayout(layout) {
   const ids=Object.keys(layout??{}).length===2?['A1','B1']:['A1','A2','B1','B2'];
